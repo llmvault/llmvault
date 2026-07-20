@@ -10,7 +10,9 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/orgtier"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -24,63 +26,94 @@ func (h *SessionMessageDeliverHandler) loadRuntimeSandbox(ctx context.Context, s
 	return loadAgentSandboxByID(ctx, h.db, *agent.OrgID, agent.ID, *session.SandboxID)
 }
 
-func (h *SessionMessageDeliverHandler) ensureRuntimeClient(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, *agentruntime.Client, error) {
+func (h *SessionMessageDeliverHandler) ensureRuntimeClient(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, *agentruntime.Client, orgtier.WakeReservation, error) {
 	return h.ensureRuntimeClientUnlocked(ctx, session, agent)
 }
 
-func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, *agentruntime.Client, error) {
+func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, *agentruntime.Client, orgtier.WakeReservation, error) {
+	reservation := orgtier.WakeReservation{}
 	if h.compileDeps.EncKey == nil {
-		return nil, nil, fmt.Errorf("session message delivery: runtime encryption key is required")
+		return nil, nil, reservation, fmt.Errorf("session message delivery: runtime encryption key is required")
 	}
 	if agent == nil || agent.OrgID == nil {
-		return nil, nil, fmt.Errorf("session message delivery: agent must have org_id")
+		return nil, nil, reservation, fmt.Errorf("session message delivery: agent must have org_id")
 	}
 	draining, err := sessionRuntimeDraining(ctx, h.db, session)
 	if err != nil {
-		return nil, nil, fmt.Errorf("check session runtime drain status: %w", err)
+		return nil, nil, reservation, fmt.Errorf("check session runtime drain status: %w", err)
 	}
 	if draining {
-		return nil, nil, ErrSessionRuntimeDraining
+		return nil, nil, reservation, ErrSessionRuntimeDraining
 	}
 	sb, err := h.loadRuntimeSandbox(ctx, session, agent)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if !h.allowProvisioning {
-			return nil, nil, ErrSessionRuntimeNotReady
+			return nil, nil, reservation, ErrSessionRuntimeNotReady
 		}
-		runtimeAgent, runtimeOptions := sessionRuntimeAgent(agent, session)
-		runtimeOptions.TeamID = session.TeamID
-		mcpConfigVersion, versionErr := agentruntime.MCPConfigVersion(ctx, h.db, session.OrgID)
-		if versionErr != nil {
-			return nil, nil, versionErr
+		effectiveSandboxSize, sizeErr := orgtier.EffectiveSandboxSize(ctx, h.db, session.OrgID, agent.SandboxSize, agent.SandboxTemplateID)
+		if sizeErr != nil {
+			return nil, nil, reservation, sizeErr
 		}
-		secrets, prepErr := agentruntime.PrepareStartup(ctx, h.compileDeps, runtimeAgent)
-		if prepErr != nil {
-			return nil, nil, fmt.Errorf("prepare agent runtime startup: %w", prepErr)
-		}
-		sb, err = h.orchestrator.CreateAgentSandboxWithRuntimeOptions(ctx, runtimeAgent, secrets, runtimeOptions)
+		err = orgtier.WithSessionCreate(ctx, h.db, session.OrgID, effectiveSandboxSize, func() error {
+			runtimeAgent, runtimeOptions := sessionRuntimeAgent(agent, session)
+			runtimeOptions.TeamID = session.TeamID
+			mcpConfigVersion, versionErr := agentruntime.MCPConfigVersion(ctx, h.db, session.OrgID)
+			if versionErr != nil {
+				return versionErr
+			}
+			secrets, prepErr := agentruntime.PrepareStartup(ctx, h.compileDeps, runtimeAgent)
+			if prepErr != nil {
+				return fmt.Errorf("prepare agent runtime startup: %w", prepErr)
+			}
+			var createErr error
+			sb, createErr = h.orchestrator.CreateAgentSandboxWithRuntimeOptions(ctx, runtimeAgent, secrets, runtimeOptions)
+			if createErr != nil {
+				return fmt.Errorf("create agent sandbox: %w", createErr)
+			}
+			if err := agentruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, runtimeAgent, sb.ID, secrets.ProxyTokenJTI); err != nil {
+				return fmt.Errorf("tag agent proxy token sandbox: %w", err)
+			}
+			if err := h.db.WithContext(ctx).Model(&model.Session{}).
+				Where("id = ? AND org_id = ?", session.ID, session.OrgID).
+				Updates(map[string]any{
+					"sandbox_id":                 sb.ID,
+					"runtime_mcp_actor_user_id":  runtimeMCPActorID(runtimeOptions.MCPContext),
+					"runtime_mcp_config_version": mcpConfigVersion,
+				}).Error; err != nil {
+				return fmt.Errorf("attach session sandbox: %w", err)
+			}
+			return nil
+		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("create agent sandbox: %w", err)
-		}
-		if err := agentruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, runtimeAgent, sb.ID, secrets.ProxyTokenJTI); err != nil {
-			return nil, nil, fmt.Errorf("tag agent proxy token sandbox: %w", err)
-		}
-		if err := h.db.WithContext(ctx).Model(&model.Session{}).
-			Where("id = ? AND org_id = ?", session.ID, session.OrgID).
-			Updates(map[string]any{
-				"sandbox_id":                 sb.ID,
-				"runtime_mcp_actor_user_id":  runtimeMCPActorID(runtimeOptions.MCPContext),
-				"runtime_mcp_config_version": mcpConfigVersion,
-			}).Error; err != nil {
-			return nil, nil, fmt.Errorf("attach session sandbox: %w", err)
+			return nil, nil, reservation, err
 		}
 	} else if err != nil {
-		return nil, nil, fmt.Errorf("load agent sandbox: %w", err)
+		return nil, nil, reservation, fmt.Errorf("load agent sandbox: %w", err)
+	} else {
+		reservation, err = orgtier.ReserveSessionWake(ctx, h.db, session.OrgID, sb.ID)
+		if err != nil {
+			return nil, nil, reservation, err
+		}
 	}
 	client, err := h.orchestrator.GetRuntimeClient(ctx, sb)
 	if err != nil {
-		return nil, nil, fmt.Errorf("get runtime client: %w", err)
+		h.rollbackWakeReservation(ctx, reservation)
+		return nil, nil, reservation, fmt.Errorf("get runtime client: %w", err)
 	}
-	return sb, client, nil
+	return sb, client, reservation, nil
+}
+
+func (h *SessionMessageDeliverHandler) commitWakeReservation(ctx context.Context, reservation orgtier.WakeReservation) {
+	if err := reservation.Commit(ctx, h.db); err != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "commit session delivery wake reservation", "org_id", reservation.OrgID, "sandbox_id", reservation.SandboxID, "error", err)
+	}
+}
+
+func (h *SessionMessageDeliverHandler) rollbackWakeReservation(ctx context.Context, reservation orgtier.WakeReservation) {
+	cleanupCtx := context.WithoutCancel(ctx)
+	if err := reservation.Rollback(cleanupCtx, h.db); err != nil {
+		logging.FromContext(cleanupCtx).ErrorContext(cleanupCtx, "rollback session delivery wake reservation", "org_id", reservation.OrgID, "sandbox_id", reservation.SandboxID, "error", err)
+	}
 }
 
 func runtimeMCPActorID(mcpContext agentruntime.MCPRuntimeContext) *uuid.UUID {

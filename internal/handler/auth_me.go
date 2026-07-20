@@ -42,6 +42,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 			Name:            m.Org.Name,
 			Role:            m.Role,
 			BYOK:            m.Org.BYOK,
+			CapacityTier:    m.Org.CapacityTier,
 			LogoURL:         m.Org.LogoURL,
 			BillingCurrency: m.Org.BillingCurrency,
 			OnboardingStep:  m.Org.OnboardingStep,

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { Button, Link } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
+import { IntegrationLogo } from "@/components/integration-logo"
 import {
   LandingFooter,
   LandingHero,
@@ -388,9 +389,7 @@ export function TagLandingPage() {
       </section>
 
       <section className="mx-auto flex min-h-[520px] w-[calc(100%-2rem)] max-w-[1300px] flex-col items-center justify-center text-center">
-        <span className="flex size-12 items-center justify-center rounded-sm bg-surface-secondary text-foreground">
-          <AppIcon icon="slack" size={24} />
-        </span>
+        <IntegrationLogo provider="slack" size={48} className="rounded-sm" />
         <h2 className="mt-8 max-w-[760px] text-[clamp(2.3rem,4.5vw,4.25rem)] leading-[0.95] font-medium tracking-[-0.055em]">
           Your next handoff can stay in Slack.
         </h2>

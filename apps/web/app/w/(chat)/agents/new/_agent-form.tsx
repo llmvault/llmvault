@@ -8,10 +8,11 @@ import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import {
   AGENT_SANDBOX_IMAGE_OPTIONS,
-  AGENT_SANDBOX_SIZE_OPTIONS,
+  sandboxSizeOptionsForTier,
   type AgentSandboxImage,
   type AgentSandboxSize,
 } from "../_lib"
+import { useAuth } from "@/lib/auth/auth-context"
 import { ModelSelect } from "@/components/model-select"
 import { ToolsField } from "./_tools-field"
 import { SubAgentsField } from "./_sub-agents-field"
@@ -49,6 +50,10 @@ export function AgentFormView({
   onSave: (form: AgentForm) => void
   headerAction?: React.ReactNode
 }) {
+  const { activeOrg } = useAuth()
+  const availableSandboxSizes = sandboxSizeOptionsForTier(
+    activeOrg?.capacity_tier
+  )
   const router = useRouter()
   const modelsQuery = $api.useQuery("get", "/v1/agents/models")
   const models = modelsQuery.data ?? EMPTY_MODELS
@@ -228,7 +233,7 @@ export function AgentFormView({
             <OptionSelect
               ariaLabel="Sandbox size"
               value={form.sandboxSize}
-              options={AGENT_SANDBOX_SIZE_OPTIONS.map((option) => ({
+              options={availableSandboxSizes.map((option) => ({
                 key: option.key,
                 label: option.label,
                 hint: option.specs,

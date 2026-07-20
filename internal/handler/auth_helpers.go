@@ -132,6 +132,7 @@ func (h *AuthHandler) buildAuthResponse(ctx context.Context, user model.User, ac
 			Name:            m.Org.Name,
 			Role:            m.Role,
 			BYOK:            m.Org.BYOK,
+			CapacityTier:    m.Org.CapacityTier,
 			LogoURL:         m.Org.LogoURL,
 			BillingCurrency: m.Org.BillingCurrency,
 			OnboardingStep:  m.Org.OnboardingStep,

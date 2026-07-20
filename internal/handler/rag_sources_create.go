@@ -16,6 +16,7 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/orgtier"
 	"github.com/usehivy/hivy/internal/rag/connectors/website"
 	ragmodel "github.com/usehivy/hivy/internal/rag/model"
 	ragtasks "github.com/usehivy/hivy/internal/rag/tasks"
@@ -39,6 +40,10 @@ type createRAGSourceRequest struct {
 // @Produce json
 // @Param body body createRAGSourceRequest true "Source definition"
 // @Success 201 {object} ragSourceResponse
+// @Failure 400 {object} errorResponse
+// @Failure 401 {object} errorResponse
+// @Failure 422 {object} errorResponse
+// @Failure 500 {object} errorResponse
 // @Security BearerAuth
 // @Router /v1/rag/sources [post]
 func (h *RAGSourceHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -66,6 +71,14 @@ func (h *RAGSourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Name == "" {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "name is required"})
+		return
+	}
+	if err := orgtier.CheckKnowledgeSourceCapacity(r.Context(), h.db, org.ID); err != nil {
+		if writeOrgTierError(w, err) {
+			return
+		}
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "check knowledge storage capacity", "org_id", org.ID, "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check knowledge storage capacity"})
 		return
 	}
 
@@ -114,7 +127,7 @@ func (h *RAGSourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.db.Create(src).Error; err != nil {
+	if err := h.db.WithContext(r.Context()).Create(src).Error; err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "failed to create rag source", "error", err, "org_id", org.ID)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create source"})
 		return

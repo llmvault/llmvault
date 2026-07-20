@@ -14,6 +14,7 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/orgtier"
 )
 
 type OrgHandler struct {
@@ -30,6 +31,7 @@ func (h *OrgHandler) buildOrgResponse(org model.Org) orgResponse {
 	if err != nil {
 		sandboxExposedPorts = model.DefaultSandboxExposedPorts()
 	}
+	limits := orgtier.LimitsForTier(org.CapacityTier)
 	return orgResponse{
 		ID:                  org.ID.String(),
 		Name:                org.Name,
@@ -40,6 +42,10 @@ func (h *OrgHandler) buildOrgResponse(org model.Org) orgResponse {
 		PromptCompany:       org.PromptCompany,
 		SandboxExposedPorts: sandboxExposedPorts,
 		BillingCurrency:     org.BillingCurrency,
+		CapacityTier:        limits.Tier,
+		ConcurrentSessions:  limits.ConcurrentSessions,
+		MaxSandboxSize:      limits.MaxSandboxSize,
+		KnowledgeStorageGB:  limits.KnowledgeStorageBytes >> 30,
 		CreatedAt:           org.CreatedAt.Format(time.RFC3339),
 		OnboardingStep:      org.OnboardingStep,
 	}
@@ -67,6 +73,10 @@ type orgResponse struct {
 	PromptCompany       string `json:"prompt_company,omitempty"`
 	SandboxExposedPorts []int  `json:"sandbox_exposed_ports"`
 	BillingCurrency     string `json:"billing_currency,omitempty"`
+	CapacityTier        int    `json:"capacity_tier"`
+	ConcurrentSessions  int    `json:"concurrent_session_limit"`
+	MaxSandboxSize      string `json:"max_sandbox_size"`
+	KnowledgeStorageGB  int64  `json:"knowledge_storage_limit_gb"`
 	CreatedAt           string `json:"created_at"`
 	OnboardingStep      string `json:"onboarding_step"`
 }

@@ -51,6 +51,7 @@ func (h *OAuthHandler) issueTokensAndRespond(ctx context.Context, w http.Respons
 			ID:             m.OrgID.String(),
 			Name:           m.Org.Name,
 			Role:           m.Role,
+			CapacityTier:   m.Org.CapacityTier,
 			OnboardingStep: m.Org.OnboardingStep,
 		})
 	}

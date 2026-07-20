@@ -1,5 +1,6 @@
 import { Button, Link, Separator, Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
+import { IntegrationLogo } from "@/components/integration-logo"
 import { LandingHeader } from "./landing-header"
 
 export const pillars = [
@@ -255,6 +256,43 @@ export function FeatureCopy({
   )
 }
 
+type PlatformHighlight = {
+  icon: string
+  title: string
+  description: string
+}
+
+export function PlatformHighlights({
+  items,
+}: {
+  items: readonly PlatformHighlight[]
+}) {
+  return (
+    <div className="grid border-x border-b border-border md:grid-cols-3">
+      {items.map((item, index) => (
+        <article
+          key={item.title}
+          className={`min-h-44 p-6 md:p-7 ${
+            index < items.length - 1
+              ? "border-b border-border md:border-r md:border-b-0"
+              : ""
+          }`}
+        >
+          <span className="flex size-9 items-center justify-center rounded-sm bg-surface-secondary text-muted">
+            <AppIcon icon={item.icon} size={17} />
+          </span>
+          <h3 className="mt-6 text-base font-medium tracking-[-0.02em]">
+            {item.title}
+          </h3>
+          <p className="mt-2 max-w-[36ch] text-sm leading-6 text-muted">
+            {item.description}
+          </p>
+        </article>
+      ))}
+    </div>
+  )
+}
+
 type LandingHeroProps = {
   titleLines?: readonly [string, string]
   description?: string
@@ -359,7 +397,7 @@ export function WorkflowPrompt({ className = "" }: { className?: string }) {
         <div className="relative flex items-center justify-center bg-surface-secondary p-8">
           <div className="w-full max-w-[315px] rounded-lg border border-border bg-surface shadow-sm">
             <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-              <AppIcon icon="github" size={25} />
+              <IntegrationLogo provider="github" size={28} />
               <span className="text-xl font-medium">GitHub</span>
             </div>
             <div className="flex items-center justify-between px-4 py-3 text-sm text-muted">

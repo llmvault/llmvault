@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/orgtier"
 )
 
 // SendMessage handles POST /v1/sessions/{id}/messages.
@@ -24,6 +25,7 @@ import (
 // @Failure 401 {object} errorResponse
 // @Failure 403 {object} errorResponse
 // @Failure 404 {object} errorResponse
+// @Failure 429 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Security BearerAuth
 // @Router /v1/sessions/{id}/messages [post]
@@ -61,8 +63,21 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	if !hydrated {
 		return
 	}
+	reservation := orgtier.WakeReservation{}
+	if session.SandboxID != nil {
+		var err error
+		reservation, err = orgtier.ReserveSessionWake(r.Context(), h.db, session.OrgID, *session.SandboxID)
+		if err != nil {
+			if writeOrgTierError(w, err) {
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check session capacity"})
+			return
+		}
+	}
 	intent, err := h.createSessionMessageIntent(r.Context(), session, userID, text, payload, sessionMessageDeliveryOptions{})
 	if err != nil {
+		rollbackOrgTierWake(r.Context(), h.db, reservation)
 		if errors.Is(err, errSessionSandboxDraining) {
 			writeJSON(w, http.StatusConflict, errorResponse{Error: "agent sandbox is draining"})
 			return
@@ -72,6 +87,10 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	queued, err := h.dispatchSessionMessageIntent(r.Context(), intent)
 	if err != nil {
+		rollbackOrgTierWake(r.Context(), h.db, reservation)
+		if writeOrgTierError(w, err) {
+			return
+		}
 		if errors.Is(err, errSessionSandboxDraining) {
 			writeJSON(w, http.StatusConflict, errorResponse{Error: "agent sandbox is draining"})
 			return
@@ -82,6 +101,11 @@ func (h *SessionHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to send session message"})
 		return
+	}
+	if intent.SkipDispatch || queued {
+		rollbackOrgTierWake(r.Context(), h.db, reservation)
+	} else {
+		commitOrgTierWake(r.Context(), h.db, reservation)
 	}
 	session = intent.Session
 	if !queued {

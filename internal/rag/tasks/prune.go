@@ -10,6 +10,7 @@ import (
 	qdrantgo "github.com/qdrant/go-client/qdrant"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/orgtier"
 	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
 	ragmodel "github.com/usehivy/hivy/internal/rag/model"
@@ -53,6 +54,9 @@ func (d *Deps) HandlePrune(ctx context.Context, t *asynq.Task) error {
 		if err := deps.Qdrant.DeleteByIDs(ctx, deps.Collection, stalePointIDs); err != nil {
 			return fmt.Errorf("prune %s: qdrant delete: %w", src.ID, err)
 		}
+	}
+	if err := orgtier.DeleteStaleDocumentStorage(ctx, deps.DB, src.OrgIDValue, src.ID, keep); err != nil {
+		return fmt.Errorf("prune %s: storage usage: %w", src.ID, err)
 	}
 	if err := touchLastPruned(ctx, deps.DB, src.ID); err != nil {
 		return err

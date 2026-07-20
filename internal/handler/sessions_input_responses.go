@@ -11,6 +11,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/orgtier"
 )
 
 // RespondToInput handles POST /v1/sessions/{id}/input-responses.
@@ -26,6 +27,7 @@ import (
 // @Failure 401 {object} errorResponse
 // @Failure 403 {object} errorResponse
 // @Failure 404 {object} errorResponse
+// @Failure 429 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Security BearerAuth
 // @Router /v1/sessions/{id}/input-responses [post]
@@ -75,10 +77,23 @@ func (h *SessionHandler) RespondToInput(w http.ResponseWriter, r *http.Request) 
 			"option_id":  optionID,
 		},
 	}
+	reservation := orgtier.WakeReservation{}
+	if session.SandboxID != nil {
+		var reserveErr error
+		reservation, reserveErr = orgtier.ReserveSessionWake(r.Context(), h.db, session.OrgID, *session.SandboxID)
+		if reserveErr != nil {
+			if writeOrgTierError(w, reserveErr) {
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check session capacity"})
+			return
+		}
+	}
 	intent, err := h.createSessionMessageIntent(r.Context(), session, userID, messageText, payload, sessionMessageDeliveryOptions{
 		ClearLastOutcome: true,
 	})
 	if err != nil {
+		rollbackOrgTierWake(r.Context(), h.db, reservation)
 		if errors.Is(err, errSessionSandboxDraining) {
 			writeJSON(w, http.StatusConflict, errorResponse{Error: "agent sandbox is draining"})
 			return
@@ -88,6 +103,10 @@ func (h *SessionHandler) RespondToInput(w http.ResponseWriter, r *http.Request) 
 	}
 	queued, err := h.dispatchSessionMessageIntent(r.Context(), intent)
 	if err != nil {
+		rollbackOrgTierWake(r.Context(), h.db, reservation)
+		if writeOrgTierError(w, err) {
+			return
+		}
 		if errors.Is(err, errSessionSandboxDraining) {
 			writeJSON(w, http.StatusConflict, errorResponse{Error: "agent sandbox is draining"})
 			return
@@ -98,6 +117,11 @@ func (h *SessionHandler) RespondToInput(w http.ResponseWriter, r *http.Request) 
 		}
 		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to send input response"})
 		return
+	}
+	if intent.SkipDispatch || queued {
+		rollbackOrgTierWake(r.Context(), h.db, reservation)
+	} else {
+		commitOrgTierWake(r.Context(), h.db, reservation)
 	}
 	session = intent.Session
 	if !queued {
@@ -131,21 +155,36 @@ func (h *SessionHandler) respondToStructuredInput(
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
+	reservation := orgtier.WakeReservation{}
+	if session.SandboxID != nil {
+		reservation, err = orgtier.ReserveSessionWake(r.Context(), h.db, session.OrgID, *session.SandboxID)
+		if err != nil {
+			if writeOrgTierError(w, err) {
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to check session capacity"})
+			return
+		}
+	}
 	sb, err := h.sessionSandboxForAccess(r.Context(), &session)
 	if err != nil {
+		rollbackOrgTierWake(r.Context(), h.db, reservation)
 		h.writeSessionSandboxUnavailableError(w, err)
 		return
 	}
 	client, err := h.runtimeClientForSessionSandbox(r.Context(), sb)
 	if err != nil {
+		rollbackOrgTierWake(r.Context(), h.db, reservation)
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "runtime question answer is not available"})
 		return
 	}
 	if _, err := client.PostQuestionAnswer(r.Context(), session.ID.String(), questionRequestID, payload); err != nil {
+		rollbackOrgTierWake(r.Context(), h.db, reservation)
 		status, message := questionAnswerProxyError(err)
 		writeJSON(w, status, errorResponse{Error: message})
 		return
 	}
+	commitOrgTierWake(r.Context(), h.db, reservation)
 	stats := h.statsForSessions(r.Context(), []uuid.UUID{session.ID})[session.ID]
 	writeJSON(w, http.StatusAccepted, sessionMutationResponse{
 		Session: sessionToResponse(session, stats.ParticipantCount, stats.EventCount, stats.LastEvent),

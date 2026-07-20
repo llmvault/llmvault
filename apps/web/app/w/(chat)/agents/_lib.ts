@@ -6,7 +6,7 @@ export type InstalledAgent = components["schemas"]["agentListItem"]
 export type Team = components["schemas"]["teamResponse"]
 export type AgentCategory = "All" | "Featured" | string
 export type AgentSandboxImage = "default" | "developer"
-export type AgentSandboxSize = "nano" | "small" | "medium" | "large" | "xlarge"
+export type AgentSandboxSize = "nano" | "small" | "medium" | "large"
 
 export const AGENT_SANDBOX_IMAGE_OPTIONS: Array<{
   key: AgentSandboxImage
@@ -34,12 +34,12 @@ export const AGENT_SANDBOX_SIZE_OPTIONS: Array<{
   { key: "small", label: "Small", specs: "1 CPU / 2 GB RAM / 10 GB disk" },
   { key: "medium", label: "Medium", specs: "2 CPU / 4 GB RAM / 20 GB disk" },
   { key: "large", label: "Large", specs: "4 CPU / 8 GB RAM / 40 GB disk" },
-  {
-    key: "xlarge",
-    label: "Extra large",
-    specs: "8 CPU / 16 GB RAM / 60 GB disk",
-  },
 ]
+
+export function sandboxSizeOptionsForTier(tier: number | undefined) {
+  const optionCount = Math.min(Math.max(tier ?? 1, 1), 4)
+  return AGENT_SANDBOX_SIZE_OPTIONS.slice(0, optionCount)
+}
 
 export const AGENT_CATALOG_QUERY_KEY = ["get", "/v1/agents/catalog"] as const
 export const INSTALLED_AGENTS_QUERY_KEY = ["get", "/v1/agents"] as const

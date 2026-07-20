@@ -45,6 +45,7 @@ describe("TagPage", () => {
     expect(html).toContain("hivy is typing")
     expect(html).toContain("Reply…")
     expect(html).toContain("Connect Slack")
+    expect(html).toContain('aria-label="slack"')
     expect(html).toContain("Read the setup guide")
     expect(html).not.toContain("@Hivy")
     expect(html).toContain("@hivy")

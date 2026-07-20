@@ -58,6 +58,7 @@ type agentMutationResponse struct {
 // @Failure 401 {object} errorResponse
 // @Failure 403 {object} errorResponse
 // @Failure 409 {object} errorResponse
+// @Failure 422 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Security BearerAuth
 // @Router /v1/agents [post]
@@ -130,6 +131,9 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	sandboxTemplateID, ok := parseOptionalUUIDForRequest(w, req.SandboxTemplateID, "sandbox_template_id")
 	if !ok {
+		return
+	}
+	if !h.validateAgentSandboxCapacityForRequest(ctx, w, org.ID, org.CapacityTier, sandboxSize, sandboxTemplateID) {
 		return
 	}
 	if req.McpServers != nil {

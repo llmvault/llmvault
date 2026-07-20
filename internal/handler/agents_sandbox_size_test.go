@@ -20,6 +20,10 @@ import (
 func TestAgentHandlerUpdateStoresSandboxSize(t *testing.T) {
 	db := connectTestDB(t)
 	org := createTestOrg(t, db)
+	org.CapacityTier = 4
+	if err := db.Model(&model.Org{}).Where("id = ?", org.ID).Update("capacity_tier", org.CapacityTier).Error; err != nil {
+		t.Fatalf("promote org: %v", err)
+	}
 	agent := createSandboxSizeTestAgent(t, db, org.ID, "small")
 	h := handler.NewAgentHandler(db, nil, agentruntime.CompileDeps{}, registry.Global())
 
@@ -42,6 +46,31 @@ func TestAgentHandlerUpdateStoresSandboxSize(t *testing.T) {
 	}
 	if got := payload["agent"]["sandbox_size"]; got != "large" {
 		t.Fatalf("response sandbox_size = %v, want large", got)
+	}
+}
+
+func TestAgentHandlerUpdateRejectsSandboxSizeAboveOrgTier(t *testing.T) {
+	db := connectTestDB(t)
+	org := createTestOrg(t, db)
+	agent := createSandboxSizeTestAgent(t, db, org.ID, "nano")
+	h := handler.NewAgentHandler(db, nil, agentruntime.CompileDeps{}, registry.Global())
+
+	rr := patchAgentSandboxSize(t, h, &org, agent.ID, "small")
+	if rr.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422; body = %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestAgentHandlerUpdateRejectsXlargeSandbox(t *testing.T) {
+	db := connectTestDB(t)
+	org := createTestOrg(t, db)
+	org.CapacityTier = 4
+	agent := createSandboxSizeTestAgent(t, db, org.ID, "large")
+	h := handler.NewAgentHandler(db, nil, agentruntime.CompileDeps{}, registry.Global())
+
+	rr := patchAgentSandboxSize(t, h, &org, agent.ID, "xlarge")
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", rr.Code, rr.Body.String())
 	}
 }
 

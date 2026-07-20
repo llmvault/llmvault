@@ -1351,6 +1351,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/errorResponse"
                         }
                     },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -2200,6 +2206,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -9316,6 +9328,30 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/ragSourceResponse"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
                     }
                 }
             }
@@ -9873,6 +9909,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -10827,6 +10869,18 @@ const docTemplate = `{
                             "$ref": "#/definitions/errorResponse"
                         }
                     },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -11191,6 +11245,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/errorResponse"
                         }
                     },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -11327,6 +11387,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -18142,6 +18208,9 @@ const docTemplate = `{
                 "byok": {
                     "type": "boolean"
                 },
+                "capacity_tier": {
+                    "type": "integer"
+                },
                 "credits": {
                     "type": "integer"
                 },
@@ -18191,13 +18260,25 @@ const docTemplate = `{
                 "billing_currency": {
                     "type": "string"
                 },
+                "capacity_tier": {
+                    "type": "integer"
+                },
+                "concurrent_session_limit": {
+                    "type": "integer"
+                },
                 "created_at": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
+                "knowledge_storage_limit_gb": {
+                    "type": "integer"
+                },
                 "logo_url": {
+                    "type": "string"
+                },
+                "max_sandbox_size": {
                     "type": "string"
                 },
                 "name": {

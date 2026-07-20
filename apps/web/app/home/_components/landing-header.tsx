@@ -8,37 +8,37 @@ const platformLinks = [
   {
     title: "Knowledge base",
     description: "Ground agents in approved organizational knowledge.",
-    href: "/w/settings/knowledge",
+    href: "/knowledge",
     icon: "brain",
   },
   {
     title: "Agents",
     description: "Build, configure, and manage your AI workforce.",
-    href: "/w/agents",
+    href: "/agents",
     icon: "bot",
   },
   {
     title: "Drive",
     description: "Store and organize the files agents create and use.",
-    href: "/w",
+    href: "/drive",
     icon: "folder",
   },
   {
     title: "Automations",
     description: "Run agents on schedules, webhooks, and connection triggers.",
-    href: "/w/automations",
+    href: "/automations",
     icon: "workflow",
   },
   {
     title: "Sheets",
     description: "Structured databases agents can read and update.",
-    href: "/w/sheets",
+    href: "/sheets",
     icon: "table",
   },
   {
     title: "Access control",
     description: "Manage roles, teams, and resource permissions.",
-    href: "/w/settings/teams",
+    href: "/access-control",
     icon: "shield-check",
   },
 ] as const

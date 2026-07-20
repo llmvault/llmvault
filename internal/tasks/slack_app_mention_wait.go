@@ -59,10 +59,11 @@ func (h *SlackAppMentionHandler) runtimeClient(ctx context.Context, session mode
 	if err := h.db.WithContext(ctx).First(&latest, "id = ?", session.ID).Error; err != nil {
 		return nil, fmt.Errorf("load slack session for stream: %w", err)
 	}
-	_, client, err := dispatcher.ensureRuntimeClient(ctx, latest, &agent)
+	_, client, reservation, err := dispatcher.ensureRuntimeClient(ctx, latest, &agent)
 	if err != nil {
 		return nil, err
 	}
+	dispatcher.commitWakeReservation(ctx, reservation)
 	return client, nil
 }
 

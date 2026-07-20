@@ -3,14 +3,18 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/orgtier"
 )
 
 // agentActor resolves the requesting actor's org role and user id for
@@ -229,10 +233,40 @@ func normalizeAgentSandboxSizeForRequest(w http.ResponseWriter, value *string) (
 		return model.DefaultAgentSandboxSize, true
 	}
 	if !model.ValidTemplateSize(size) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "sandbox_size must be nano, small, medium, large, or xlarge"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "sandbox_size must be nano, small, medium, or large"})
 		return "", false
 	}
-	return model.NormalizeTemplateSize(size), true
+	normalized := model.NormalizeTemplateSize(size)
+	if normalized == "xlarge" {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "xlarge sandboxes are temporarily unavailable"})
+		return "", false
+	}
+	return normalized, true
+}
+
+func (h *AgentHandler) validateAgentSandboxCapacityForRequest(
+	ctx context.Context,
+	w http.ResponseWriter,
+	orgID uuid.UUID,
+	capacityTier int,
+	size string,
+	templateID *uuid.UUID,
+) bool {
+	effectiveSize, err := orgtier.EffectiveSandboxSize(ctx, h.db, orgID, size, templateID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "sandbox template not found"})
+		return false
+	}
+	if err != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "load agent sandbox template capacity", "org_id", orgID, "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to validate sandbox capacity"})
+		return false
+	}
+	if err := orgtier.ValidateSandboxSize(capacityTier, effectiveSize); err != nil {
+		writeOrgTierError(w, err)
+		return false
+	}
+	return true
 }
 
 func normalizeAgentSandboxImageForRequest(w http.ResponseWriter, value *string) (string, bool) {

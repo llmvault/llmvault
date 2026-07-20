@@ -50,6 +50,7 @@ type orgMemberDTO struct {
 	BillingCurrency string `json:"billing_currency,omitempty"`
 	Credits         *int64 `json:"credits,omitempty"`
 	BYOK            bool   `json:"byok"`
+	CapacityTier    int    `json:"capacity_tier"`
 	LogoURL         string `json:"logo_url,omitempty"`
 	OnboardingStep  string `json:"onboarding_step"`
 }

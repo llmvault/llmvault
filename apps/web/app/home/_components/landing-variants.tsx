@@ -1,5 +1,6 @@
 import { Chip, Link } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
+import { IntegrationLogo } from "@/components/integration-logo"
 import {
   LandingCta,
   LandingFooter,
@@ -64,7 +65,7 @@ function WorkflowCard() {
   return (
     <div className="w-full max-w-[330px] rounded-lg border border-border bg-surface shadow-sm">
       <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-        <AppIcon icon="github" size={23} />
+        <IntegrationLogo provider="github" size={24} />
         <span className="font-medium">GitHub</span>
       </div>
       <div className="flex items-center justify-between px-4 py-3 text-sm text-muted">
@@ -177,7 +178,11 @@ function VariantWorkflow({ mode }: { mode: VariantMode }) {
                 className="relative flex flex-col items-center gap-3"
               >
                 <span className="flex size-14 items-center justify-center rounded-full border border-border bg-surface">
-                  <AppIcon icon={icon} size={21} />
+                  {icon === "github" ? (
+                    <IntegrationLogo provider="github" size={28} />
+                  ) : (
+                    <AppIcon icon={icon} size={21} />
+                  )}
                 </span>
                 <span className="text-xs font-medium">{label}</span>
               </div>

@@ -2,13 +2,17 @@ package tasks
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/pkoukk/tiktoken-go"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/billing"
+	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/orgtier"
 	"github.com/usehivy/hivy/internal/rag/connectors/interfaces"
 	ragmodel "github.com/usehivy/hivy/internal/rag/model"
 	"github.com/usehivy/hivy/internal/rag/qdrant"
@@ -52,10 +56,6 @@ func flushBatch(
 		return nil
 	}
 
-	if err := deps.Qdrant.DeleteByDocIDs(ctx, deps.Collection, src.ID.String(), docIDs); err != nil {
-		return fmt.Errorf("ingest: clear stale parts (%d docs): %w", len(docIDs), err)
-	}
-
 	vectors, tokens, err := embedInBudgetedGroups(ctx, deps.Embedder, parts)
 	if err != nil {
 		return fmt.Errorf("ingest: embed (%d parts from %d docs): %w", len(parts), len(docs), err)
@@ -69,19 +69,46 @@ func flushBatch(
 	})
 
 	points := make([]qdrant.Point, 0, len(parts))
+	storageByDocument := make(map[string]int64, len(docs))
 	orgID := src.OrgIDValue.String()
 	sourceID := src.ID.String()
 	for i := range parts {
+		payload := buildPayload(src, parts[i].doc, parts[i].content, parts[i].partIndex)
 		points = append(points, qdrant.Point{
 			ID:      qdrant.PointID(orgID, sourceID, parts[i].pointDocID),
 			Vector:  vectors[i],
-			Payload: buildPayload(src, parts[i].doc, parts[i].content, parts[i].partIndex),
+			Payload: payload,
 		})
+		payloadBytes, marshalErr := json.Marshal(payload)
+		if marshalErr != nil {
+			return fmt.Errorf("ingest: measure payload: %w", marshalErr)
+		}
+		storageByDocument[parts[i].doc.DocID] += int64(len(payloadBytes) + len(vectors[i])*4)
+	}
+	storageDocs := make([]orgtier.DocumentStorage, 0, len(storageByDocument))
+	for documentID, storageBytes := range storageByDocument {
+		storageDocs = append(storageDocs, orgtier.DocumentStorage{DocumentID: documentID, Bytes: storageBytes})
+	}
+	storageReservation, err := orgtier.ReserveDocumentStorage(ctx, deps.DB, src.OrgIDValue, src.ID, storageDocs)
+	if err != nil {
+		return fmt.Errorf("ingest: reserve knowledge storage: %w", err)
+	}
+	if err := deps.Qdrant.DeleteByDocIDs(ctx, deps.Collection, src.ID.String(), docIDs); err != nil {
+		rollbackKnowledgeStorage(ctx, deps.DB, storageReservation)
+		return fmt.Errorf("ingest: clear stale parts (%d docs): %w", len(docIDs), err)
 	}
 	if err := deps.Qdrant.Upsert(ctx, deps.Collection, points, true); err != nil {
+		rollbackKnowledgeStorage(ctx, deps.DB, storageReservation)
 		return fmt.Errorf("ingest: qdrant upsert (%d points): %w", len(points), err)
 	}
 	return nil
+}
+
+func rollbackKnowledgeStorage(ctx context.Context, db *gorm.DB, reservation orgtier.KnowledgeReservation) {
+	cleanupCtx := context.WithoutCancel(ctx)
+	if err := reservation.Rollback(cleanupCtx, db); err != nil {
+		logging.FromContext(cleanupCtx).ErrorContext(cleanupCtx, "rollback knowledge storage reservation", "org_id", reservation.OrgID, "source_id", reservation.SourceID, "error", err)
+	}
 }
 
 // embedInBudgetedGroups chunks the embed call so each HTTP request stays

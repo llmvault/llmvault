@@ -14,6 +14,7 @@ import (
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/orgtier"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -117,24 +118,25 @@ func toSandboxTemplateResponse(t model.SandboxTemplate) sandboxTemplateResponse 
 // @Success 201 {object} sandboxTemplateResponse
 // @Failure 400 {object} errorResponse
 // @Failure 401 {object} errorResponse
+// @Failure 422 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Security BearerAuth
 // @Router /v1/sandbox-templates [post]
 func (h *SandboxTemplateHandler) Create(w http.ResponseWriter, r *http.Request) {
 	org, ok := middleware.OrgFromContext(r.Context())
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing org context"})
+		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
 		return
 	}
 
 	var req createSandboxTemplateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
 
 	if req.Name == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "name is required"})
 		return
 	}
 
@@ -154,16 +156,16 @@ func (h *SandboxTemplateHandler) Create(w http.ResponseWriter, r *http.Request) 
 	case req.VCPU != nil && req.MemoryGB != nil && req.DiskGB != nil:
 		name, ok := model.TemplateSizeForResources(*req.VCPU, *req.MemoryGB, *req.DiskGB)
 		if !ok {
-			writeJSON(w, http.StatusBadRequest, map[string]string{
-				"error": "vcpu/memory_gb/disk_gb must match a supported size: small (1/2/10), medium (2/4/20), large (4/8/40), xlarge (8/16/60)",
-			})
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "vcpu/memory_gb/disk_gb must match an available size: small (1/2/10), medium (2/4/20), or large (4/8/40)"})
 			return
 		}
 		tmpl.Size = name
 	default:
-		writeJSON(w, http.StatusBadRequest, map[string]string{
-			"error": "vcpu, memory_gb, and disk_gb must be provided together",
-		})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "vcpu, memory_gb, and disk_gb must be provided together"})
+		return
+	}
+	if err := orgtier.ValidateSandboxSize(org.CapacityTier, tmpl.Size); err != nil {
+		writeOrgTierError(w, err)
 		return
 	}
 	if tmpl.Config == nil {
@@ -175,8 +177,8 @@ func (h *SandboxTemplateHandler) Create(w http.ResponseWriter, r *http.Request) 
 
 	tmpl.Slug = fmt.Sprintf("hivy-tmpl-%s", uuid.New().String()[:8])
 
-	if err := h.db.Create(&tmpl).Error; err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create sandbox template"})
+	if err := h.db.WithContext(r.Context()).Create(&tmpl).Error; err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to create sandbox template"})
 		return
 	}
 

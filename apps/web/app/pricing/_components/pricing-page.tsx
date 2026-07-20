@@ -10,7 +10,7 @@ const includedFeatures = [
   "Unlimited agents",
   "Unlimited agent sessions",
   "Unlimited sandboxes",
-  "Unlimited knowledge base storage",
+  "Knowledge storage that grows with your tier",
   "Unlimited knowledge sources",
   "Unlimited connections",
   "Access to every available model",
@@ -154,7 +154,12 @@ function PricingFaq() {
     {
       question: "What do I get without a plan?",
       answer:
-        "Unlimited users, teams, agents, sessions, sandboxes, knowledge base storage, knowledge sources, and connections. You only fund the work your agents perform.",
+        "Unlimited users, teams, agents, total sessions, sandboxes, knowledge sources, and connections. Concurrent sessions, sandbox size, and knowledge storage grow with your permanent org tier.",
+    },
+    {
+      question: "What capacity do deposits unlock?",
+      answer:
+        "Every org starts with 2 concurrent sessions, nano sandboxes, and 1 GB of knowledge storage. Lifetime deposits of $100 unlock 5 concurrent sessions, small sandboxes, and 10 GB; $250 unlocks 10, medium, and 50 GB; $500 unlocks 20, large, and 200 GB. Unlocks are permanent and never downgrade.",
     },
     {
       question: "What spends my credits?",

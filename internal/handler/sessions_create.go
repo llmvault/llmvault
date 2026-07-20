@@ -13,6 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/orgtier"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -28,6 +29,8 @@ import (
 // @Failure 401 {object} errorResponse
 // @Failure 403 {object} errorResponse
 // @Failure 404 {object} errorResponse
+// @Failure 422 {object} errorResponse
+// @Failure 429 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Failure 502 {object} errorResponse
 // @Failure 503 {object} errorResponse
@@ -105,8 +108,22 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		logPhase("hydrate initial message attachments", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID)
 	}
-	sessionSandbox, err := h.provisionSessionSandbox(ctx, &agent, agent.TeamID, session.Model, session.ReasoningEffort, mcpContext)
+	var sessionSandbox *model.Sandbox
+	effectiveSandboxSize, err := orgtier.EffectiveSandboxSize(ctx, h.db, org.ID, agent.SandboxSize, agent.SandboxTemplateID)
 	if err != nil {
+		logging.FromContext(ctx).ErrorContext(ctx, "resolve effective sandbox size for session create", "agent_id", agent.ID, "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to validate sandbox capacity"})
+		return
+	}
+	err = orgtier.WithSessionCreate(ctx, h.db, org.ID, effectiveSandboxSize, func() error {
+		var provisionErr error
+		sessionSandbox, provisionErr = h.provisionSessionSandbox(ctx, &agent, agent.TeamID, session.Model, session.ReasoningEffort, mcpContext)
+		return provisionErr
+	})
+	if err != nil {
+		if writeOrgTierError(w, err) {
+			return
+		}
 		logging.FromContext(ctx).ErrorContext(ctx, "provision session sandbox for session create failed", "agent_id", agent.ID, "error", err)
 		logging.Capture(ctx, err)
 		if errors.Is(err, sandbox.ErrCapacityExhausted) {

@@ -192,7 +192,7 @@ func (h *SessionMessageDeliverHandler) DeliverCommand(ctx context.Context, sessi
 		First(&agent).Error; err != nil {
 		return nil, fmt.Errorf("load session agent: %w", err)
 	}
-	sb, client, err := h.ensureRuntimeClient(ctx, session, &agent)
+	sb, client, reservation, err := h.ensureRuntimeClient(ctx, session, &agent)
 	if err != nil {
 		return nil, err
 	}
@@ -210,10 +210,12 @@ func (h *SessionMessageDeliverHandler) DeliverCommand(ctx context.Context, sessi
 	msg := runtimeMessageFromCommand(session, command)
 	resp, err := client.PostHTTPMessage(ctx, msg)
 	if err != nil {
+		h.rollbackWakeReservation(ctx, reservation)
 		if agentruntime.IsRuntimeDrainingError(err) {
 			return nil, ErrSessionRuntimeDraining
 		}
 		return nil, fmt.Errorf("post session message to runtime: %w", err)
 	}
+	h.commitWakeReservation(ctx, reservation)
 	return resp, nil
 }
