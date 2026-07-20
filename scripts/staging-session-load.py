@@ -472,6 +472,16 @@ async def poll_for_final(
     }
 
 
+def response_sequence_boundary(response: dict[str, Any]) -> int:
+    """Return the highest durable event sequence observed for one response poll."""
+    sequences = [
+        int(event.get("sequence_number") or 0)
+        for event in [response.get("event"), *(response.get("events") or [])]
+        if isinstance(event, dict)
+    ]
+    return max(sequences, default=0)
+
+
 def percentile(values: list[float], fraction: float) -> float | None:
     if not values:
         return None
@@ -644,6 +654,7 @@ async def command_run(args: argparse.Namespace) -> int:
     initial_results = await asyncio.gather(*(initial_response(row) for row in rows))
     for row, response in zip(rows, initial_results):
         row["initial_response"] = response
+        row["followup_after_sequence"] = response_sequence_boundary(response)
 
     async def followup(row: dict[str, Any]) -> dict[str, Any]:
         if not row["session_id"]:
@@ -678,7 +689,10 @@ async def command_run(args: argparse.Namespace) -> int:
             tokens[row["account_email"]],
             row["org_id"],
             row["session_id"],
-            after_sequence=row["followup"]["sequence"],
+            after_sequence=max(
+                row["followup"]["sequence"],
+                row["followup_after_sequence"],
+            ),
             timeout=args.response_timeout,
             poll_interval=args.poll_interval,
         )
