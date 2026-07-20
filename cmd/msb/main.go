@@ -72,7 +72,11 @@ func runControl(ctx context.Context, cfg config.Config) error {
 	if cfg.PreviewJWTSecret == "" {
 		return fmt.Errorf("HIVY_MICROSANDBOX_PREVIEW_JWT_SECRET is required")
 	}
-	database, err := db.Open(ctx, cfg.DatabaseDSN)
+	database, err := db.Open(ctx, cfg.DatabaseDSN, db.PoolConfig{
+		MaxOpenConnections: cfg.DatabaseMaxOpenConns,
+		MaxIdleConnections: cfg.DatabaseMaxIdleConns,
+		ConnectionLifetime: cfg.DatabaseConnMaxLifetime,
+	})
 	if err != nil {
 		return err
 	}

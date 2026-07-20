@@ -10,12 +10,16 @@ import (
 )
 
 type Config struct {
-	Environment string
-	LogLevel    string
-	LogFormat   string
-	Addr        string
-	DatabaseDSN string
-	SentryDSN   string
+	Environment               string
+	LogLevel                  string
+	LogFormat                 string
+	Addr                      string
+	DatabaseDSN               string
+	SentryDSN                 string
+	DatabaseMaxOpenConns      int
+	DatabaseMaxIdleConns      int
+	DatabaseConnMaxLifetime   time.Duration
+	SchedulerPlacementTimeout time.Duration
 
 	APIToken           string
 	RunnerJoinSecret   string
@@ -58,6 +62,10 @@ func Load() Config {
 		Addr:                        get("HIVY_MICROSANDBOX_ADDR", ":8080"),
 		DatabaseDSN:                 os.Getenv("HIVY_MICROSANDBOX_DATABASE_DSN"),
 		SentryDSN:                   os.Getenv("HIVY_MICROSANDBOX_SENTRY_DSN"),
+		DatabaseMaxOpenConns:        integer("HIVY_MICROSANDBOX_DATABASE_MAX_OPEN_CONNS", 32),
+		DatabaseMaxIdleConns:        integer("HIVY_MICROSANDBOX_DATABASE_MAX_IDLE_CONNS", 16),
+		DatabaseConnMaxLifetime:     duration("HIVY_MICROSANDBOX_DATABASE_CONN_MAX_LIFETIME", 30*time.Minute),
+		SchedulerPlacementTimeout:   duration("HIVY_MICROSANDBOX_SCHEDULER_PLACEMENT_TIMEOUT", 5*time.Second),
 		APIToken:                    os.Getenv("HIVY_MICROSANDBOX_API_TOKEN"),
 		RunnerJoinSecret:            os.Getenv("HIVY_MICROSANDBOX_RUNNER_JOIN_SECRET"),
 		RunnerAPIToken:              os.Getenv("HIVY_MICROSANDBOX_RUNNER_API_TOKEN"),

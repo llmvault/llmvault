@@ -53,16 +53,7 @@ func (s *Server) createTemplate(w http.ResponseWriter, r *http.Request) {
 	size := resolveTemplateSize(req)
 	commands, _ := json.Marshal(req.Commands)
 
-	var selected model.Runner
-	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		runner, err := selectRunnerForUpdate(tx, size)
-		if err != nil {
-			return err
-		}
-		selected = runner
-		if err := reserveRunner(tx, &selected, size); err != nil {
-			return err
-		}
+	selected, err := reserveRunnerForPlacement(ctx, s.db, size, s.cfg.SchedulerPlacementTimeout, func(tx *gorm.DB, selected model.Runner) error {
 		return tx.Create(&model.Template{
 			ID: id, OrgID: req.OrgID, RunnerID: selected.ID, Name: req.Name,
 			BaseImageRef: req.BaseImageRef, Status: model.TemplateStatusBuilding,

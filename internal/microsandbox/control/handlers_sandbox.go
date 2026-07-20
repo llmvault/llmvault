@@ -134,17 +134,9 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 
 	var sb model.Sandbox
 	var runner model.Runner
-	err = s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		selected, err := selectRunnerForUpdate(tx, size)
-		if err != nil {
-			return err
-		}
-		runner = selected
-		if err := reserveRunner(tx, &runner, size); err != nil {
-			return err
-		}
+	runner, err = reserveRunnerForPlacement(r.Context(), s.db, size, s.cfg.SchedulerPlacementTimeout, func(tx *gorm.DB, selected model.Runner) error {
 		sb = model.Sandbox{
-			ID: id, OrgID: req.OrgID, RunnerID: runner.ID, Name: req.Name, ImageRef: req.ImageRef,
+			ID: id, OrgID: req.OrgID, RunnerID: selected.ID, Name: req.Name, ImageRef: req.ImageRef,
 			Status: model.SandboxStatusCreating, CPU: size.CPU, MemoryMB: size.MemoryMB,
 			DiskGB: size.DiskGB, MetadataJSON: string(metadata),
 			AutoSleepAfterSeconds: req.AutoSleepAfterSeconds, RouteGeneration: 1, ActivityToken: activityToken,
