@@ -8,6 +8,7 @@ import {
 import {
   SlackMemoryPreview,
   SlackReactionMockup,
+  TeamTagUseCases,
   SlackThreadContinuityMockup,
   SlackWatchMockup,
   SlackWorkspaceMockup,
@@ -20,58 +21,37 @@ const routingExamples = [
   { channel: "#product", agent: "Research agent", icon: "search" },
 ] as const
 
-const requestExamples = [
-  {
-    prompt: "@hivy summarize the decision and list the open questions.",
-    result: "Turn a long discussion into a short handoff for the channel.",
-  },
-  {
-    prompt: "@hivy reproduce this bug and tell us where it starts.",
-    result: "Send the assigned agent from the report into its connected tools.",
-  },
-  {
-    prompt:
-      "@hivy compare these requests with what customers asked last month.",
-    result: "Bring the agent's earlier work into the current conversation.",
-  },
-  {
-    prompt: "@hivy take this from here and report back in the thread.",
-    result: "Keep the request, work, and answer in one shared place.",
-  },
-] as const
-
 const tagSteps = [
   {
     number: "01",
-    title: "Receive the mention",
-    description:
-      "Hivy accepts a tag in a configured public or private workspace channel.",
+    title: "Spot the request",
+    description: "A teammate mentions @hivy in a channel you’ve connected.",
   },
   {
     number: "02",
-    title: "Read the thread",
+    title: "Bring the context",
     description:
-      "The agent gets the message, the parent post, and the thread around it.",
+      "Hivy reads the message, its parent post, and the replies around it.",
   },
   {
     number: "03",
-    title: "Run the agent",
+    title: "Do the work",
     description:
-      "Hivy starts or resumes the session tied to that Slack thread.",
+      "The assigned agent opens or resumes the session tied to that thread.",
   },
   {
     number: "04",
-    title: "Reply in place",
+    title: "Answer the thread",
     description:
-      "The final answer returns to the same thread for everyone to see.",
+      "The result comes back to Slack, right beside the original request.",
   },
 ] as const
 
 const controlItems = [
-  { icon: "hash", label: "Per-channel routing" },
-  { icon: "bot", label: "Named agent ownership" },
-  { icon: "shield-check", label: "Public or private channels" },
-  { icon: "history", label: "Thread session history" },
+  { icon: "hash", label: "Routes set by channel" },
+  { icon: "bot", label: "Agents picked by your team" },
+  { icon: "shield-check", label: "Public and private channels" },
+  { icon: "history", label: "History attached to each thread" },
 ] as const
 
 function SectionEyebrow({ children }: { children: ReactNode }) {
@@ -131,30 +111,29 @@ function WorkMemoryMockup() {
             <span className="flex size-8 items-center justify-center rounded-sm bg-surface-secondary">
               <AppIcon icon="brain" size={16} />
             </span>
-            Support agent memory
+            What the Support agent remembers
           </div>
           <div className="mt-8 space-y-3">
             <div className="rounded-sm border border-border bg-background p-4">
               <p className="text-[0.68rem] font-medium tracking-[0.08em] text-muted uppercase">
-                Decision
+                Saved decision
               </p>
               <p className="mt-2 text-sm leading-6">
-                Import jobs must resolve every workspace before creating
-                records.
+                Resolve every workspace before the import creates records.
               </p>
             </div>
             <div className="rounded-sm border border-border bg-background p-4">
               <p className="text-[0.68rem] font-medium tracking-[0.08em] text-muted uppercase">
-                Finding
+                Useful finding
               </p>
               <p className="mt-2 text-sm leading-6">
-                Multi-workspace accounts need a list-aware lookup path.
+                Multi-workspace accounts return a list, not one record.
               </p>
             </div>
           </div>
         </div>
         <p className="mt-10 text-xs leading-5 text-muted">
-          Example memory entries, shown as interface placeholders.
+          The agent can carry these notes into its next Slack request.
         </p>
       </div>
 
@@ -170,13 +149,13 @@ export function TagLandingPage() {
     <main className="marketing-link-scope light min-h-screen bg-background text-foreground">
       <LandingHero
         titleLines={[
-          "Put Hivy to work from Slack.",
-          "Tag it in. Keep the thread moving.",
+          "Bring @hivy into the conversation.",
+          "Keep the work in Slack.",
         ]}
-        description="Assign a Hivy agent to each Slack channel. Tag @hivy in a message or thread, and that agent can read the conversation, do the work, and reply where your team is already talking."
-        primaryAction={{ label: "Start for free", href: "/auth/signup" }}
-        secondaryAction={{ label: "See how it works", href: "#how-it-works" }}
-        placeholderLabel="Hivy Tag in Slack product screenshot"
+        description="Assign an agent to a channel, then mention @hivy, add a chosen reaction, or let the agent watch for work. It reads the conversation, does the job with its tools and knowledge, and reports back in the same thread."
+        primaryAction={{ label: "Connect Slack", href: "/auth/signup" }}
+        secondaryAction={{ label: "Watch @hivy work", href: "#how-it-works" }}
+        placeholderLabel="Hivy working inside a Slack channel"
       />
 
       <section
@@ -185,16 +164,16 @@ export function TagLandingPage() {
       >
         <div className="grid items-end gap-8 lg:grid-cols-[0.85fr_1.15fr]">
           <div>
-            <SectionEyebrow>Hivy in Slack</SectionEyebrow>
+            <SectionEyebrow>Work stays with the conversation</SectionEyebrow>
             <h2 className="mt-5 max-w-[620px] text-[clamp(2rem,4vw,4rem)] leading-[0.98] font-medium tracking-[-0.055em]">
-              A Slack message becomes a working session.
+              Stop carrying Slack requests into another app.
             </h2>
           </div>
           <p className="max-w-[620px] text-[1.05rem] leading-7 text-muted lg:justify-self-end">
-            Hivy pulls in the message and its thread, hands it to the agent
-            assigned to that channel, and posts the answer back in place. The
-            Hivy session behind it can use the same model, tools, and knowledge
-            as a session started in the app.
+            The request already has names, screenshots, decisions, and replies
+            around it. Mention @hivy and the assigned agent gets that context,
+            works with the same tools and knowledge it uses in Hivy, then posts
+            the answer where everyone can find it.
           </p>
         </div>
         <div className="mt-14 bg-surface-secondary p-4 md:p-10 lg:p-16">
@@ -207,24 +186,24 @@ export function TagLandingPage() {
       <section className="mx-auto mt-40 w-[calc(100%-2rem)] max-w-[1300px]">
         <div className="grid gap-12 lg:grid-cols-[0.72fr_1.28fr] lg:items-center lg:gap-16">
           <div className="max-w-[540px]">
-            <SectionEyebrow>Channel watch</SectionEyebrow>
+            <SectionEyebrow>Always-on channel watch</SectionEyebrow>
             <h2 className="mt-5 text-[clamp(2rem,3.4vw,3.35rem)] leading-none font-medium tracking-[-0.05em]">
-              Put a channel on watch.
+              Some work shouldn’t wait for a mention.
             </h2>
             <p className="mt-7 text-base leading-7 text-muted">
-              Assign an agent to watch a Slack channel and give it standing
-              instructions. It follows new messages, groups repeated work, takes
-              allowed actions, and posts when the instruction calls for it.
+              Give an agent a standing instruction for one channel. It can
+              follow new messages, group repeated requests, take permitted
+              actions, and post when the instruction calls for a response.
             </p>
             <div className="mt-9 flex items-start gap-4 border-t border-border pt-6">
               <AppIcon icon="eye" size={21} className="mt-0.5 text-muted" />
               <div>
                 <p className="font-medium">
-                  No one has to remember the mention.
+                  The channel keeps moving when nobody tags the bot.
                 </p>
                 <p className="mt-1 text-sm leading-6 text-muted">
-                  The assigned agent keeps the standing job in that channel
-                  until an admin changes or stops it.
+                  The watch stays with the channel until an admin changes or
+                  stops it.
                 </p>
               </div>
             </div>
@@ -237,26 +216,23 @@ export function TagLandingPage() {
         <div className="grid gap-12 lg:grid-cols-[1.28fr_0.72fr] lg:items-center lg:gap-16">
           <SlackReactionMockup />
           <div className="max-w-[540px] lg:order-2">
-            <SectionEyebrow>Reaction triggers</SectionEyebrow>
+            <SectionEyebrow>Reaction handoffs</SectionEyebrow>
             <h2 className="mt-5 text-[clamp(2rem,3.4vw,3.35rem)] leading-none font-medium tracking-[-0.05em]">
-              One emoji can start the work.
+              Turn a reaction into a handoff.
             </h2>
             <p className="mt-7 text-base leading-7 text-muted">
-              Choose a channel, an emoji, the agent, and its instructions. When
-              a teammate adds that reaction, Hivy reads the message and thread,
-              starts the assigned agent, then replies in the same conversation.
+              Your team already uses reactions to say “I’m looking,” “please
+              review,” or “take this.” Choose one emoji and tell Hivy which
+              agent should run when that reaction appears.
             </p>
             <div className="mt-9 flex items-start gap-4 border-t border-border pt-6">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-sm border border-border bg-surface text-sm">
                 👀
               </span>
               <div>
-                <p className="font-medium">
-                  Use the signal your team already knows.
-                </p>
+                <p className="font-medium">No new command to teach the team.</p>
                 <p className="mt-1 text-sm leading-6 text-muted">
-                  Set a different emoji and instruction for each Slack reaction
-                  automation.
+                  Each reaction rule can have its own channel, agent, and job.
                 </p>
               </div>
             </div>
@@ -267,22 +243,22 @@ export function TagLandingPage() {
       <section className="mx-auto mt-40 w-[calc(100%-2rem)] max-w-[1300px]">
         <div className="grid gap-14 lg:grid-cols-2 lg:items-center">
           <div className="max-w-[560px]">
-            <SectionEyebrow>Channel routing</SectionEyebrow>
+            <SectionEyebrow>Channel ownership</SectionEyebrow>
             <h2 className="mt-5 text-[clamp(2rem,3.4vw,3.35rem)] leading-none font-medium tracking-[-0.05em]">
-              Give every channel the right agent.
+              Match each channel with an agent that knows the job.
             </h2>
             <p className="mt-7 text-base leading-7 text-muted">
-              Pick one agent for a configured Slack channel. That same agent can
-              cover other channels too, so its job follows your team’s actual
-              workflow instead of a separate inbox.
+              Product questions should reach the Product agent; incidents should
+              reach Reliability. You choose the route once, and an agent can
+              cover more than one channel when the work overlaps.
             </p>
             <div className="mt-9 flex items-start gap-4 border-t border-border pt-6">
               <AppIcon icon="route" size={21} className="mt-0.5 text-muted" />
               <div>
-                <p className="font-medium">The route stays predictable.</p>
+                <p className="font-medium">One route. No guessing.</p>
                 <p className="mt-1 text-sm leading-6 text-muted">
-                  A channel points to one configured agent. Existing threads
-                  stay with the agent that started the work.
+                  Each channel points to one configured agent, while an existing
+                  thread stays with the agent that picked it up.
                 </p>
               </div>
             </div>
@@ -295,10 +271,10 @@ export function TagLandingPage() {
         <div className="border-y border-border">
           <div className="grid md:grid-cols-[0.72fr_repeat(4,1fr)]">
             <div className="flex flex-col justify-between border-b border-border p-6 md:border-r md:border-b-0 md:p-8">
-              <SectionEyebrow>From tag to answer</SectionEyebrow>
+              <SectionEyebrow>After someone mentions @hivy</SectionEyebrow>
               <p className="mt-10 text-sm leading-6 text-muted">
-                One mention opens a shared path from Slack to the assigned Hivy
-                agent.
+                One mention carries the request into the assigned agent and
+                brings the result back.
               </p>
             </div>
             {tagSteps.map((step, index) => (
@@ -328,20 +304,20 @@ export function TagLandingPage() {
       <section className="mx-auto mt-40 w-[calc(100%-2rem)] max-w-[1300px]">
         <div className="grid gap-10 lg:grid-cols-[1fr_1.55fr] lg:gap-16">
           <div className="lg:pt-8">
-            <SectionEyebrow>Thread continuity</SectionEyebrow>
+            <SectionEyebrow>Follow-up questions</SectionEyebrow>
             <h2 className="mt-5 text-[clamp(2rem,3.4vw,3.35rem)] leading-none font-medium tracking-[-0.05em]">
-              Keep talking. Hivy keeps the thread.
+              Follow up without starting over.
             </h2>
             <p className="mt-7 max-w-[48ch] text-base leading-7 text-muted">
-              The first tag binds the Slack thread to one Hivy session. Follow
-              up in that thread and the same agent continues with the same
-              conversation instead of starting over.
+              The first mention connects the Slack thread to one Hivy session.
+              Ask another question in that thread and the same agent continues
+              with the conversation and work it already completed.
             </p>
             <div className="mt-10 flex items-center gap-3 text-sm">
               <span className="flex size-9 items-center justify-center rounded-sm border border-border bg-surface">
                 <AppIcon icon="messages-square" size={17} />
               </span>
-              One Slack thread. One active Hivy session.
+              Same thread, same agent session.
             </div>
           </div>
           <SlackThreadContinuityMockup />
@@ -351,54 +327,47 @@ export function TagLandingPage() {
       <section className="mx-auto mt-40 w-[calc(100%-2rem)] max-w-[1300px]">
         <div className="mb-12 grid gap-8 lg:grid-cols-2 lg:items-end">
           <div>
-            <SectionEyebrow>Agent memory</SectionEyebrow>
+            <SectionEyebrow>What the agent remembers</SectionEyebrow>
             <h2 className="mt-5 text-[clamp(2rem,3.4vw,3.35rem)] leading-none font-medium tracking-[-0.05em]">
-              The next tag starts with what the agent learned.
+              Tomorrow’s answer remembers today’s work.
             </h2>
           </div>
           <p className="max-w-[560px] text-base leading-7 text-muted lg:justify-self-end">
-            Hivy reflects on completed work and stores useful decisions,
-            findings, conventions, and preferences for the agent. Future
-            sessions can also draw on its recent work, including sessions that
-            began in Slack.
+            After a job, the agent can save the decisions, findings,
+            conventions, and preferences worth keeping. Mention @hivy later and
+            the next session can draw on those notes and the agent’s recent
+            work.
           </p>
         </div>
         <WorkMemoryMockup />
       </section>
 
       <section className="mx-auto mt-40 w-[calc(100%-2rem)] max-w-[1300px]">
-        <SectionEyebrow>What to hand off</SectionEyebrow>
-        <div className="mt-5 grid gap-10 lg:grid-cols-[0.75fr_1.25fr]">
-          <h2 className="max-w-[520px] text-[clamp(2rem,3.4vw,3.35rem)] leading-none font-medium tracking-[-0.05em]">
-            If the work starts in Slack, let it stay there.
+        <div className="mx-auto max-w-[820px] text-center">
+          <h2 className="text-[clamp(2.35rem,4.5vw,4.5rem)] leading-[0.95] font-medium tracking-[-0.055em]">
+            How teams use Hivy Tag
           </h2>
-          <div className="border-t border-border">
-            {requestExamples.map((example) => (
-              <div
-                key={example.prompt}
-                className="grid gap-4 border-b border-border py-7 md:grid-cols-[1fr_0.8fr] md:gap-10"
-              >
-                <p className="text-[1.05rem] leading-6 font-medium tracking-[-0.02em]">
-                  {example.prompt}
-                </p>
-                <p className="text-sm leading-6 text-muted">{example.result}</p>
-              </div>
-            ))}
-          </div>
+          <p className="mx-auto mt-6 max-w-[650px] text-[clamp(1rem,1.6vw,1.35rem)] leading-8 text-muted">
+            Hivy agents in Slack can return the work each team needs, right in
+            the thread.
+          </p>
+        </div>
+        <div className="mt-16">
+          <TeamTagUseCases />
         </div>
       </section>
 
       <section className="mx-auto mt-40 w-[calc(100%-2rem)] max-w-[1300px] overflow-hidden rounded-sm border border-border bg-surface">
         <div className="grid lg:grid-cols-[1.05fr_0.95fr]">
           <div className="p-7 md:p-12 lg:p-16">
-            <SectionEyebrow>Controlled by your team</SectionEyebrow>
+            <SectionEyebrow>You choose the boundaries</SectionEyebrow>
             <h2 className="mt-5 max-w-[620px] text-[clamp(2rem,3.4vw,3.35rem)] leading-none font-medium tracking-[-0.05em]">
-              Hivy answers where you put it.
+              @hivy only works where you’ve assigned it.
             </h2>
             <p className="mt-7 max-w-[560px] text-base leading-7 text-muted">
-              Configure the connection, channel, team, and agent in Hivy.
-              Mentions in public or private workspace channels use that route.
-              If a channel has no route, Hivy does not start an agent run there.
+              Your admins choose the Slack connection, channel, team, and agent.
+              Mentions in public or private channels follow that route; without
+              one, @hivy won’t start an agent run.
             </p>
           </div>
           <div className="grid grid-cols-2 border-t border-border bg-surface-secondary lg:border-t-0 lg:border-l">
@@ -424,19 +393,19 @@ export function TagLandingPage() {
           <AppIcon icon="slack" size={24} />
         </span>
         <h2 className="mt-8 max-w-[760px] text-[clamp(2.3rem,4.5vw,4.25rem)] leading-[0.95] font-medium tracking-[-0.055em]">
-          Your next agent request can start in Slack.
+          Your next handoff can stay in Slack.
         </h2>
         <p className="mt-6 max-w-[540px] text-base leading-7 text-muted">
-          Create your Hivy workspace, connect Slack, and choose the agent for
-          each channel your team wants to use.
+          Create a Hivy workspace, connect Slack, and assign the agent that
+          should answer in each channel.
         </p>
         <div className="mt-8 flex items-center gap-2">
           <Link href="/auth/signup">
-            <Button size="sm">Start for free</Button>
+            <Button size="sm">Connect Slack</Button>
           </Link>
           <Link href="/docs">
             <Button size="sm" variant="ghost">
-              Read the docs
+              Read the setup guide
             </Button>
           </Link>
         </div>

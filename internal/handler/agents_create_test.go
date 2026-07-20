@@ -21,11 +21,12 @@ import (
 
 type createAgentResponse struct {
 	Agent struct {
-		ID        string             `json:"id"`
-		Name      string             `json:"name"`
-		Model     string             `json:"model"`
-		Tools     map[string]any     `json:"tools"`
-		SubAgents []subAgentRespJSON `json:"sub_agents"`
+		ID          string             `json:"id"`
+		Name        string             `json:"name"`
+		Model       string             `json:"model"`
+		SandboxSize string             `json:"sandbox_size"`
+		Tools       map[string]any     `json:"tools"`
+		SubAgents   []subAgentRespJSON `json:"sub_agents"`
 	} `json:"agent"`
 }
 
@@ -99,6 +100,9 @@ func TestCreateAgent_MinimalDefaultsFullToolset(t *testing.T) {
 	if resp.Agent.Model != agentruntime.DefaultAgentModel {
 		t.Fatalf("model = %q, want default", resp.Agent.Model)
 	}
+	if resp.Agent.SandboxSize != "nano" {
+		t.Fatalf("sandbox_size = %q, want nano", resp.Agent.SandboxSize)
+	}
 	if resp.Agent.SubAgents == nil {
 		t.Fatalf("sub_agents should be an empty array, got null")
 	}
@@ -115,6 +119,9 @@ func TestCreateAgent_MinimalDefaultsFullToolset(t *testing.T) {
 	}
 	if stored.ParentAgentID != nil {
 		t.Fatalf("parent_agent_id = %v, want nil", stored.ParentAgentID)
+	}
+	if stored.SandboxSize != "nano" {
+		t.Fatalf("stored sandbox_size = %q, want nano", stored.SandboxSize)
 	}
 }
 

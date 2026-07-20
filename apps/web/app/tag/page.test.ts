@@ -7,16 +7,32 @@ describe("TagPage", () => {
   it("renders the Slack tagging landing page and its primary journeys", () => {
     const html = renderToString(React.createElement(TagPage))
 
-    expect(html).toContain("Put Hivy to work from Slack.")
-    expect(html).toContain("Tag it in. Keep the thread moving.")
-    expect(html).toContain("Hivy Tag in Slack product screenshot, placeholder")
-    expect(html).toContain("A Slack message becomes a working session.")
-    expect(html).toContain("Put a channel on watch.")
-    expect(html).toContain("One emoji can start the work.")
-    expect(html).toContain("Give every channel the right agent.")
-    expect(html).toContain("The next tag starts with what the agent learned.")
-    expect(html).toContain("Hivy answers where you put it.")
-    expect(html).toContain("Your next agent request can start in Slack.")
+    expect(html).toContain("Bring @hivy into the conversation.")
+    expect(html).toContain("Keep the work in Slack.")
+    expect(html).toContain("Hivy working inside a Slack channel, placeholder")
+    expect(html).toContain("Stop carrying Slack requests into another app.")
+    expect(html).toContain("Some work shouldn’t wait for a mention.")
+    expect(html).toContain("Turn a reaction into a handoff.")
+    expect(html).toContain(
+      "Match each channel with an agent that knows the job."
+    )
+    expect(html).toContain("Tomorrow’s answer remembers today’s work.")
+    expect(html).toContain("How teams use Hivy Tag")
+    expect(html).toContain(
+      "Hivy agents in Slack can return the work each team needs, right in the thread."
+    )
+    expect(html).toContain("Customer support")
+    expect(html).toContain("Product")
+    expect(html).toContain("Finance")
+    expect(html).toContain("Revenue")
+    expect(html).toContain("The regression starts in workspace_lookup.")
+    expect(html).toContain("Suggested fix")
+    expect(html).toContain('aria-label="Teams using Hivy Tag"')
+    expect(html).not.toContain(
+      "Hand off the work without writing a prompt spec."
+    )
+    expect(html).toContain("@hivy only works where you’ve assigned it.")
+    expect(html).toContain("Your next handoff can stay in Slack.")
     expect(html).toContain('href="/auth/signup"')
     expect(html).toContain('href="#how-it-works"')
     expect(html).toContain("marketing-link-scope")
@@ -28,6 +44,8 @@ describe("TagPage", () => {
     expect(html).toContain('src="/logo.png"')
     expect(html).toContain("hivy is typing")
     expect(html).toContain("Reply…")
+    expect(html).toContain("Connect Slack")
+    expect(html).toContain("Read the setup guide")
     expect(html).not.toContain("@Hivy")
     expect(html).toContain("@hivy")
   })

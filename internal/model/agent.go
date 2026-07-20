@@ -38,7 +38,7 @@ type Agent struct {
 	Icon                string           `gorm:"type:text;not null;default:''"`
 	IsDefault           bool             `gorm:"not null;default:false;index"`
 	SandboxImage        string           `gorm:"type:text;not null;default:'default'"`
-	SandboxSize         string           `gorm:"type:text;not null;default:'small'"`
+	SandboxSize         string           `gorm:"type:text;not null;default:'nano'"`
 	SandboxTemplateID   *uuid.UUID       `gorm:"type:uuid"`
 	SandboxTemplate     *SandboxTemplate `gorm:"foreignKey:SandboxTemplateID;constraint:OnDelete:SET NULL"`
 

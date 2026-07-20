@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -62,24 +63,34 @@ func selectRunnerForUpdate(tx *gorm.DB, size api.Size) (model.Runner, error) {
 		return model.Runner{}, err
 	}
 	var best *model.Runner
-	var bestFree int
+	bestLoad := math.Inf(1)
 	for i := range runners {
 		r := &runners[i]
 		if !runnerHasCapacity(*r, size) {
 			continue
 		}
-		cpuLimit := overcommitLimit(r.TotalCPU, r.CPUOvercommit, defaultCPUOvercommit)
-		memoryLimit := overcommitLimit(r.TotalMemoryMB, r.MemoryOvercommit, defaultMemoryOvercommit)
-		free := (cpuLimit - r.ReservedCPU - size.CPU) + ((memoryLimit - r.ReservedMemoryMB - size.MemoryMB) / 1024)
-		if best == nil || free < bestFree {
+		load := runnerProspectiveActiveLoad(*r, size)
+		if best == nil || load < bestLoad || (load == bestLoad && r.ID < best.ID) {
 			best = r
-			bestFree = free
+			bestLoad = load
 		}
 	}
 	if best == nil {
 		return model.Runner{}, fmt.Errorf("no runner has enough capacity")
 	}
 	return *best, nil
+}
+
+// runnerProspectiveActiveLoad scores the dominant CPU or memory utilization
+// after placing size. Disk remains a hard capacity gate in runnerHasCapacity,
+// but does not skew cold starts toward one runner because stopped sandboxes keep
+// their persistent disk reservation after releasing active CPU and memory.
+func runnerProspectiveActiveLoad(runner model.Runner, size api.Size) float64 {
+	cpuLimit := overcommitLimit(runner.TotalCPU, runner.CPUOvercommit, defaultCPUOvercommit)
+	memoryLimit := overcommitLimit(runner.TotalMemoryMB, runner.MemoryOvercommit, defaultMemoryOvercommit)
+	cpuLoad := float64(runner.ReservedCPU+size.CPU) / float64(cpuLimit)
+	memoryLoad := float64(runner.ReservedMemoryMB+size.MemoryMB) / float64(memoryLimit)
+	return math.Max(cpuLoad, memoryLoad)
 }
 
 func runnerHasCapacity(runner model.Runner, size api.Size) bool {

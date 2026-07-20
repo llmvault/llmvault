@@ -11,7 +11,7 @@ type TemplateSize struct {
 }
 
 const (
-	DefaultAgentSandboxSize     = "small"
+	DefaultAgentSandboxSize     = "nano"
 	DefaultHivyAgentSandboxSize = "nano"
 )
 

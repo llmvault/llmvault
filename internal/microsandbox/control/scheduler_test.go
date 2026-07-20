@@ -10,7 +10,7 @@ import (
 	"github.com/usehivy/hivy/internal/microsandbox/model"
 )
 
-func TestSelectRunnerUsesTightestFitWithOvercommit(t *testing.T) {
+func TestSelectRunnerUsesLowestNormalizedActiveLoad(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:scheduler-fit?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
@@ -30,13 +30,50 @@ func TestSelectRunnerUsesTightestFitWithOvercommit(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if selected.ID != "small" {
-			t.Fatalf("selected runner = %q, want small", selected.ID)
+		if selected.ID != "big" {
+			t.Fatalf("selected runner = %q, want big", selected.ID)
 		}
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSelectRunnerSpreadsActiveReservationsAcrossHealthyRunners(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:scheduler-spread?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Runner{}); err != nil {
+		t.Fatal(err)
+	}
+	runners := []model.Runner{
+		{ID: "runner-a", Name: "runner-a", APIURL: "http://runner-a", AuthTokenHash: []byte("hash"), Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 200},
+		{ID: "runner-b", Name: "runner-b", APIURL: "http://runner-b", AuthTokenHash: []byte("hash"), Status: model.RunnerStatusHealthy, TotalCPU: 8, TotalMemoryMB: 16384, TotalDiskGB: 200},
+	}
+	if err := db.Create(&runners).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	size := api.Size{CPU: 1, MemoryMB: 1024, DiskGB: 5}
+	selectedIDs := make([]string, 0, 2)
+	for range 2 {
+		err := db.Transaction(func(tx *gorm.DB) error {
+			selected, err := selectRunnerForUpdate(tx, size)
+			if err != nil {
+				return err
+			}
+			selectedIDs = append(selectedIDs, selected.ID)
+			return reserveRunner(tx, &selected, size)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if selectedIDs[0] == selectedIDs[1] {
+		t.Fatalf("selected runners = %v, want consecutive cold starts spread across both runners", selectedIDs)
 	}
 }
 

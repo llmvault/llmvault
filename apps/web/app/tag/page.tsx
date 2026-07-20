@@ -2,9 +2,9 @@ import type { Metadata } from "next"
 import { TagLandingPage } from "./_components/tag-landing-page"
 
 export const metadata: Metadata = {
-  title: "Tag Hivy in Slack",
+  title: "Put Hivy to work in Slack",
   description:
-    "Assign Hivy agents to Slack channels, tag Hivy in a thread, and keep the work moving without leaving the conversation.",
+    "Mention @hivy, react to a message, or assign an agent to watch a Slack channel. Hivy does the work and answers in the same thread.",
 }
 
 export default function TagPage() {

@@ -1,6 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
+import { Tabs } from "@heroui/react"
 import { motion, MotionConfig, type Variants } from "motion/react"
 import { AppIcon } from "@/components/icon"
 import { LogoMark } from "@/components/logo"
@@ -219,22 +220,17 @@ function SlackChrome({
   channel,
   channelDescription,
   activeChannel = channel,
+  channels = ["announcements", "product", "product-support", "customer-voice"],
   focused = false,
   children,
 }: {
   channel: string
   channelDescription: string
   activeChannel?: string
+  channels?: readonly string[]
   focused?: boolean
   children: ReactNode
 }) {
-  const channels = [
-    "announcements",
-    "product",
-    "product-support",
-    "customer-voice",
-  ]
-
   return (
     <MotionConfig reducedMotion="user">
       <motion.div
@@ -359,15 +355,16 @@ export function SlackWorkspaceMockup() {
       >
         <p className="text-[16px] font-bold"># product-support</p>
         <p className="mt-1 text-[10px] text-[#616061]">
-          Share support issues and tag hivy when an agent should take over.
+          Bring support problems here. Mention hivy when the agent should take
+          over.
         </p>
       </motion.div>
       <div className="py-2">
         <motion.div variants={reveal} custom={0.45}>
           <Message person={people.maya} time="10:42 AM">
-            The import fails when the customer has more than one workspace. I
-            added the error and a screenshot above. <SlackMention /> can you
-            trace this and tell us what changed?
+            An import fails whenever the account has more than one workspace. I
+            added the error above. <SlackMention /> can you trace the latest
+            deploy and find where the response changed?
           </Message>
         </motion.div>
         <AnimatedAgentReply
@@ -378,14 +375,14 @@ export function SlackWorkspaceMockup() {
                 Support agent
               </span>
               <span className="rounded-[4px] border border-[#dddddd] px-2 py-1 text-[9px] text-[#616061]">
-                Working in this thread
+                Session linked
               </span>
             </div>
           }
         >
-          I found the failing path. The workspace lookup now returns a list, but
-          the import job still reads one record. I’m checking the last
-          deployment and will report back here.
+          Found it. The workspace lookup now returns a list, but the import job
+          still expects one record. I’m checking the affected jobs and will post
+          the fix here.
         </AnimatedAgentReply>
       </div>
       <Composer label="Message #product-support" />
@@ -412,7 +409,7 @@ export function SlackWatchMockup() {
               hivy is watching #customer-voice
             </p>
             <p className="mt-0.5 truncate text-[9px] text-[#41697c]">
-              Group repeated requests and flag anything that needs a decision.
+              Group repeated requests and post when product needs to decide.
             </p>
           </div>
         </div>
@@ -428,13 +425,12 @@ export function SlackWatchMockup() {
       <div className="py-2">
         <motion.div variants={reveal} custom={0.42}>
           <Message person={people.leah} time="9:18 AM">
-            Two customers asked for approval history in exported reports this
-            morning.
+            Two customers asked for approval history in exported reports today.
           </Message>
         </motion.div>
         <motion.div variants={reveal} custom={0.85}>
           <Message person={people.omar} time="9:31 AM">
-            We heard the same request on yesterday’s onboarding call.
+            The same request came up during yesterday’s onboarding call.
           </Message>
         </motion.div>
         <AnimatedAgentReply
@@ -446,8 +442,8 @@ export function SlackWatchMockup() {
             </span>
           }
         >
-          This request has now appeared in support and onboarding. I added it to
-          today’s feedback brief and tagged the product owner for a decision.
+          This has come up in support and onboarding. I added both sources to
+          today’s feedback brief and asked the product owner for a decision.
         </AnimatedAgentReply>
       </div>
     </SlackChrome>
@@ -497,8 +493,8 @@ export function SlackReactionMockup() {
               </div>
             }
           >
-            New SSO setup is failing after the domain verification step. Error
-            screenshot is attached.
+            SSO setup stops after domain verification. The error and request ID
+            are attached.
           </Message>
         </motion.div>
         <motion.div
@@ -506,12 +502,12 @@ export function SlackReactionMockup() {
           custom={1.22}
           className="mx-4 my-1.5 flex items-center gap-2 border-y border-[#eeeeee] py-2 text-[9.5px] text-[#616061]"
         >
-          <HivyAvatar size="small" /> Reaction matched. hivy started the Support
-          agent with this message and its thread.
+          <HivyAvatar size="small" /> Reaction matched. hivy handed this message
+          and its thread to the Support agent.
         </motion.div>
         <AnimatedAgentReply time="2:07 PM" delay={2.45}>
-          I picked this up from the 👀 reaction. I’m checking the verification
-          callback and will reply in this thread with what failed.
+          I picked this up from the 👀 reaction. I’m tracing the verification
+          callback now and will put the cause in this thread.
         </AnimatedAgentReply>
       </div>
     </SlackChrome>
@@ -529,8 +525,8 @@ export function SlackThreadContinuityMockup() {
         <div className="border-b border-[#dddddd] bg-[#fefefe] py-3 md:border-r md:border-b-0">
           <motion.div variants={reveal} custom={0.2}>
             <Message person={people.maya} time="10:42 AM">
-              The import still fails for multi-workspace accounts.{" "}
-              <SlackMention /> can you take this?
+              Multi-workspace imports are still failing. <SlackMention /> can
+              you take this from here?
             </Message>
           </motion.div>
           <motion.div
@@ -576,8 +572,8 @@ export function SlackThreadContinuityMockup() {
           </div>
           <div className="border-b border-[#eeeeee] py-1.5">
             <Message person={people.maya} time="10:42 AM" compact>
-              The import still fails for multi-workspace accounts.{" "}
-              <SlackMention /> can you take this?
+              Multi-workspace imports are still failing. <SlackMention /> can
+              you take this from here?
             </Message>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 text-[9px] text-[#616061] before:h-px before:flex-1 before:bg-[#dddddd] after:h-px after:flex-1 after:bg-[#dddddd]">
@@ -585,16 +581,16 @@ export function SlackThreadContinuityMockup() {
           </div>
           <motion.div variants={reveal} custom={1.02}>
             <Message time="10:43 AM" app compact>
-              I found the failing lookup and started a fix.
+              I found the lookup that breaks and started the fix.
             </Message>
           </motion.div>
           <motion.div variants={reveal} custom={1.45}>
             <Message person={people.maya} time="10:51 AM" compact>
-              Does this affect imports that started yesterday?
+              What about the imports that started yesterday?
             </Message>
           </motion.div>
           <AnimatedAgentReply time="10:52 AM" delay={2.65}>
-            Yes. I’m checking those jobs in the same session now.
+            They use the same path. I’m checking those jobs in this session now.
           </AnimatedAgentReply>
           <Composer label="Reply…" />
         </motion.div>
@@ -625,16 +621,248 @@ export function SlackMemoryPreview() {
         <div className="py-2">
           <motion.div variants={reveal} custom={0.3}>
             <Message person={people.maya} time="11:08 AM">
-              <SlackMention /> we’re changing the importer again. What should we
-              avoid breaking?
+              <SlackMention /> we’re changing the importer again. What did we
+              learn from the last failure?
             </Message>
           </motion.div>
           <AnimatedAgentReply time="11:09 AM" delay={1.7}>
-            Keep the workspace lookup list-aware. The last failure came from
-            treating a multi-workspace account as one record.
+            Keep the workspace lookup list-aware. Last time, the job treated a
+            multi-workspace response as one record and broke every later step.
           </AnimatedAgentReply>
         </div>
       </motion.div>
     </MotionConfig>
+  )
+}
+
+const teamUseCases = [
+  {
+    id: "support",
+    label: "Customer support",
+    icon: "headset",
+    title: "Find the failure while the report is still fresh.",
+    description:
+      "A Support agent can read the report, inspect the connected systems, and return the cause with a fix your team can act on.",
+    agent: "Support agent",
+    trigger: "Mention in #support-escalations",
+    channel: "support-escalations",
+    channelDescription: "Customer issues that need investigation",
+    channels: [
+      "support-triage",
+      "support-escalations",
+      "customer-voice",
+      "engineering",
+    ],
+    person: people.maya,
+    time: "10:42 AM",
+    replyTime: "10:43 AM",
+    prompt:
+      "compare this import error with the last working deploy and tell me what changed.",
+    answerLead: "The regression starts in workspace_lookup.",
+    answerDetails: [
+      "The July 18 deploy changed the response from one workspace to Workspace[].",
+      "run_import still reads .id directly. Select the matched workspace before creating the import.",
+    ],
+    outputs: ["Root cause", "Suggested fix"],
+  },
+  {
+    id: "product",
+    label: "Product",
+    icon: "search",
+    title: "Turn a long feedback thread into a product decision.",
+    description:
+      "The Product agent can compare what customers said, separate the repeated need from the requested solution, and leave the open question in view.",
+    agent: "Product agent",
+    trigger: "Mention in #customer-voice",
+    channel: "customer-voice",
+    channelDescription: "Customer feedback and product requests",
+    channels: [
+      "product",
+      "customer-voice",
+      "design-research",
+      "product-releases",
+    ],
+    person: people.leah,
+    time: "1:16 PM",
+    replyTime: "1:17 PM",
+    prompt:
+      "turn the export feedback in this thread into a product decision. What repeats, and what should we build first?",
+    answerLead: "The repeated need is approval history in exported reports.",
+    answerDetails: [
+      "Smallest useful scope: add approver, approval time, and final status to CSV and PDF exports.",
+      "Decision still needed: whether rejected approvals should include reviewer notes.",
+    ],
+    outputs: ["Repeated need", "Open decision"],
+  },
+  {
+    id: "finance",
+    label: "Finance",
+    icon: "chart-spline",
+    title: "Explain a cost change before someone builds a spreadsheet.",
+    description:
+      "The Finance agent can compare usage, schedules, and provider costs, then point to the operating change behind the bill.",
+    agent: "Finance agent",
+    trigger: "Mention in #finance",
+    channel: "finance",
+    channelDescription: "Budgets, invoices, and usage reviews",
+    channels: ["finance", "billing", "procurement", "leadership"],
+    person: people.omar,
+    time: "9:05 AM",
+    replyTime: "9:06 AM",
+    prompt:
+      "why did model spend jump this week? Compare usage with last week and call out the driver.",
+    answerLead:
+      "The increase comes from Support Agent sessions, not higher model prices.",
+    answerDetails: [
+      "Average tokens per session stayed flat while the number of sessions increased.",
+      "The main change is ticket triage running every hour. Moving it to every four hours removes most of the extra runs.",
+    ],
+    outputs: ["Cost driver", "Recommended change"],
+  },
+  {
+    id: "revenue",
+    label: "Revenue",
+    icon: "presentation",
+    title: "Leave the account thread with the follow-up ready.",
+    description:
+      "The Revenue agent can bring call notes and the current Slack thread together, identify what still blocks the deal, and draft the next message.",
+    agent: "Revenue agent",
+    trigger: "Mention in #revenue-ops",
+    channel: "revenue-ops",
+    channelDescription: "Account follow-ups, handoffs, and deal support",
+    channels: ["sales", "revenue-ops", "customer-success", "deal-desk"],
+    person: people.jon,
+    time: "3:24 PM",
+    replyTime: "3:25 PM",
+    prompt:
+      "prepare the follow-up for this account. Pull the blockers from this thread and our last call.",
+    answerLead:
+      "Two blockers remain: SSO domain verification and approval-history exports.",
+    answerDetails: [
+      "Send the security setup guide today. Hold the expansion quote until Product confirms export timing.",
+      "Draft reply: I attached the SSO steps and asked Product for the export date. I’ll update you here when it’s confirmed.",
+    ],
+    outputs: ["Blockers", "Draft follow-up"],
+  },
+] as const
+
+type TeamUseCase = (typeof teamUseCases)[number]
+
+function TeamSlackScene({ useCase }: { useCase: TeamUseCase }) {
+  return (
+    <SlackChrome
+      focused
+      channel={useCase.channel}
+      channelDescription={useCase.channelDescription}
+      channels={useCase.channels}
+    >
+      <motion.div
+        variants={reveal}
+        custom={0.12}
+        className="border-b border-[#eeeeee] px-4 py-3"
+      >
+        <p className="text-[16px] font-bold"># {useCase.channel}</p>
+        <p className="mt-1 text-[10px] text-[#616061]">
+          Example conversation with the {useCase.agent.toLowerCase()} assigned
+          to this channel.
+        </p>
+      </motion.div>
+      <div className="py-2">
+        <motion.div variants={reveal} custom={0.35}>
+          <Message person={useCase.person} time={useCase.time}>
+            <SlackMention /> {useCase.prompt}
+          </Message>
+        </motion.div>
+        <AnimatedAgentReply
+          time={useCase.replyTime}
+          delay={1.55}
+          footer={
+            <div className="flex flex-wrap gap-1.5">
+              {useCase.outputs.map((output) => (
+                <span
+                  key={output}
+                  className="rounded-[4px] border border-[#dddddd] px-2 py-1 text-[9px] text-[#616061]"
+                >
+                  {output}
+                </span>
+              ))}
+            </div>
+          }
+        >
+          <p className="font-medium">{useCase.answerLead}</p>
+          <ul className="mt-1.5 space-y-1">
+            {useCase.answerDetails.map((detail) => (
+              <li key={detail} className="flex gap-2">
+                <span aria-hidden="true" className="text-[#616061]">
+                  •
+                </span>
+                <span>{detail}</span>
+              </li>
+            ))}
+          </ul>
+        </AnimatedAgentReply>
+      </div>
+      <Composer label={`Message #${useCase.channel}`} />
+    </SlackChrome>
+  )
+}
+
+export function TeamTagUseCases() {
+  return (
+    <Tabs variant="primary" defaultSelectedKey="support" className="w-full">
+      <Tabs.ListContainer className="mx-auto max-w-full overflow-x-auto">
+        <Tabs.List
+          aria-label="Teams using Hivy Tag"
+          className="w-fit min-w-[620px]"
+        >
+          {teamUseCases.map((useCase) => (
+            <Tabs.Tab id={useCase.id} key={useCase.id}>
+              <span className="flex items-center justify-center gap-2 whitespace-nowrap">
+                <AppIcon icon={useCase.icon} size={15} />
+                {useCase.label}
+              </span>
+            </Tabs.Tab>
+          ))}
+        </Tabs.List>
+      </Tabs.ListContainer>
+
+      {teamUseCases.map((useCase) => (
+        <Tabs.Panel id={useCase.id} key={useCase.id} className="mt-9 p-0">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: easeOut }}
+            className="grid min-h-[620px] items-center gap-8 overflow-hidden rounded-sm bg-accent-soft p-4 sm:p-8 lg:grid-cols-[minmax(0,0.72fr)_minmax(240px,0.28fr)] lg:gap-12 lg:p-14"
+          >
+            <div className="order-2 min-w-0 lg:order-1">
+              <TeamSlackScene useCase={useCase} />
+            </div>
+            <div className="order-1 lg:order-2">
+              <h3 className="sr-only">{useCase.title}</h3>
+              <p className="sr-only">{useCase.description}</p>
+              <div className="rounded-sm bg-foreground p-5 text-background shadow-surface sm:p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-xs font-medium text-background/65">
+                    Prompt
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-[0.68rem] text-background/65">
+                    <AppIcon icon={useCase.icon} size={13} />
+                    {useCase.agent}
+                  </span>
+                </div>
+                <p className="mt-4 text-sm leading-6 text-background/80">
+                  <span className="font-medium text-background">@hivy</span>{" "}
+                  {useCase.prompt}
+                </p>
+              </div>
+              <p className="mt-4 px-1 text-xs leading-5 text-foreground/60">
+                Assigned in #{useCase.channel}. The answer returns to the same
+                Slack thread.
+              </p>
+            </div>
+          </motion.div>
+        </Tabs.Panel>
+      ))}
+    </Tabs>
   )
 }

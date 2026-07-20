@@ -2,6 +2,15 @@ package model
 
 import "testing"
 
+func TestDefaultAgentSandboxSizeIsNano(t *testing.T) {
+	if DefaultAgentSandboxSize != "nano" {
+		t.Fatalf("DefaultAgentSandboxSize = %q, want nano", DefaultAgentSandboxSize)
+	}
+	if got := NormalizeTemplateSize(""); got != "nano" {
+		t.Fatalf("NormalizeTemplateSize(empty) = %q, want nano", got)
+	}
+}
+
 func TestNanoTemplateSize(t *testing.T) {
 	if !ValidTemplateSize("nano") {
 		t.Fatal("nano should be a valid template size")
