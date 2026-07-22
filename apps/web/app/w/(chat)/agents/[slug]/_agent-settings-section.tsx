@@ -151,9 +151,7 @@ export function SandboxSizeSection({
   onSandboxSizeChange: (size: AgentSandboxSize) => void
 }) {
   const { activeOrg } = useAuth()
-  const availableSandboxSizes = sandboxSizeOptionsForTier(
-    activeOrg?.capacity_tier
-  )
+  const sandboxSizeOptions = sandboxSizeOptionsForTier(activeOrg?.capacity_tier)
   const selectedSandboxOption =
     AGENT_SANDBOX_SIZE_OPTIONS.find(
       (option) => option.key === selectedSandboxSize
@@ -171,7 +169,13 @@ export function SandboxSizeSection({
         aria-label="Sandbox size"
         selectedKey={selectedSandboxSize}
         onSelectionChange={(key) => {
-          if (key !== null) onSandboxSizeChange(String(key) as AgentSandboxSize)
+          if (key === null) return
+          const option = sandboxSizeOptions.find(
+            (item) => item.key === String(key)
+          )
+          if (!option?.isDisabled) {
+            onSandboxSizeChange(String(key) as AgentSandboxSize)
+          }
         }}
         isDisabled={isBusy}
         className="w-full"
@@ -191,16 +195,20 @@ export function SandboxSizeSection({
         </Select.Trigger>
         <Select.Popover className="p-1.5">
           <ListBox>
-            {availableSandboxSizes.map((option) => (
+            {sandboxSizeOptions.map((option) => (
               <ListBox.Item
                 key={option.key}
                 id={option.key}
-                textValue={`${option.label} ${option.specs}`}
+                textValue={`${option.label} ${option.specs} ${option.disabledReason ?? ""}`}
+                isDisabled={option.isDisabled}
               >
                 <span className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <span className="text-sm font-medium">{option.label}</span>
                   <span className="text-muted-foreground text-xs">
                     {option.specs}
+                    {option.disabledReason
+                      ? ` · ${option.disabledReason}`
+                      : null}
                   </span>
                 </span>
               </ListBox.Item>

@@ -22,7 +22,7 @@ export function SlackMemoryPreview() {
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, amount: 0.35 }}
-        className="mx-auto w-full max-w-[590px] overflow-hidden rounded-[9px] border border-[#d6d6d6] bg-[#fefefe] shadow-sm"
+        className="mx-auto w-full max-w-[590px] overflow-hidden rounded-[9px] border border-border bg-surface text-foreground shadow-sm"
         style={slackFont}
       >
         <div className="flex h-9 items-center justify-center bg-[#350d36] px-3">
@@ -30,9 +30,9 @@ export function SlackMemoryPreview() {
             <AppIcon icon="search" size={10} /> Search Hivy workspace
           </div>
         </div>
-        <div className="flex h-11 items-center justify-between border-b border-[#dddddd] px-4">
+        <div className="flex h-11 items-center justify-between border-b border-border px-4">
           <span className="text-[12px] font-bold"># product-support</span>
-          <span className="text-[9px] text-[#616061]">Two weeks later</span>
+          <span className="text-[9px] text-muted">Two weeks later</span>
         </div>
         <div className="py-2">
           <motion.div variants={reveal} custom={0.3}>
@@ -175,10 +175,10 @@ function TeamSlackScene({ useCase }: { useCase: TeamUseCase }) {
       <motion.div
         variants={reveal}
         custom={0.12}
-        className="border-b border-[#eeeeee] px-4 py-3"
+        className="border-b border-border px-4 py-3"
       >
         <p className="text-[16px] font-bold"># {useCase.channel}</p>
-        <p className="mt-1 text-[10px] text-[#616061]">
+        <p className="mt-1 text-[10px] text-muted">
           Example conversation with the {useCase.agent.toLowerCase()} assigned
           to this channel.
         </p>
@@ -197,7 +197,7 @@ function TeamSlackScene({ useCase }: { useCase: TeamUseCase }) {
               {useCase.outputs.map((output) => (
                 <span
                   key={output}
-                  className="rounded-[4px] border border-[#dddddd] px-2 py-1 text-[9px] text-[#616061]"
+                  className="rounded-[4px] border border-border px-2 py-1 text-[9px] text-muted"
                 >
                   {output}
                 </span>
@@ -209,7 +209,7 @@ function TeamSlackScene({ useCase }: { useCase: TeamUseCase }) {
           <ul className="mt-1.5 space-y-1">
             {useCase.answerDetails.map((detail) => (
               <li key={detail} className="flex gap-2">
-                <span aria-hidden="true" className="text-[#616061]">
+                <span aria-hidden="true" className="text-muted">
                   •
                 </span>
                 <span>{detail}</span>
@@ -237,6 +237,7 @@ export function TeamTagUseCases() {
                 <AppIcon icon={useCase.icon} size={15} />
                 {useCase.label}
               </span>
+              <Tabs.Indicator />
             </Tabs.Tab>
           ))}
         </Tabs.List>
@@ -256,22 +257,20 @@ export function TeamTagUseCases() {
             <div className="order-1 lg:order-2">
               <h3 className="sr-only">{useCase.title}</h3>
               <p className="sr-only">{useCase.description}</p>
-              <div className="rounded-sm bg-foreground p-5 text-background shadow-surface sm:p-6">
+              <div className="rounded-sm border border-border bg-surface p-5 text-foreground shadow-surface sm:p-6">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-xs font-medium text-background/65">
-                    Prompt
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 text-[0.68rem] text-background/65">
+                  <span className="text-xs font-medium text-muted">Prompt</span>
+                  <span className="inline-flex items-center gap-1.5 text-[0.68rem] text-muted">
                     <AppIcon icon={useCase.icon} size={13} />
                     {useCase.agent}
                   </span>
                 </div>
-                <p className="mt-4 text-sm leading-6 text-background/80">
-                  <span className="font-medium text-background">@hivy</span>{" "}
+                <p className="mt-4 text-sm leading-6 text-foreground/80">
+                  <span className="font-medium text-foreground">@hivy</span>{" "}
                   {useCase.prompt}
                 </p>
               </div>
-              <p className="mt-4 px-1 text-xs leading-5 text-foreground/60">
+              <p className="mt-4 px-1 text-xs leading-5 text-muted">
                 Assigned in #{useCase.channel}. The answer returns to the same
                 Slack thread.
               </p>

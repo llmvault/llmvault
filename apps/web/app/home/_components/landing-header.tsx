@@ -3,6 +3,7 @@
 import { NavigationMenu } from "@base-ui/react/navigation-menu"
 import { Button, Link } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
+import { ThemeModeSwitcher } from "@/components/theme-mode-switcher"
 
 const platformLinks = [
   {
@@ -190,7 +191,7 @@ export function LandingHeader() {
           </NavigationMenu.Item>
         </NavigationMenu.List>
 
-        <NavigationMenu.Portal className="marketing-link-scope light">
+        <NavigationMenu.Portal className="marketing-link-scope">
           <NavigationMenu.Positioner
             sideOffset={8}
             align="center"
@@ -205,6 +206,7 @@ export function LandingHeader() {
       </NavigationMenu.Root>
 
       <div className="flex items-center justify-end gap-2">
+        <ThemeModeSwitcher />
         <Link href="/auth/login" className="hidden sm:inline-flex">
           <Button size="sm" variant="ghost">
             Log in

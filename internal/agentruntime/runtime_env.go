@@ -92,6 +92,9 @@ func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, dep
 	if err := appendTeamEnvVarPromptDoc(ctx, deps, def, orgID, teamID); err != nil {
 		return ConfigUpdateRequest{}, err
 	}
+	if err := appendTeamKnowledgeSourcePromptDoc(ctx, deps, def, orgID, teamID); err != nil {
+		return ConfigUpdateRequest{}, err
+	}
 	phaseLog.log("compile definition",
 		"tool_count", len(def.Tools),
 		"mcp_server_count", len(def.McpServers),

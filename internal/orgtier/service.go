@@ -37,10 +37,10 @@ type Limits struct {
 }
 
 var limitsByTier = map[int]Limits{
-	Tier1: {Tier: Tier1, ConcurrentSessions: 2, MaxSandboxSize: "nano", KnowledgeStorageBytes: 1 << 30},
-	Tier2: {Tier: Tier2, ConcurrentSessions: 5, MaxSandboxSize: "small", KnowledgeStorageBytes: 10 << 30},
-	Tier3: {Tier: Tier3, ConcurrentSessions: 10, MaxSandboxSize: "medium", KnowledgeStorageBytes: 50 << 30},
-	Tier4: {Tier: Tier4, ConcurrentSessions: 20, MaxSandboxSize: "large", KnowledgeStorageBytes: 200 << 30},
+	Tier1: {Tier: Tier1, ConcurrentSessions: 1, MaxSandboxSize: "nano", KnowledgeStorageBytes: 1 << 30},
+	Tier2: {Tier: Tier2, ConcurrentSessions: 2, MaxSandboxSize: "small", KnowledgeStorageBytes: 3 << 30},
+	Tier3: {Tier: Tier3, ConcurrentSessions: 5, MaxSandboxSize: "medium", KnowledgeStorageBytes: 5 << 30},
+	Tier4: {Tier: Tier4, ConcurrentSessions: 10, MaxSandboxSize: "large", KnowledgeStorageBytes: 10 << 30},
 }
 
 var sandboxSizeRank = map[string]int{

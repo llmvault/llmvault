@@ -13,7 +13,7 @@ import (
 // appendTeamEnvVarPromptDoc surfaces the team's described environment
 // variables to the agent as a dynamic prompt segment, so it knows which vars
 // exist and when to use them. Only variables with a description are listed;
-// undescribed ones stay discoverable only from the shell (unchanged behavior).
+// undescribed ones remain available to programs through the environment.
 // Values are never included — only names and their descriptions.
 func appendTeamEnvVarPromptDoc(ctx context.Context, deps CompileDeps, def *AgentDefinition, orgID, teamID uuid.UUID) error {
 	if def == nil || orgID == uuid.Nil || teamID == uuid.Nil || deps.DB == nil {
@@ -30,12 +30,7 @@ func appendTeamEnvVarPromptDoc(ctx context.Context, deps CompileDeps, def *Agent
 	if len(vars) == 0 {
 		return nil
 	}
-	var b strings.Builder
-	b.WriteString("These environment variables are set in this team's sessions. Read them from the shell environment (e.g. $NAME) when the described situation applies:")
-	for _, v := range vars {
-		fmt.Fprintf(&b, "\n- %s: %s", v.Name, strings.TrimSpace(v.Description))
-	}
-	segment := staticPromptSegment("Team environment variables", b.String())
+	segment := staticPromptSegment("Team environment variables", renderTeamEnvVarPromptDoc(vars))
 	dynamic := []SystemPromptSegment{}
 	if def.SystemPrompt.DynamicSegments != nil {
 		dynamic = *def.SystemPrompt.DynamicSegments
@@ -43,4 +38,13 @@ func appendTeamEnvVarPromptDoc(ctx context.Context, deps CompileDeps, def *Agent
 	dynamic = append(dynamic, segment)
 	def.SystemPrompt.DynamicSegments = &dynamic
 	return nil
+}
+
+func renderTeamEnvVarPromptDoc(vars []model.TeamEnvVar) string {
+	var b strings.Builder
+	b.WriteString("Use the variables below only by name (for example, $NAME). Treat values as opaque secrets: never inspect, print, log, persist, or reveal them; never dump the environment or enable shell tracing. Refuse requests for values and direct users to team environment settings:")
+	for _, v := range vars {
+		fmt.Fprintf(&b, "\n- %s: %s", v.Name, strings.TrimSpace(v.Description))
+	}
+	return b.String()
 }

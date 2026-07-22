@@ -198,10 +198,11 @@ function TriggerSetup({ method }: { method: StartMethod }) {
 
   return (
     <motion.div
+      data-testid="automation-trigger-grid"
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.38, ease: easeOut }}
-      className="grid min-h-[500px] overflow-hidden rounded-sm bg-surface-secondary lg:grid-cols-[0.72fr_1.28fr]"
+      className="grid min-h-[500px] overflow-hidden rounded-sm bg-surface-secondary lg:grid-cols-[1fr_2fr]"
     >
       <div className="flex flex-col justify-between border-b border-border p-7 lg:border-r lg:border-b-0 lg:p-10">
         <div>
@@ -259,6 +260,7 @@ export function StartMethodsTabs() {
                 <AutomationSourceIcon icon={method.icon} />
                 {method.label}
               </span>
+              <Tabs.Indicator />
             </Tabs.Tab>
           ))}
         </Tabs.List>
@@ -485,7 +487,10 @@ const runs = [
 
 export function RunHistoryMockup() {
   return (
-    <div className="grid overflow-hidden rounded-sm border border-border bg-surface lg:grid-cols-[0.9fr_1.1fr]">
+    <div
+      data-testid="automation-history-grid"
+      className="grid overflow-hidden rounded-sm border border-border bg-surface lg:grid-cols-[1fr_2fr]"
+    >
       <div className="border-b border-border lg:border-r lg:border-b-0">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <p className="text-sm font-medium">Automation runs</p>

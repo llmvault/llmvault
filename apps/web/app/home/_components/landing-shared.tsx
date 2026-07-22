@@ -1,6 +1,6 @@
 import { Button, Link, Separator, Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
-import { IntegrationLogo } from "@/components/integration-logo"
+import { footerGroups } from "./landing-footer-links"
 import { LandingHeader } from "./landing-header"
 
 export const pillars = [
@@ -108,82 +108,6 @@ export const features = [
   },
 ] as const
 
-const footerGroups = [
-  {
-    title: "Product",
-    links: [
-      "Enterprise",
-      "Chat",
-      "Workflows",
-      "Knowledge Base",
-      "Tables",
-      "Files",
-      "Logs",
-      "Scheduled Tasks",
-      "MCP",
-      "API",
-      "Self Hosting",
-      "Status",
-    ],
-  },
-  {
-    title: "Resources",
-    links: ["Blog", "Docs", "Library", "Careers", "Changelog", "Contact"],
-  },
-  {
-    title: "Compare",
-    links: [
-      "All Comparisons",
-      "n8n",
-      "Zapier",
-      "Make",
-      "Gumloop",
-      "Workato",
-      "Retool",
-      "Pipedream",
-      "OpenAI AgentKit",
-      "Tines",
-    ],
-  },
-  {
-    title: "Integrations",
-    links: [
-      "All Integrations",
-      "Slack",
-      "GitHub",
-      "Gmail",
-      "Notion",
-      "Salesforce",
-      "Jira",
-      "Linear",
-      "Supabase",
-      "Stripe",
-    ],
-  },
-  {
-    title: "Models",
-    links: [
-      "All Models",
-      "OpenAI",
-      "Anthropic",
-      "Google",
-      "DeepSeek",
-      "xAI",
-      "Cerebras",
-      "Groq",
-      "Sakana AI",
-    ],
-  },
-  {
-    title: "Socials",
-    links: ["X (Twitter)", "LinkedIn", "Slack", "GitHub"],
-  },
-  {
-    title: "Legal",
-    links: ["Terms of Service", "Privacy Policy"],
-  },
-] as const
-
 export function ProductPlaceholder({
   label,
   className = "",
@@ -264,11 +188,15 @@ type PlatformHighlight = {
 
 export function PlatformHighlights({
   items,
+  className = "",
 }: {
   items: readonly PlatformHighlight[]
+  className?: string
 }) {
   return (
-    <div className="grid border-x border-b border-border md:grid-cols-3">
+    <div
+      className={`grid border-x border-b border-border md:grid-cols-3 ${className}`}
+    >
       {items.map((item, index) => (
         <article
           key={item.title}
@@ -307,6 +235,27 @@ type LandingHeroProps = {
   placeholderLabel?: string
 }
 
+export function LandingHeroActions({
+  primaryAction = { label: "Watch a 2min demo", href: "#contact" },
+  secondaryAction = { label: "Start for free", href: "/auth/signup" },
+  className = "mt-8",
+}: Pick<LandingHeroProps, "primaryAction" | "secondaryAction"> & {
+  className?: string
+}) {
+  return (
+    <div className={`flex items-center gap-2 ${className}`}>
+      <Link href={primaryAction.href}>
+        <Button size="sm">{primaryAction.label}</Button>
+      </Link>
+      <Link href={secondaryAction.href}>
+        <Button size="sm" variant="ghost">
+          {secondaryAction.label}
+        </Button>
+      </Link>
+    </div>
+  )
+}
+
 export function LandingHero({
   titleLines = [
     "Productive ai agents for your entire team.",
@@ -329,16 +278,10 @@ export function LandingHero({
           <p className="mt-7 max-w-[630px] text-[1rem] leading-6 text-muted">
             {description}
           </p>
-          <div className="mt-8 flex items-center gap-2">
-            <Link href={primaryAction.href}>
-              <Button size="sm">{primaryAction.label}</Button>
-            </Link>
-            <Link href={secondaryAction.href}>
-              <Button size="sm" variant="ghost">
-                {secondaryAction.label}
-              </Button>
-            </Link>
-          </div>
+          <LandingHeroActions
+            primaryAction={primaryAction}
+            secondaryAction={secondaryAction}
+          />
         </div>
 
         <div
@@ -388,44 +331,6 @@ export function TrustStrip() {
   )
 }
 
-export function WorkflowPrompt({ className = "" }: { className?: string }) {
-  return (
-    <section
-      className={`mx-auto w-[calc(100%-2rem)] max-w-[1300px] overflow-hidden rounded-sm border border-border bg-surface ${className}`}
-    >
-      <div className="grid min-h-[640px] md:grid-cols-[2fr_1fr]">
-        <div className="relative flex items-center justify-center bg-surface-secondary p-8">
-          <div className="w-full max-w-[315px] rounded-lg border border-border bg-surface shadow-sm">
-            <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-              <IntegrationLogo provider="github" size={28} />
-              <span className="text-xl font-medium">GitHub</span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-3 text-sm text-muted">
-              <span>Trigger</span>
-              <span className="text-foreground">PR opened</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-col justify-center px-9 py-14 md:px-12">
-          <div className="mb-10 flex items-center gap-6 text-muted/70">
-            <AppIcon icon="sparkles" size={28} />
-            <AppIcon icon="workflow" size={28} />
-            <AppIcon icon="layout-grid" size={28} />
-            <AppIcon icon="database" size={28} />
-          </div>
-          <h2 className="text-[clamp(1.35rem,1.9vw,1.8rem)] leading-tight font-medium tracking-[-0.025em]">
-            Describe it. Hivy builds it.
-          </h2>
-          <p className="mt-4 max-w-[37ch] text-[0.95rem] leading-6 text-muted">
-            Tell Hivy what you need in plain English and it wires blocks,
-            models, and integrations into a working agent.
-          </p>
-        </div>
-      </div>
-    </section>
-  )
-}
-
 export function LandingCta() {
   return (
     <section
@@ -435,14 +340,9 @@ export function LandingCta() {
       <h2 className="text-[clamp(2.3rem,4vw,3.5rem)] leading-none font-medium tracking-[-0.05em]">
         Build your first agent today.
       </h2>
-      <div className="mt-7 flex items-center gap-2">
+      <div className="mt-7">
         <Link href="/auth/signup">
           <Button size="sm">Get started</Button>
-        </Link>
-        <Link href="mailto:sales@usehivy.com">
-          <Button size="sm" variant="ghost">
-            Contact sales
-          </Button>
         </Link>
       </div>
     </section>
@@ -457,7 +357,7 @@ export function LandingFooter() {
         id="resources"
         className="mx-auto w-[calc(100%-2rem)] max-w-[1300px] py-20"
       >
-        <div className="grid gap-12 sm:grid-cols-3 lg:grid-cols-[0.8fr_repeat(7,1fr)]">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[0.8fr_repeat(3,1fr)]">
           <Link
             href="/home"
             className="h-fit text-lg font-semibold tracking-[-0.05em] text-foreground"
@@ -469,12 +369,12 @@ export function LandingFooter() {
               <h2 className="text-sm font-medium">{group.title}</h2>
               <ul className="mt-4 space-y-2.5">
                 {group.links.map((item) => (
-                  <li key={item}>
+                  <li key={item.href}>
                     <Link
-                      href="#"
+                      href={item.href}
                       className="text-sm leading-5 text-muted hover:text-foreground"
                     >
-                      {item}
+                      {item.label}
                     </Link>
                   </li>
                 ))}

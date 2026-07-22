@@ -121,18 +121,13 @@ function AgentBuilderScene() {
 
 export function AgentsLandingPage() {
   return (
-    <main className="marketing-link-scope light min-h-screen bg-background text-foreground">
+    <main className="marketing-link-scope min-h-screen bg-background text-foreground">
       <LandingHero
         titleLines={[
           "Build a Hivy agent for every repeatable job.",
           "Give it tools, context, and limits.",
         ]}
         description="Start with a ready-made specialist or define the role yourself. Choose its model, tools, knowledge, team access, and sandbox, then inspect every session it runs."
-        primaryAction={{
-          label: "Create free workspace",
-          href: "/auth/signup",
-        }}
-        secondaryAction={{ label: "Browse agent examples", href: "#catalog" }}
         placeholderLabel="Agent catalog and custom agent setup"
       />
 
@@ -194,20 +189,6 @@ export function AgentsLandingPage() {
               team, and sandbox together. Each session preserves the request,
               tool use, answer, and cost for your team to inspect.
             </p>
-            <div className="mt-9 flex items-start gap-4 border-t border-border pt-6">
-              <AppIcon
-                icon="file-text"
-                size={20}
-                className="mt-0.5 text-muted"
-              />
-              <div>
-                <p className="font-medium">Improve the role from a real run.</p>
-                <p className="mt-1 text-sm leading-6 text-muted">
-                  When a session exposes a repeatable mistake, update the
-                  instruction once so the correction reaches the next run.
-                </p>
-              </div>
-            </div>
           </div>
           <AgentBuilderScene />
         </div>
@@ -248,7 +229,7 @@ export function AgentsLandingPage() {
         </p>
         <div className="mt-8 flex items-center gap-2">
           <Link href="/auth/signup">
-            <Button size="sm">Create free workspace</Button>
+            <Button size="sm">Start for free</Button>
           </Link>
         </div>
       </section>

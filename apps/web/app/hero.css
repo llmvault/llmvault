@@ -15,35 +15,46 @@
 .default,
 [data-theme="light"],
 [data-theme="default"] {
-  --accent: oklch(62.04% 0.195 253.83);
-  --accent-foreground: oklch(99.11% 0 0);
-  --background: oklch(97.02% 0.0015 253.83);
-  --border: oklch(90% 0.0015 253.83);
+  /* Command Center: permanent Hivy brand */
+  color-scheme: light;
+  --command-center-primary: #f05100;
+  --accent: var(--command-center-primary);
+  --accent-foreground: #fcfaf7;
+  --background: #fcfaf7;
+  --foreground: #423d38;
+  --surface: #fdfcfb;
+  --surface-foreground: var(--foreground);
+  --surface-secondary: color-mix(
+    in oklab,
+    var(--surface) 93%,
+    var(--foreground) 7%
+  );
+  --surface-secondary-foreground: var(--foreground);
+  --surface-tertiary: color-mix(
+    in oklab,
+    var(--surface) 88%,
+    var(--foreground) 12%
+  );
+  --surface-tertiary-foreground: var(--foreground);
+  --border: color-mix(in oklab, var(--surface) 82%, var(--foreground) 18%);
+  --separator: color-mix(in oklab, var(--surface) 90%, var(--foreground) 10%);
+  --default: color-mix(in oklab, var(--surface) 90%, var(--foreground) 10%);
+  --default-foreground: var(--foreground);
+  --muted: color-mix(in oklab, var(--foreground) 62%, var(--background));
+  --field-background: var(--surface);
+  --field-border: transparent;
+  --field-foreground: var(--foreground);
+  --field-placeholder: var(--muted);
+  --focus: var(--command-center-primary);
+  --overlay: var(--surface);
+  --overlay-foreground: var(--foreground);
+  --segment: var(--surface);
+  --segment-foreground: var(--foreground);
+  --scrollbar: color-mix(in oklab, var(--foreground) 15%, transparent);
   --danger: oklch(65.32% 0.2335 25.74);
   --danger-foreground: oklch(99.11% 0 0);
-  --default: oklch(94% 0.0015 253.83);
-  --default-foreground: oklch(21.03% 0.0059 253.83);
-  --field-background: oklch(100% 0.0008 253.83);
-  --field-border: transparent;
-  --field-foreground: oklch(21.03% 0.0015 253.83);
-  --field-placeholder: oklch(55.17% 0.003 253.83);
-  --focus: oklch(62.04% 0.195 253.83);
-  --foreground: oklch(21.03% 0.0015 253.83);
-  --muted: oklch(55.17% 0.003 253.83);
-  --overlay: oklch(100% 0.0004 253.83);
-  --overlay-foreground: oklch(21.03% 0.0015 253.83);
-  --scrollbar: oklch(87.1% 0.0015 253.83);
-  --segment: oklch(100% 0.0015 253.83);
-  --segment-foreground: oklch(21.03% 0.0015 253.83);
-  --separator: oklch(92% 0.0015 253.83);
   --success: oklch(73.29% 0.1941 150.81);
   --success-foreground: oklch(21.03% 0.0059 150.81);
-  --surface: oklch(100% 0.0008 253.83);
-  --surface-foreground: oklch(21.03% 0.0015 253.83);
-  --surface-secondary: oklch(95.24% 0.0012 253.83);
-  --surface-secondary-foreground: oklch(21.03% 0.0015 253.83);
-  --surface-tertiary: oklch(93.73% 0.0012 253.83);
-  --surface-tertiary-foreground: oklch(21.03% 0.0015 253.83);
   --warning: oklch(78.19% 0.159 72.33);
   --warning-foreground: oklch(21.03% 0.0059 72.33);
 
@@ -60,35 +71,40 @@
 .dark,
 [data-theme="dark"] {
   color-scheme: dark;
-  --accent: oklch(62.04% 0.195 253.83);
-  --accent-foreground: oklch(99.11% 0 0);
-  --background: oklch(12% 0.0015 253.83);
-  --border: oklch(28% 0.0015 253.83);
+  --background: #1f1c19;
+  --foreground: #fcfaf7;
+  --surface: #2b2723;
+  --surface-foreground: var(--foreground);
+  --surface-secondary: color-mix(
+    in oklab,
+    var(--surface) 88%,
+    var(--foreground) 12%
+  );
+  --surface-secondary-foreground: var(--foreground);
+  --surface-tertiary: color-mix(
+    in oklab,
+    var(--surface) 82%,
+    var(--foreground) 18%
+  );
+  --surface-tertiary-foreground: var(--foreground);
+  --border: color-mix(in oklab, var(--surface) 78%, var(--foreground) 22%);
+  --separator: color-mix(in oklab, var(--surface) 88%, var(--foreground) 12%);
+  --default: color-mix(in oklab, var(--surface) 82%, var(--foreground) 18%);
+  --default-foreground: var(--foreground);
+  --muted: color-mix(in oklab, var(--foreground) 62%, var(--background));
+  --field-background: var(--surface-secondary);
+  --field-border: transparent;
+  --field-foreground: var(--foreground);
+  --field-placeholder: var(--muted);
+  --overlay: var(--surface);
+  --overlay-foreground: var(--foreground);
+  --segment: color-mix(in oklab, var(--surface) 68%, var(--foreground) 32%);
+  --segment-foreground: var(--foreground);
+  --scrollbar: color-mix(in oklab, var(--foreground) 15%, transparent);
   --danger: oklch(59.4% 0.1973 24.63);
   --danger-foreground: oklch(99.11% 0 0);
-  --default: oklch(27.4% 0.0015 253.83);
-  --default-foreground: oklch(99.11% 0 0);
-  --field-background: oklch(21.03% 0.003 253.83);
-  --field-border: transparent;
-  --field-foreground: oklch(99.11% 0.0015 253.83);
-  --field-placeholder: oklch(70.5% 0.003 253.83);
-  --focus: oklch(62.04% 0.195 253.83);
-  --foreground: oklch(99.11% 0.0015 253.83);
-  --muted: oklch(70.5% 0.003 253.83);
-  --overlay: oklch(21.03% 0.003 253.83);
-  --overlay-foreground: oklch(99.11% 0.0015 253.83);
-  --scrollbar: oklch(70.5% 0.0015 253.83);
-  --segment: oklch(39.64% 0.0015 253.83);
-  --segment-foreground: oklch(99.11% 0.0015 253.83);
-  --separator: oklch(25% 0.0015 253.83);
   --success: oklch(73.29% 0.1941 150.81);
   --success-foreground: oklch(21.03% 0.0059 150.81);
-  --surface: oklch(21.03% 0.003 253.83);
-  --surface-foreground: oklch(99.11% 0.0015 253.83);
-  --surface-secondary: oklch(25.7% 0.0023 253.83);
-  --surface-secondary-foreground: oklch(99.11% 0.0015 253.83);
-  --surface-tertiary: oklch(27.21% 0.0023 253.83);
-  --surface-tertiary-foreground: oklch(99.11% 0.0015 253.83);
   --warning: oklch(82.03% 0.1392 76.34);
   --warning-foreground: oklch(21.03% 0.0059 76.34);
 }
@@ -315,616 +331,4 @@ diffs-container {
     animation: none;
     color: var(--muted);
   }
-}
-
-/* ──────────────────────────────────────────────────────────────────────
-   Theme presets. Each preset overrides the core design tokens for light
-   (via [data-theme-preset="…"]) and dark (.dark variant, higher
-   specificity). These come after the base tokens so they win on equal
-   specificity. "default" has no block — it is the base Hivy palette.
-   ────────────────────────────────────────────────────────────────────── */
-
-/* GitHub */
-[data-theme-preset="github"] {
-  --accent: #0969da;
-  --accent-foreground: #ffffff;
-  --focus: #0969da;
-  --background: #ffffff;
-  --foreground: #1f2328;
-  --surface: #f6f8fa;
-  --surface-foreground: #1f2328;
-  --surface-secondary: #eaeef2;
-  --surface-secondary-foreground: #1f2328;
-  --surface-tertiary: #eef1f4;
-  --surface-tertiary-foreground: #1f2328;
-  --border: #d0d7de;
-  --separator: #d8dee4;
-  --default: #eaeef2;
-  --default-foreground: #1f2328;
-  --muted: #636c76;
-  --field-background: #ffffff;
-  --field-foreground: #1f2328;
-  --field-placeholder: #8c959f;
-  --overlay: #ffffff;
-  --overlay-foreground: #1f2328;
-  --segment: #ffffff;
-  --segment-foreground: #1f2328;
-  --scrollbar: #d0d7de;
-}
-
-[data-theme-preset="github"].dark {
-  --accent: #2f81f7;
-  --accent-foreground: #ffffff;
-  --focus: #2f81f7;
-  --background: #0d1117;
-  --foreground: #e6edf3;
-  --surface: #161b22;
-  --surface-foreground: #e6edf3;
-  --surface-secondary: #1c2128;
-  --surface-secondary-foreground: #e6edf3;
-  --surface-tertiary: #21262d;
-  --surface-tertiary-foreground: #e6edf3;
-  --border: #30363d;
-  --separator: #21262d;
-  --default: #21262d;
-  --default-foreground: #e6edf3;
-  --muted: #8b949e;
-  --field-background: #0d1117;
-  --field-foreground: #e6edf3;
-  --field-placeholder: #6e7681;
-  --overlay: #161b22;
-  --overlay-foreground: #e6edf3;
-  --segment: #21262d;
-  --segment-foreground: #e6edf3;
-  --scrollbar: #30363d;
-}
-
-/* Catppuccin (Latte / Mocha) */
-[data-theme-preset="catppuccin"] {
-  --accent: #1e66f5;
-  --accent-foreground: #ffffff;
-  --focus: #1e66f5;
-  --background: #eff1f5;
-  --foreground: #4c4f69;
-  --surface: #e6e9ef;
-  --surface-foreground: #4c4f69;
-  --surface-secondary: #dce0e8;
-  --surface-secondary-foreground: #4c4f69;
-  --surface-tertiary: #ccd0da;
-  --surface-tertiary-foreground: #4c4f69;
-  --border: #ccd0da;
-  --separator: #bcc0cc;
-  --default: #dce0e8;
-  --default-foreground: #4c4f69;
-  --muted: #6c6f85;
-  --field-background: #ffffff;
-  --field-foreground: #4c4f69;
-  --field-placeholder: #8c8fa1;
-  --overlay: #e6e9ef;
-  --overlay-foreground: #4c4f69;
-  --segment: #ffffff;
-  --segment-foreground: #4c4f69;
-  --scrollbar: #ccd0da;
-}
-
-[data-theme-preset="catppuccin"].dark {
-  --accent: #89b4fa;
-  --accent-foreground: #1e1e2e;
-  --focus: #89b4fa;
-  --background: #1e1e2e;
-  --foreground: #cdd6f4;
-  --surface: #181825;
-  --surface-foreground: #cdd6f4;
-  --surface-secondary: #313244;
-  --surface-secondary-foreground: #cdd6f4;
-  --surface-tertiary: #45475a;
-  --surface-tertiary-foreground: #cdd6f4;
-  --border: #313244;
-  --separator: #45475a;
-  --default: #313244;
-  --default-foreground: #cdd6f4;
-  --muted: #a6adc8;
-  --field-background: #11111b;
-  --field-foreground: #cdd6f4;
-  --field-placeholder: #7f849c;
-  --overlay: #181825;
-  --overlay-foreground: #cdd6f4;
-  --segment: #313244;
-  --segment-foreground: #cdd6f4;
-  --scrollbar: #45475a;
-}
-
-/* Gruvbox */
-[data-theme-preset="gruvbox"] {
-  --accent: #af3a03;
-  --accent-foreground: #fbf1c7;
-  --focus: #af3a03;
-  --background: #fbf1c7;
-  --foreground: #3c3836;
-  --surface: #f2e5bc;
-  --surface-foreground: #3c3836;
-  --surface-secondary: #ebdbb2;
-  --surface-secondary-foreground: #3c3836;
-  --surface-tertiary: #d5c4a1;
-  --surface-tertiary-foreground: #3c3836;
-  --border: #d5c4a1;
-  --separator: #bdae93;
-  --default: #ebdbb2;
-  --default-foreground: #3c3836;
-  --muted: #7c6f64;
-  --field-background: #fbf1c7;
-  --field-foreground: #3c3836;
-  --field-placeholder: #928374;
-  --overlay: #f2e5bc;
-  --overlay-foreground: #3c3836;
-  --segment: #fbf1c7;
-  --segment-foreground: #3c3836;
-  --scrollbar: #d5c4a1;
-}
-
-[data-theme-preset="gruvbox"].dark {
-  --accent: #fe8019;
-  --accent-foreground: #282828;
-  --focus: #fe8019;
-  --background: #282828;
-  --foreground: #ebdbb2;
-  --surface: #32302f;
-  --surface-foreground: #ebdbb2;
-  --surface-secondary: #3c3836;
-  --surface-secondary-foreground: #ebdbb2;
-  --surface-tertiary: #504945;
-  --surface-tertiary-foreground: #ebdbb2;
-  --border: #504945;
-  --separator: #3c3836;
-  --default: #3c3836;
-  --default-foreground: #ebdbb2;
-  --muted: #a89984;
-  --field-background: #1d2021;
-  --field-foreground: #ebdbb2;
-  --field-placeholder: #928374;
-  --overlay: #32302f;
-  --overlay-foreground: #ebdbb2;
-  --segment: #3c3836;
-  --segment-foreground: #ebdbb2;
-  --scrollbar: #504945;
-}
-
-/* One (Atom One Light / One Dark) */
-[data-theme-preset="one"] {
-  --accent: #4078f2;
-  --accent-foreground: #ffffff;
-  --focus: #4078f2;
-  --background: #fafafa;
-  --foreground: #383a42;
-  --surface: #f0f0f0;
-  --surface-foreground: #383a42;
-  --surface-secondary: #e5e5e6;
-  --surface-secondary-foreground: #383a42;
-  --surface-tertiary: #dbdbdc;
-  --surface-tertiary-foreground: #383a42;
-  --border: #d4d4d4;
-  --separator: #e0e0e0;
-  --default: #e5e5e6;
-  --default-foreground: #383a42;
-  --muted: #696c77;
-  --field-background: #ffffff;
-  --field-foreground: #383a42;
-  --field-placeholder: #a0a1a7;
-  --overlay: #ffffff;
-  --overlay-foreground: #383a42;
-  --segment: #ffffff;
-  --segment-foreground: #383a42;
-  --scrollbar: #d4d4d4;
-}
-
-[data-theme-preset="one"].dark {
-  --accent: #61afef;
-  --accent-foreground: #282c34;
-  --focus: #61afef;
-  --background: #282c34;
-  --foreground: #abb2bf;
-  --surface: #21252b;
-  --surface-foreground: #abb2bf;
-  --surface-secondary: #2c313a;
-  --surface-secondary-foreground: #abb2bf;
-  --surface-tertiary: #3b4048;
-  --surface-tertiary-foreground: #abb2bf;
-  --border: #3b4048;
-  --separator: #2c313a;
-  --default: #2c313a;
-  --default-foreground: #abb2bf;
-  --muted: #828997;
-  --field-background: #21252b;
-  --field-foreground: #abb2bf;
-  --field-placeholder: #5c6370;
-  --overlay: #21252b;
-  --overlay-foreground: #abb2bf;
-  --segment: #2c313a;
-  --segment-foreground: #abb2bf;
-  --scrollbar: #3b4048;
-}
-
-/* Solarized */
-[data-theme-preset="solarized"] {
-  --accent: #b58900;
-  --accent-foreground: #ffffff;
-  --focus: #b58900;
-  --background: #fdf6e3;
-  --foreground: #586e75;
-  --surface: #eee8d5;
-  --surface-foreground: #586e75;
-  --surface-secondary: #e6dfc6;
-  --surface-secondary-foreground: #586e75;
-  --surface-tertiary: #ddd6c1;
-  --surface-tertiary-foreground: #586e75;
-  --border: #ddd6c1;
-  --separator: #e6dfc6;
-  --default: #eee8d5;
-  --default-foreground: #586e75;
-  --muted: #93a1a1;
-  --field-background: #fdf6e3;
-  --field-foreground: #586e75;
-  --field-placeholder: #93a1a1;
-  --overlay: #eee8d5;
-  --overlay-foreground: #586e75;
-  --segment: #fdf6e3;
-  --segment-foreground: #586e75;
-  --scrollbar: #ddd6c1;
-}
-
-[data-theme-preset="solarized"].dark {
-  --accent: #b58900;
-  --accent-foreground: #002b36;
-  --focus: #b58900;
-  --background: #002b36;
-  --foreground: #93a1a1;
-  --surface: #073642;
-  --surface-foreground: #93a1a1;
-  --surface-secondary: #0a4351;
-  --surface-secondary-foreground: #93a1a1;
-  --surface-tertiary: #0e4d5e;
-  --surface-tertiary-foreground: #93a1a1;
-  --border: #0a4351;
-  --separator: #073642;
-  --default: #073642;
-  --default-foreground: #93a1a1;
-  --muted: #657b83;
-  --field-background: #002b36;
-  --field-foreground: #93a1a1;
-  --field-placeholder: #586e75;
-  --overlay: #073642;
-  --overlay-foreground: #93a1a1;
-  --segment: #073642;
-  --segment-foreground: #93a1a1;
-  --scrollbar: #0a4351;
-}
-
-/* Rosé Pine (Dawn / Main) */
-[data-theme-preset="rose-pine"] {
-  --accent: #b4637a;
-  --accent-foreground: #ffffff;
-  --focus: #b4637a;
-  --background: #faf4ed;
-  --foreground: #575279;
-  --surface: #fffaf3;
-  --surface-foreground: #575279;
-  --surface-secondary: #f2e9e1;
-  --surface-secondary-foreground: #575279;
-  --surface-tertiary: #ece0d6;
-  --surface-tertiary-foreground: #575279;
-  --border: #f2e9e1;
-  --separator: #ece0d6;
-  --default: #f2e9e1;
-  --default-foreground: #575279;
-  --muted: #797593;
-  --field-background: #fffaf3;
-  --field-foreground: #575279;
-  --field-placeholder: #9893a5;
-  --overlay: #fffaf3;
-  --overlay-foreground: #575279;
-  --segment: #fffaf3;
-  --segment-foreground: #575279;
-  --scrollbar: #ece0d6;
-}
-
-[data-theme-preset="rose-pine"].dark {
-  --accent: #ebbcba;
-  --accent-foreground: #191724;
-  --focus: #ebbcba;
-  --background: #191724;
-  --foreground: #e0def4;
-  --surface: #1f1d2e;
-  --surface-foreground: #e0def4;
-  --surface-secondary: #26233a;
-  --surface-secondary-foreground: #e0def4;
-  --surface-tertiary: #2a283e;
-  --surface-tertiary-foreground: #e0def4;
-  --border: #26233a;
-  --separator: #21202e;
-  --default: #26233a;
-  --default-foreground: #e0def4;
-  --muted: #908caa;
-  --field-background: #1f1d2e;
-  --field-foreground: #e0def4;
-  --field-placeholder: #6e6a86;
-  --overlay: #1f1d2e;
-  --overlay-foreground: #e0def4;
-  --segment: #26233a;
-  --segment-foreground: #e0def4;
-  --scrollbar: #2a283e;
-}
-
-/* Nord */
-[data-theme-preset="nord"] {
-  --accent: #5e81ac;
-  --accent-foreground: #ffffff;
-  --focus: #5e81ac;
-  --background: #eceff4;
-  --foreground: #2e3440;
-  --surface: #e5e9f0;
-  --surface-foreground: #2e3440;
-  --surface-secondary: #d8dee9;
-  --surface-secondary-foreground: #2e3440;
-  --surface-tertiary: #cdd4e0;
-  --surface-tertiary-foreground: #2e3440;
-  --border: #d8dee9;
-  --separator: #e5e9f0;
-  --default: #d8dee9;
-  --default-foreground: #2e3440;
-  --muted: #4c566a;
-  --field-background: #ffffff;
-  --field-foreground: #2e3440;
-  --field-placeholder: #9aa3b5;
-  --overlay: #ffffff;
-  --overlay-foreground: #2e3440;
-  --segment: #ffffff;
-  --segment-foreground: #2e3440;
-  --scrollbar: #d8dee9;
-}
-
-[data-theme-preset="nord"].dark {
-  --accent: #88c0d0;
-  --accent-foreground: #2e3440;
-  --focus: #88c0d0;
-  --background: #2e3440;
-  --foreground: #d8dee9;
-  --surface: #3b4252;
-  --surface-foreground: #d8dee9;
-  --surface-secondary: #434c5e;
-  --surface-secondary-foreground: #d8dee9;
-  --surface-tertiary: #4c566a;
-  --surface-tertiary-foreground: #d8dee9;
-  --border: #434c5e;
-  --separator: #3b4252;
-  --default: #434c5e;
-  --default-foreground: #d8dee9;
-  --muted: #7b88a1;
-  --field-background: #2e3440;
-  --field-foreground: #d8dee9;
-  --field-placeholder: #616e88;
-  --overlay: #3b4252;
-  --overlay-foreground: #d8dee9;
-  --segment: #434c5e;
-  --segment-foreground: #d8dee9;
-  --scrollbar: #4c566a;
-}
-
-/* Dracula (Alucard / Dracula) */
-[data-theme-preset="dracula"] {
-  --accent: #644ac9;
-  --accent-foreground: #ffffff;
-  --focus: #644ac9;
-  --background: #f8f8f2;
-  --foreground: #1f1f1f;
-  --surface: #eeeef0;
-  --surface-foreground: #1f1f1f;
-  --surface-secondary: #e2e2e6;
-  --surface-secondary-foreground: #1f1f1f;
-  --surface-tertiary: #d5d5db;
-  --surface-tertiary-foreground: #1f1f1f;
-  --border: #d8d8da;
-  --separator: #e2e2e6;
-  --default: #e2e2e6;
-  --default-foreground: #1f1f1f;
-  --muted: #635d57;
-  --field-background: #ffffff;
-  --field-foreground: #1f1f1f;
-  --field-placeholder: #a0a0a8;
-  --overlay: #ffffff;
-  --overlay-foreground: #1f1f1f;
-  --segment: #ffffff;
-  --segment-foreground: #1f1f1f;
-  --scrollbar: #d5d5db;
-}
-
-[data-theme-preset="dracula"].dark {
-  --accent: #bd93f9;
-  --accent-foreground: #282a36;
-  --focus: #bd93f9;
-  --background: #282a36;
-  --foreground: #f8f8f2;
-  --surface: #21222c;
-  --surface-foreground: #f8f8f2;
-  --surface-secondary: #343746;
-  --surface-secondary-foreground: #f8f8f2;
-  --surface-tertiary: #44475a;
-  --surface-tertiary-foreground: #f8f8f2;
-  --border: #44475a;
-  --separator: #343746;
-  --default: #44475a;
-  --default-foreground: #f8f8f2;
-  --muted: #6272a4;
-  --field-background: #21222c;
-  --field-foreground: #f8f8f2;
-  --field-placeholder: #6272a4;
-  --overlay: #21222c;
-  --overlay-foreground: #f8f8f2;
-  --segment: #343746;
-  --segment-foreground: #f8f8f2;
-  --scrollbar: #44475a;
-}
-
-/* Tokyo Night (Day / Night) */
-[data-theme-preset="tokyo-night"] {
-  --accent: #2e7de9;
-  --accent-foreground: #ffffff;
-  --focus: #2e7de9;
-  --background: #e1e2e7;
-  --foreground: #3760bf;
-  --surface: #d5d6db;
-  --surface-foreground: #3760bf;
-  --surface-secondary: #c8cad3;
-  --surface-secondary-foreground: #3760bf;
-  --surface-tertiary: #b9bcc9;
-  --surface-tertiary-foreground: #3760bf;
-  --border: #c4c8da;
-  --separator: #d5d6db;
-  --default: #c8cad3;
-  --default-foreground: #3760bf;
-  --muted: #6172b0;
-  --field-background: #ffffff;
-  --field-foreground: #3760bf;
-  --field-placeholder: #848cb5;
-  --overlay: #ffffff;
-  --overlay-foreground: #3760bf;
-  --segment: #ffffff;
-  --segment-foreground: #3760bf;
-  --scrollbar: #c4c8da;
-}
-
-[data-theme-preset="tokyo-night"].dark {
-  --accent: #7aa2f7;
-  --accent-foreground: #1a1b26;
-  --focus: #7aa2f7;
-  --background: #1a1b26;
-  --foreground: #c0caf5;
-  --surface: #16161e;
-  --surface-foreground: #c0caf5;
-  --surface-secondary: #1f2335;
-  --surface-secondary-foreground: #c0caf5;
-  --surface-tertiary: #292e42;
-  --surface-tertiary-foreground: #c0caf5;
-  --border: #2a2e42;
-  --separator: #1f2335;
-  --default: #292e42;
-  --default-foreground: #c0caf5;
-  --muted: #565f89;
-  --field-background: #16161e;
-  --field-foreground: #c0caf5;
-  --field-placeholder: #565f89;
-  --overlay: #16161e;
-  --overlay-foreground: #c0caf5;
-  --segment: #1f2335;
-  --segment-foreground: #c0caf5;
-  --scrollbar: #292e42;
-}
-
-/* Vercel (monochrome) */
-[data-theme-preset="vercel"] {
-  --accent: #000000;
-  --accent-foreground: #ffffff;
-  --focus: #000000;
-  --background: #ffffff;
-  --foreground: #000000;
-  --surface: #fafafa;
-  --surface-foreground: #000000;
-  --surface-secondary: #f2f2f2;
-  --surface-secondary-foreground: #000000;
-  --surface-tertiary: #eaeaea;
-  --surface-tertiary-foreground: #000000;
-  --border: #eaeaea;
-  --separator: #f2f2f2;
-  --default: #f2f2f2;
-  --default-foreground: #000000;
-  --muted: #666666;
-  --field-background: #ffffff;
-  --field-foreground: #000000;
-  --field-placeholder: #999999;
-  --overlay: #ffffff;
-  --overlay-foreground: #000000;
-  --segment: #ffffff;
-  --segment-foreground: #000000;
-  --scrollbar: #eaeaea;
-}
-
-[data-theme-preset="vercel"].dark {
-  --accent: #ffffff;
-  --accent-foreground: #000000;
-  --focus: #ffffff;
-  --background: #000000;
-  --foreground: #ffffff;
-  --surface: #0a0a0a;
-  --surface-foreground: #ffffff;
-  --surface-secondary: #111111;
-  --surface-secondary-foreground: #ffffff;
-  --surface-tertiary: #1a1a1a;
-  --surface-tertiary-foreground: #ffffff;
-  --border: #333333;
-  --separator: #1a1a1a;
-  --default: #1a1a1a;
-  --default-foreground: #ffffff;
-  --muted: #888888;
-  --field-background: #0a0a0a;
-  --field-foreground: #ffffff;
-  --field-placeholder: #666666;
-  --overlay: #111111;
-  --overlay-foreground: #ffffff;
-  --segment: #1a1a1a;
-  --segment-foreground: #ffffff;
-  --scrollbar: #333333;
-}
-
-/* Linear */
-[data-theme-preset="linear"] {
-  --accent: #5e6ad2;
-  --accent-foreground: #ffffff;
-  --focus: #5e6ad2;
-  --background: #ffffff;
-  --foreground: #1d1d23;
-  --surface: #f7f8f8;
-  --surface-foreground: #1d1d23;
-  --surface-secondary: #eeeef0;
-  --surface-secondary-foreground: #1d1d23;
-  --surface-tertiary: #e4e4e7;
-  --surface-tertiary-foreground: #1d1d23;
-  --border: #e6e6e8;
-  --separator: #eeeef0;
-  --default: #eeeef0;
-  --default-foreground: #1d1d23;
-  --muted: #6b6f76;
-  --field-background: #ffffff;
-  --field-foreground: #1d1d23;
-  --field-placeholder: #a0a3ab;
-  --overlay: #ffffff;
-  --overlay-foreground: #1d1d23;
-  --segment: #ffffff;
-  --segment-foreground: #1d1d23;
-  --scrollbar: #e4e4e7;
-}
-
-[data-theme-preset="linear"].dark {
-  --accent: #828fff;
-  --accent-foreground: #16161a;
-  --focus: #828fff;
-  --background: #16161a;
-  --foreground: #e6e6e9;
-  --surface: #1f1f24;
-  --surface-foreground: #e6e6e9;
-  --surface-secondary: #26262b;
-  --surface-secondary-foreground: #e6e6e9;
-  --surface-tertiary: #2c2c32;
-  --surface-tertiary-foreground: #e6e6e9;
-  --border: #2c2c32;
-  --separator: #26262b;
-  --default: #26262b;
-  --default-foreground: #e6e6e9;
-  --muted: #8a8f98;
-  --field-background: #1f1f24;
-  --field-foreground: #e6e6e9;
-  --field-placeholder: #62636a;
-  --overlay: #1f1f24;
-  --overlay-foreground: #e6e6e9;
-  --segment: #26262b;
-  --segment-foreground: #e6e6e9;
-  --scrollbar: #2c2c32;
 }

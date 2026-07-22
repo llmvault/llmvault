@@ -10,13 +10,13 @@ const includedFeatures = [
   "Unlimited agents",
   "Unlimited agent sessions",
   "Unlimited sandboxes",
-  "Knowledge storage that grows with your tier",
+  "Unlimited knowledge storage",
   "Unlimited knowledge sources",
   "Unlimited connections",
   "Access to every available model",
-  "Drive file storage",
-  "Sheets for agent data",
-  "Scheduled automations",
+  "Unlimited agent drive storage",
+  "Unlimited agent sheets",
+  "Unlimited automations",
   "Webhook and connection triggers",
   "Role-based access control",
   "API and MCP access",
@@ -89,6 +89,24 @@ function IncludedSection() {
           </div>
         ))}
       </div>
+      <aside
+        aria-label="Organisation tier limits"
+        className="mt-6 flex max-w-[78ch] items-start gap-3"
+      >
+        <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-surface-secondary text-muted">
+          <AppIcon icon="info" className="size-3.5" />
+        </span>
+        <div>
+          <p className="text-sm font-medium">
+            Unlimited usage, tiered capacity.
+          </p>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            There’s no cap on total usage or storage. Your organisation tier
+            sets concurrent agent sessions, maximum sandbox size, and burst
+            capacity; higher tiers unlock permanently as lifetime deposits grow.
+          </p>
+        </div>
+      </aside>
     </section>
   )
 }
@@ -154,12 +172,17 @@ function PricingFaq() {
     {
       question: "What do I get without a plan?",
       answer:
-        "Unlimited users, teams, agents, total sessions, sandboxes, knowledge sources, and connections. Concurrent sessions, sandbox size, and knowledge storage grow with your permanent org tier.",
+        "Unlimited users, teams, agents, total sessions, sandboxes, knowledge sources, and connections. Concurrent agent sessions, sandbox size, and knowledge storage grow with your permanent org tier.",
     },
     {
       question: "What capacity do deposits unlock?",
       answer:
-        "Every org starts with 2 concurrent sessions, nano sandboxes, and 1 GB of knowledge storage. Lifetime deposits of $100 unlock 5 concurrent sessions, small sandboxes, and 10 GB; $250 unlocks 10, medium, and 50 GB; $500 unlocks 20, large, and 200 GB. Unlocks are permanent and never downgrade.",
+        "Every org starts with 1 concurrent agent session, nano sandboxes, and 1 GB of knowledge storage. Lifetime deposits of $100 unlock 2 concurrent agent sessions, small sandboxes, and 3 GB; $250 unlocks 5 concurrent agent sessions, medium sandboxes, and 5 GB; $500 unlocks 10 concurrent agent sessions, large sandboxes, and 10 GB. Unlocks are permanent and never downgrade.",
+    },
+    {
+      question: "Why does Hivy use capacity tiers?",
+      answer:
+        "Sandboxes reserve real compute even when model usage is low. Capacity tiers keep entry-level deposits small without making light users subsidize bursty workloads. As your lifetime deposits grow, your org permanently unlocks more concurrent agent sessions, larger sandboxes, and more knowledge storage. All product features remain included, and your org never downgrades.",
     },
     {
       question: "What spends my credits?",
@@ -224,14 +247,9 @@ function PricingCta() {
         Set up your workspace without a subscription. Your first deposit can be
         as little as $5.
       </p>
-      <div className="mt-7 flex items-center gap-2">
+      <div className="mt-7">
         <Link href="/auth/signup">
           <Button size="sm">Start for free</Button>
-        </Link>
-        <Link href="mailto:sales@usehivy.com">
-          <Button size="sm" variant="ghost">
-            Ask a pricing question
-          </Button>
         </Link>
       </div>
     </section>
@@ -240,7 +258,7 @@ function PricingCta() {
 
 export function PricingPage() {
   return (
-    <main className="marketing-link-scope light min-h-screen bg-background text-foreground">
+    <main className="marketing-link-scope min-h-screen bg-background text-foreground">
       <LandingHeader />
       <PricingHero />
       <CalculatorSection />

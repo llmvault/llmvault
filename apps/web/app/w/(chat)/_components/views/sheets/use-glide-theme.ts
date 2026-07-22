@@ -2,7 +2,7 @@
 
 /**
  * Bridges the app's OKLCH CSS-variable design tokens (defined in
- * app/hero.css, switched via next-themes `.dark` class + `[data-theme-preset]`)
+ * app/hero.css and switched via next-themes' `.dark` class)
  * onto Glide Data Grid's canvas Theme object.
  *
  * Glide renders cells on a 2D canvas and runs every theme color through its own
@@ -120,8 +120,7 @@ function resolveGlideTheme(): Partial<Theme> {
 
 /**
  * Resolves the Glide theme from the current design tokens and re-resolves
- * whenever the theme changes at runtime (next-themes toggling the `dark`
- * class, or the `data-theme-preset` attribute switching presets).
+ * whenever next-themes toggles the `dark` class at runtime.
  *
  * Client-only: returns `undefined` until mounted (safe under SSR/prerender).
  */
@@ -136,7 +135,7 @@ export function useGlideTheme(): Partial<Theme> | undefined {
     })
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["class", "data-theme-preset", "style"],
+      attributeFilter: ["class", "style"],
     })
 
     // Canvas can only paint a font once it has loaded; re-resolve when the app

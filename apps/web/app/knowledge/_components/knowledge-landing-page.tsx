@@ -18,21 +18,13 @@ function SectionEyebrow({ children }: { children: ReactNode }) {
 
 export function KnowledgeLandingPage() {
   return (
-    <main className="marketing-link-scope light min-h-screen bg-background text-foreground">
+    <main className="marketing-link-scope min-h-screen bg-background text-foreground">
       <LandingHero
         titleLines={[
           "Give Hivy agents memory of your company’s work.",
           "Get every answer with its source.",
         ]}
         description="Connect selected Slack channels, GitHub repositories, Notion pages, Linear teams, and websites. Hivy indexes the work, keeps access scoped by team, and returns answers with citations."
-        primaryAction={{
-          label: "Create free workspace",
-          href: "/auth/signup",
-        }}
-        secondaryAction={{
-          label: "See connected sources",
-          href: "#source-setup",
-        }}
         placeholderLabel="Connected sources and an answer with citations"
       />
 
@@ -134,7 +126,7 @@ export function KnowledgeLandingPage() {
         </p>
         <div className="mt-8 flex items-center gap-2">
           <Link href="/auth/signup">
-            <Button size="sm">Create free workspace</Button>
+            <Button size="sm">Start for free</Button>
           </Link>
         </div>
       </section>

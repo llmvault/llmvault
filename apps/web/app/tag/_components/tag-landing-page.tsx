@@ -146,15 +146,13 @@ function WorkMemoryMockup() {
 
 export function TagLandingPage() {
   return (
-    <main className="marketing-link-scope light min-h-screen bg-background text-foreground">
+    <main className="marketing-link-scope min-h-screen bg-background text-foreground">
       <LandingHero
         titleLines={[
           "Bring @hivy into the conversation.",
           "Keep the work in Slack.",
         ]}
         description="Assign an agent to a channel, then mention @hivy, add a chosen reaction, or let the agent watch for work. It reads the conversation, does the job with its tools and knowledge, and reports back in the same thread."
-        primaryAction={{ label: "Connect Slack", href: "/auth/signup" }}
-        secondaryAction={{ label: "Watch @hivy work", href: "#how-it-works" }}
         placeholderLabel="Hivy working inside a Slack channel"
       />
 
@@ -252,16 +250,6 @@ export function TagLandingPage() {
               reach Reliability. You choose the route once, and an agent can
               cover more than one channel when the work overlaps.
             </p>
-            <div className="mt-9 flex items-start gap-4 border-t border-border pt-6">
-              <AppIcon icon="route" size={21} className="mt-0.5 text-muted" />
-              <div>
-                <p className="font-medium">One route. No guessing.</p>
-                <p className="mt-1 text-sm leading-6 text-muted">
-                  Each channel points to one configured agent, while an existing
-                  thread stays with the agent that picked it up.
-                </p>
-              </div>
-            </div>
           </div>
           <RouteDiagram />
         </div>

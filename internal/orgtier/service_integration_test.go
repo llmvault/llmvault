@@ -17,10 +17,9 @@ import (
 	"github.com/usehivy/hivy/internal/testdb"
 )
 
-func TestConcurrentSessionCreationReservesOnlyTheFinalTierOneSlot(t *testing.T) {
+func TestConcurrentSessionCreationReservesOnlyTheTierOneSlot(t *testing.T) {
 	db := connectTierTestDB(t)
 	org, agent := createTierTestOrgAndAgent(t, db, Tier1)
-	createTierTestSandbox(t, db, org.ID, agent.ID, "running")
 
 	start := make(chan struct{})
 	results := make(chan error, 2)
@@ -62,7 +61,7 @@ func TestConcurrentSessionCreationReservesOnlyTheFinalTierOneSlot(t *testing.T) 
 
 func TestPendingSessionCreateReservationBlocksAStoppedSandboxWake(t *testing.T) {
 	db := connectTierTestDB(t)
-	org, agent := createTierTestOrgAndAgent(t, db, Tier1)
+	org, agent := createTierTestOrgAndAgent(t, db, Tier2)
 	createTierTestSandbox(t, db, org.ID, agent.ID, "running")
 	stopped := createTierTestSandbox(t, db, org.ID, agent.ID, "stopped")
 	pending := model.OrgSessionCapacityReservation{

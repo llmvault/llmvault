@@ -6,10 +6,7 @@ import {
   LandingHero,
   PlatformHighlights,
 } from "../../home/_components/landing-shared"
-import {
-  ProvisioningPreview,
-  TeamBoundaryPreview,
-} from "./access-control-scenes"
+import { ProvisioningPreview } from "./access-control-scenes"
 
 function SectionEyebrow({ children }: { children: ReactNode }) {
   return (
@@ -21,30 +18,22 @@ function SectionEyebrow({ children }: { children: ReactNode }) {
 
 export function AccessControlLandingPage() {
   return (
-    <main className="marketing-link-scope light min-h-screen bg-background text-foreground">
+    <main className="marketing-link-scope min-h-screen bg-background text-foreground">
       <LandingHero
         titleLines={[
           "Govern every Hivy agent from one workspace.",
           "Set access before work starts.",
         ]}
         description="Group people and agents by team, choose the connections, knowledge, and skills each team can use, and let Hivy enforce the same boundary in every session."
-        primaryAction={{
-          label: "Create free workspace",
-          href: "/auth/signup",
-        }}
-        secondaryAction={{
-          label: "See team access",
-          href: "#team-boundary",
-        }}
         placeholderLabel="Team access settings in Hivy"
       />
 
       <section
         id="team-boundary"
-        className="mx-auto mt-32 w-[calc(100%-2rem)] max-w-[1300px]"
+        className="mx-auto mt-32 w-[calc(100%-2rem)] max-w-[1300px] border-t border-border pt-16 md:pt-20"
       >
-        <div className="grid gap-12 lg:grid-cols-[0.76fr_1.24fr] lg:items-center lg:gap-16">
-          <div className="max-w-[540px]">
+        <div className="grid gap-14 lg:grid-cols-[0.82fr_1.18fr] lg:gap-24">
+          <div className="max-w-[560px]">
             <SectionEyebrow>Roles, teams, and grants</SectionEyebrow>
             <h2 className="mt-5 text-[clamp(2rem,3.6vw,3.7rem)] leading-[0.98] font-medium tracking-[-0.05em]">
               Control who can do what, team by team.
@@ -54,43 +43,39 @@ export function AccessControlLandingPage() {
               teams they belong to. Each team carries the agents and resources
               its job calls for.
             </p>
-            <div className="mt-9 flex items-start gap-4 border-t border-border pt-6">
-              <AppIcon icon="network" size={20} className="mt-0.5 text-muted" />
-              <div>
-                <p className="text-sm font-medium">
-                  Review the full access path.
-                </p>
-                <p className="mt-1 text-sm leading-6 text-muted">
-                  Follow a person to their team, its agents, and the resources
-                  those agents may use.
-                </p>
-              </div>
-            </div>
           </div>
-          <TeamBoundaryPreview />
+          <div className="border-t border-border">
+            {[
+              {
+                title: "Workspace roles",
+                description:
+                  "Owners and admins set up the workspace. Members work inside the teams they join.",
+              },
+              {
+                title: "Teams set the boundary",
+                description:
+                  "Group people and agents around a function such as Product, Support, or Operations.",
+              },
+              {
+                title: "Resources follow the team",
+                description:
+                  "Grant the connections, knowledge sources, and skills that team needs, once.",
+              },
+            ].map((item) => (
+              <article
+                key={item.title}
+                className="grid gap-3 border-b border-border py-7 sm:grid-cols-[0.72fr_1.28fr] sm:gap-8"
+              >
+                <h3 className="text-base font-medium tracking-[-0.02em]">
+                  {item.title}
+                </h3>
+                <p className="max-w-[46ch] text-sm leading-6 text-muted">
+                  {item.description}
+                </p>
+              </article>
+            ))}
+          </div>
         </div>
-        <PlatformHighlights
-          items={[
-            {
-              icon: "settings",
-              title: "Workspace roles",
-              description:
-                "Owners and admins manage the workspace while members work inside the teams they have joined.",
-            },
-            {
-              icon: "users",
-              title: "Teams define the working boundary",
-              description:
-                "Group people and agents around a real function such as Product, Support, or Operations.",
-            },
-            {
-              icon: "network",
-              title: "Resources granted once",
-              description:
-                "Attach the connections, knowledge sources, and skills that the team’s work requires.",
-            },
-          ]}
-        />
       </section>
 
       <section className="mx-auto mt-40 w-[calc(100%-2rem)] max-w-[1300px]">
@@ -108,28 +93,31 @@ export function AccessControlLandingPage() {
         <div className="mx-auto mt-14 max-w-[980px] bg-surface-secondary p-4 md:p-9 lg:p-14">
           <ProvisioningPreview />
         </div>
-        <PlatformHighlights
-          items={[
-            {
-              icon: "plug",
-              title: "Connections",
-              description:
-                "Choose the connected accounts an agent may act through instead of exposing every provider in the workspace.",
-            },
-            {
-              icon: "database",
-              title: "Knowledge sources",
-              description:
-                "Limit search to the repositories, channels, pages, and sites approved for that team.",
-            },
-            {
-              icon: "sparkles",
-              title: "Published skills",
-              description:
-                "Make approved procedures available to the agents that need them while keeping other teams separate.",
-            },
-          ]}
-        />
+        <div data-testid="resource-grant-highlights" className="pt-10">
+          <PlatformHighlights
+            className="border-t"
+            items={[
+              {
+                icon: "plug",
+                title: "Connections",
+                description:
+                  "Choose the connected accounts an agent may act through instead of exposing every provider in the workspace.",
+              },
+              {
+                icon: "database",
+                title: "Knowledge sources",
+                description:
+                  "Limit search to the repositories, channels, pages, and sites approved for that team.",
+              },
+              {
+                icon: "sparkles",
+                title: "Published skills",
+                description:
+                  "Make approved procedures available to the agents that need them while keeping other teams separate.",
+              },
+            ]}
+          />
+        </div>
       </section>
 
       <section className="mx-auto flex min-h-[520px] w-[calc(100%-2rem)] max-w-[1300px] flex-col items-center justify-center text-center">
@@ -145,7 +133,7 @@ export function AccessControlLandingPage() {
         </p>
         <div className="mt-8">
           <Link href="/auth/signup">
-            <Button size="sm">Create free workspace</Button>
+            <Button size="sm">Start for free</Button>
           </Link>
         </div>
       </section>

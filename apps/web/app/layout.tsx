@@ -6,10 +6,6 @@ import { PublicConfigScript } from "@/components/public-config-script"
 import { QueryProvider } from "@/components/query-provider"
 import { ThemeProviders } from "@/components/theme-providers"
 
-// Applies the saved theme preset before first paint to avoid a flash.
-// next-themes injects its own equivalent script for the light/dark mode.
-const PRESET_NO_FLASH = `(function(){try{var p=localStorage.getItem('hivy-theme-preset');if(p&&p!=='default')document.documentElement.dataset.themePreset=p;}catch(e){}})();`
-
 const bricolageSans = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-bricolage-sans",
@@ -44,12 +40,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${bricolageSans.variable} ${geistMono.variable} font-sans antialiased dark`}
+      className={`${bricolageSans.variable} ${geistMono.variable} dark font-sans antialiased`}
       suppressHydrationWarning
     >
       <body className={bricolageSans.className}>
         <PublicConfigScript />
-        <script dangerouslySetInnerHTML={{ __html: PRESET_NO_FLASH }} />
         <ThemeProviders>
           <QueryProvider>
             {children}

@@ -125,6 +125,7 @@ export function AgentCatalogExplorer() {
               {catalogGroups.map((group) => (
                 <Tabs.Tab id={group.id} key={group.id}>
                   {group.label}
+                  <Tabs.Indicator />
                 </Tabs.Tab>
               ))}
             </Tabs.List>
@@ -136,7 +137,7 @@ export function AgentCatalogExplorer() {
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                className="divide-y divide-border border-y border-border"
+                className="divide-y divide-border"
               >
                 {group.agents.map((agent) => (
                   <div

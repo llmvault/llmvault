@@ -20,21 +20,13 @@ function SectionEyebrow({ children }: { children: ReactNode }) {
 
 export function SheetsLandingPage() {
   return (
-    <main className="marketing-link-scope light min-h-screen bg-background text-foreground">
+    <main className="marketing-link-scope min-h-screen bg-background text-foreground">
       <LandingHero
         titleLines={[
           "Give Hivy agents a database they can read and write.",
           "Keep the state between sessions.",
         ]}
         description="Store the leads, accounts, tickets, and other records your team works with. People and agents can query rows, update fields, and return to the same data in the next session."
-        primaryAction={{
-          label: "Create free workspace",
-          href: "/auth/signup",
-        }}
-        secondaryAction={{
-          label: "See a Sheet in use",
-          href: "#shared-records",
-        }}
         placeholderLabel="A shared Hivy Sheet with account records"
       />
 
@@ -125,7 +117,7 @@ export function SheetsLandingPage() {
 
       <section
         id="contact"
-        className="mx-auto mt-40 flex min-h-[520px] w-[calc(100%-2rem)] max-w-[1300px] flex-col items-center justify-center border-t border-border text-center"
+        className="mx-auto mt-40 flex min-h-[520px] w-[calc(100%-2rem)] max-w-[1300px] flex-col items-center justify-center text-center"
       >
         <SectionEyebrow>Bring one real list</SectionEyebrow>
         <h2 className="mt-6 max-w-[850px] text-[clamp(2.3rem,4.5vw,4.5rem)] leading-[0.96] font-medium tracking-[-0.06em]">
@@ -137,7 +129,7 @@ export function SheetsLandingPage() {
         </p>
         <div className="mt-8">
           <Link href="/auth/signup">
-            <Button size="sm">Create free workspace</Button>
+            <Button size="sm">Start for free</Button>
           </Link>
         </div>
       </section>

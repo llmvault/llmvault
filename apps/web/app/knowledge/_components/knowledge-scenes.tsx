@@ -82,7 +82,7 @@ function SourceForm({ source }: { source: SourceExample }) {
       initial={{ opacity: 0, y: 7 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.34, ease: easeOut }}
-      className="grid min-h-[470px] lg:grid-cols-[0.72fr_1.28fr]"
+      className="grid min-h-[470px] lg:grid-cols-[calc(33.333333%_-_16px)_1fr]"
     >
       <div className="border-b border-border bg-surface-secondary p-5 lg:border-r lg:border-b-0 lg:p-7">
         <p className="text-[0.68rem] font-medium tracking-[0.1em] text-muted uppercase">Choose a source</p>
@@ -144,7 +144,7 @@ function SourceForm({ source }: { source: SourceExample }) {
           </div>
         </div>
 
-        <div className="mt-9 flex items-center justify-end gap-2 border-t border-border pt-5">
+        <div data-testid="knowledge-source-actions" className="mt-9 flex items-center justify-end gap-2 pt-5">
           <span className="rounded-sm px-3 py-2 text-xs text-muted">Back</span>
           <span className="rounded-sm bg-foreground px-3 py-2 text-xs font-medium text-background">Connect source</span>
         </div>
@@ -165,6 +165,7 @@ export function SourceSetupScene() {
                   <IntegrationLogo provider={source.icon} size={16} />
                   {source.label}
                 </span>
+                <Tabs.Indicator />
               </Tabs.Tab>
             ))}
           </Tabs.List>

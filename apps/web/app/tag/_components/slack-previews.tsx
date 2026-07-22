@@ -7,25 +7,30 @@ import { IntegrationLogo } from "@/components/integration-logo"
 import { LogoMark } from "@/components/logo"
 
 export const slackFont = {
-  fontFamily: '"Slack-Lato", "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  fontFamily:
+    '"Slack-Lato", "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
 }
 
 export const people = {
   maya: {
     name: "Maya Chen",
-    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&h=96&q=86",
+    image:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&h=96&q=86",
   },
   leah: {
     name: "Leah Brooks",
-    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=96&h=96&q=86",
+    image:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=96&h=96&q=86",
   },
   omar: {
     name: "Omar Bell",
-    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&h=96&q=86",
+    image:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&h=96&q=86",
   },
   jon: {
     name: "Jon Park",
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=96&h=96&q=86",
+    image:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=96&h=96&q=86",
   },
 } as const
 
@@ -44,7 +49,7 @@ function HivyAvatar({ size = "message" }: { size?: "message" | "small" }) {
   return (
     <span
       className={[
-        "flex shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-[#fff7ef] shadow-[inset_0_0_0_1px_rgba(29,28,29,0.1)]",
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-[5px] border border-border bg-background",
         size === "small" ? "size-5 p-[3px]" : "size-9 p-1.5",
       ].join(" ")}
     >
@@ -53,7 +58,11 @@ function HivyAvatar({ size = "message" }: { size?: "message" | "small" }) {
   )
 }
 
-function PersonAvatar({ person }: { person: (typeof people)[keyof typeof people] }) {
+function PersonAvatar({
+  person,
+}: {
+  person: (typeof people)[keyof typeof people]
+}) {
   return (
     <span
       role="img"
@@ -65,7 +74,11 @@ function PersonAvatar({ person }: { person: (typeof people)[keyof typeof people]
 }
 
 export function SlackMention({ children = "@hivy" }: { children?: ReactNode }) {
-  return <span className="rounded-[3px] bg-[#e8f5fa] px-1 py-0.5 font-semibold text-[#1264a3]">{children}</span>
+  return (
+    <span className="rounded-[3px] bg-[#e8f5fa] px-1 py-0.5 font-semibold text-[#1264a3] dark:bg-[#1d9bd1]/20 dark:text-[#58b7e6]">
+      {children}
+    </span>
+  )
 }
 
 export function Message({
@@ -86,19 +99,28 @@ export function Message({
   const name = app ? "hivy" : (person?.name ?? "Teammate")
 
   return (
-    <div className={["group flex gap-2.5 px-4 hover:bg-[#f8f8f8]", compact ? "py-1.5" : "py-2.5"].join(" ")}>
+    <div
+      className={[
+        "group flex gap-2.5 px-4 hover:bg-surface-secondary",
+        compact ? "py-1.5" : "py-2.5",
+      ].join(" ")}
+    >
       {app ? <HivyAvatar /> : person ? <PersonAvatar person={person} /> : null}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-1.5">
-          <span className="text-[13px] leading-4 font-bold text-[#1d1c1d]">{name}</span>
+          <span className="text-[13px] leading-4 font-bold text-foreground">
+            {name}
+          </span>
           {app ? (
-            <span className="rounded-[3px] bg-[#e8e8e8] px-1 py-px text-[8px] leading-3 font-bold tracking-[0.04em] text-[#4a4a4a]">
+            <span className="rounded-[3px] bg-surface-tertiary px-1 py-px text-[8px] leading-3 font-bold tracking-[0.04em] text-muted">
               APP
             </span>
           ) : null}
-          <span className="text-[10px] leading-4 text-[#616061]">{time}</span>
+          <span className="text-[10px] leading-4 text-muted">{time}</span>
         </div>
-        <div className="mt-px text-[12.5px] leading-[1.45] text-[#1d1c1d]">{children}</div>
+        <div className="mt-px text-[12.5px] leading-[1.45] text-foreground">
+          {children}
+        </div>
         {footer ? <div className="mt-2">{footer}</div> : null}
       </div>
     </div>
@@ -111,16 +133,18 @@ function TypingMessage() {
       <HivyAvatar />
       <div>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-[13px] leading-4 font-bold text-[#1d1c1d]">hivy</span>
-          <span className="rounded-[3px] bg-[#e8e8e8] px-1 py-px text-[8px] leading-3 font-bold tracking-[0.04em] text-[#4a4a4a]">
+          <span className="text-[13px] leading-4 font-bold text-foreground">
+            hivy
+          </span>
+          <span className="rounded-[3px] bg-surface-tertiary px-1 py-px text-[8px] leading-3 font-bold tracking-[0.04em] text-muted">
             APP
           </span>
         </div>
-        <div className="mt-1 flex h-7 w-14 items-center justify-center gap-1 rounded-[12px] border border-[#dddddd] bg-[#f8f8f8]">
+        <div className="mt-1 flex h-7 w-14 items-center justify-center gap-1 rounded-[12px] border border-border bg-surface-secondary">
           {[0, 1, 2].map((index) => (
             <motion.span
               key={index}
-              className="size-1 rounded-full bg-[#616061]"
+              className="size-1 rounded-full bg-muted"
               animate={{ opacity: [0.35, 1, 0.35], y: [0, -2, 0] }}
               transition={{
                 duration: 0.72,
@@ -131,7 +155,7 @@ function TypingMessage() {
             />
           ))}
         </div>
-        <p className="mt-1 text-[9px] text-[#616061]">hivy is typing…</p>
+        <p className="mt-1 text-[9px] text-muted">hivy is typing…</p>
       </div>
     </div>
   )
@@ -178,9 +202,9 @@ export function AnimatedAgentReply({
 
 export function Composer({ label }: { label: string }) {
   return (
-    <div className="mx-4 mt-auto mb-4 rounded-[7px] border border-[#868686] bg-[#fefefe]">
-      <div className="px-3 pt-2.5 text-[11px] text-[#616061]">{label}</div>
-      <div className="mt-2 flex h-7 items-center justify-between border-t border-[#eeeeee] px-2.5 text-[#616061]">
+    <div className="mx-4 mt-auto mb-4 rounded-[7px] border border-foreground/40 bg-background">
+      <div className="px-3 pt-2.5 text-[11px] text-muted">{label}</div>
+      <div className="mt-2 flex h-7 items-center justify-between border-t border-border px-2.5 text-muted">
         <div className="flex items-center gap-2">
           <AppIcon icon="plus" size={13} />
           <AppIcon icon="type" size={13} />
@@ -215,7 +239,7 @@ export function SlackChrome({
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, amount: 0.28 }}
-        className="overflow-hidden rounded-[10px] border border-[#d6d6d6] bg-[#fefefe] text-[#1d1c1d] shadow-[0_18px_50px_rgba(53,13,54,0.14)]"
+        className="overflow-hidden rounded-[10px] border border-border bg-surface text-foreground shadow-surface"
         style={slackFont}
       >
         <div className="grid h-9 grid-cols-[auto_1fr_auto] items-center gap-3 bg-[#350d36] px-3 text-[#f8f8f8]">
@@ -227,11 +251,21 @@ export function SlackChrome({
           <AppIcon icon="info" size={13} className="text-[#d7c8d8]" />
         </div>
 
-        <div className={focused ? "min-h-[430px]" : "grid min-h-[430px] md:grid-cols-[48px_170px_minmax(0,1fr)]"}>
+        <div
+          className={
+            focused
+              ? "min-h-[430px]"
+              : "grid min-h-[430px] md:grid-cols-[48px_170px_minmax(0,1fr)]"
+          }
+        >
           {!focused ? (
             <>
               <div className="hidden flex-col items-center gap-2.5 bg-[#3f0e40] py-3 md:flex">
-                <IntegrationLogo provider="slack" size={32} className="rounded-[8px]" />
+                <IntegrationLogo
+                  provider="slack"
+                  size={32}
+                  className="rounded-[8px]"
+                />
                 <span className="flex size-8 items-center justify-center rounded-[8px] bg-[#1264a3] text-[9px] font-bold text-[#f8f8f8]">
                   HW
                 </span>
@@ -242,8 +276,14 @@ export function SlackChrome({
 
               <aside className="hidden flex-col bg-[#4a154b] text-[#f8f8f8] md:flex">
                 <div className="flex h-11 items-center justify-between border-b border-[#633764] px-3">
-                  <span className="truncate text-[12px] font-bold">Hivy workspace</span>
-                  <AppIcon icon="square-pen" size={14} className="text-[#d7c8d8]" />
+                  <span className="truncate text-[12px] font-bold">
+                    Hivy workspace
+                  </span>
+                  <AppIcon
+                    icon="square-pen"
+                    size={14}
+                    className="text-[#d7c8d8]"
+                  />
                 </div>
                 <div className="space-y-0.5 px-2 py-2.5 text-[11px] text-[#d7c8d8]">
                   <div className="flex items-center gap-2 rounded-[4px] px-2 py-1">
@@ -253,7 +293,9 @@ export function SlackChrome({
                     <AppIcon icon="activity" size={12} /> Activity
                   </div>
                 </div>
-                <div className="px-3 pt-2 text-[10px] font-bold text-[#c8b5c9]">Channels</div>
+                <div className="px-3 pt-2 text-[10px] font-bold text-[#c8b5c9]">
+                  Channels
+                </div>
                 <div className="mt-1 px-2 text-[11px] text-[#d7c8d8]">
                   {channels.map((item) => (
                     <div
@@ -268,7 +310,9 @@ export function SlackChrome({
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 px-3 text-[10px] font-bold text-[#c8b5c9]">Apps</div>
+                <div className="mt-4 px-3 text-[10px] font-bold text-[#c8b5c9]">
+                  Apps
+                </div>
                 <div className="mt-2 flex items-center gap-2 px-4 text-[11px] text-[#eee7ee]">
                   <HivyAvatar size="small" /> hivy
                 </div>
@@ -276,13 +320,15 @@ export function SlackChrome({
             </>
           ) : null}
 
-          <div className="flex min-w-0 flex-col bg-[#fefefe]">
-            <div className="flex h-11 shrink-0 items-center justify-between border-b border-[#dddddd] px-4">
+          <div className="flex min-w-0 flex-col bg-surface">
+            <div className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-bold"># {channel}</p>
-                <p className="truncate text-[9.5px] text-[#616061]">{channelDescription}</p>
+                <p className="truncate text-[9.5px] text-muted">
+                  {channelDescription}
+                </p>
               </div>
-              <div className="flex items-center gap-3 text-[#616061]">
+              <div className="flex items-center gap-3 text-muted">
                 <span className="flex items-center gap-1 text-[9px]">
                   <AppIcon icon="users" size={12} /> 24
                 </span>
@@ -300,35 +346,45 @@ export function SlackChrome({
 
 export function SlackWorkspaceMockup() {
   return (
-    <SlackChrome channel="product-support" channelDescription="Customer reports, debugging, and handoffs">
-      <motion.div variants={reveal} custom={0.15} className="border-b border-[#eeeeee] px-4 py-3">
+    <SlackChrome
+      channel="product-support"
+      channelDescription="Customer reports, debugging, and handoffs"
+    >
+      <motion.div
+        variants={reveal}
+        custom={0.15}
+        className="border-b border-border px-4 py-3"
+      >
         <p className="text-[16px] font-bold"># product-support</p>
-        <p className="mt-1 text-[10px] text-[#616061]">
-          Bring support problems here. Mention hivy when the agent should take over.
+        <p className="mt-1 text-[10px] text-muted">
+          Bring support problems here. Mention hivy when the agent should take
+          over.
         </p>
       </motion.div>
       <div className="py-2">
         <motion.div variants={reveal} custom={0.45}>
           <Message person={people.maya} time="10:42 AM">
-            An import fails whenever the account has more than one workspace. I added the error above. <SlackMention />{" "}
-            can you trace the latest deploy and find where the response changed?
+            An import fails whenever the account has more than one workspace. I
+            added the error above. <SlackMention /> can you trace the latest
+            deploy and find where the response changed?
           </Message>
         </motion.div>
         <AnimatedAgentReply
           time="10:43 AM"
           footer={
             <div className="flex flex-wrap gap-1.5">
-              <span className="rounded-[4px] border border-[#dddddd] px-2 py-1 text-[9px] text-[#616061]">
+              <span className="rounded-[4px] border border-border px-2 py-1 text-[9px] text-muted">
                 Support agent
               </span>
-              <span className="rounded-[4px] border border-[#dddddd] px-2 py-1 text-[9px] text-[#616061]">
+              <span className="rounded-[4px] border border-border px-2 py-1 text-[9px] text-muted">
                 Session linked
               </span>
             </div>
           }
         >
-          Found it. The workspace lookup now returns a list, but the import job still expects one record. I’m checking
-          the affected jobs and will post the fix here.
+          Found it. The workspace lookup now returns a list, but the import job
+          still expects one record. I’m checking the affected jobs and will post
+          the fix here.
         </AnimatedAgentReply>
       </div>
       <Composer label="Message #product-support" />
@@ -346,18 +402,20 @@ export function SlackWatchMockup() {
       <motion.div
         variants={reveal}
         custom={0.15}
-        className="flex items-center justify-between border-b border-[#b7d9ea] bg-[#e8f5fa] px-4 py-2.5"
+        className="flex items-center justify-between border-b border-[#b7d9ea] bg-[#e8f5fa] px-4 py-2.5 dark:border-[#1d9bd1]/30 dark:bg-[#1d9bd1]/12"
       >
         <div className="flex min-w-0 items-center gap-2.5">
           <HivyAvatar size="small" />
           <div className="min-w-0">
-            <p className="truncate text-[11px] font-bold">hivy is watching #customer-voice</p>
-            <p className="mt-0.5 truncate text-[9px] text-[#41697c]">
+            <p className="truncate text-[11px] font-bold">
+              hivy is watching #customer-voice
+            </p>
+            <p className="mt-0.5 truncate text-[9px] text-[#41697c] dark:text-[#8fcce8]">
               Group repeated requests and post when product needs to decide.
             </p>
           </div>
         </div>
-        <span className="ml-3 flex shrink-0 items-center gap-1.5 rounded-full bg-[#d4edfa] px-2 py-1 text-[9px] font-bold text-[#1264a3]">
+        <span className="ml-3 flex shrink-0 items-center gap-1.5 rounded-full bg-[#d4edfa] px-2 py-1 text-[9px] font-bold text-[#1264a3] dark:bg-[#1d9bd1]/20 dark:text-[#58b7e6]">
           <motion.span
             className="size-1.5 rounded-full bg-[#2eb67d]"
             animate={{ opacity: [0.4, 1, 0.4] }}
@@ -380,10 +438,14 @@ export function SlackWatchMockup() {
         <AnimatedAgentReply
           time="9:32 AM"
           delay={2.18}
-          footer={<span className="text-[9.5px] font-bold text-[#1264a3]">View 2 sources</span>}
+          footer={
+            <span className="text-[9.5px] font-bold text-[#1264a3]">
+              View 2 sources
+            </span>
+          }
         >
-          This has come up in support and onboarding. I added both sources to today’s feedback brief and asked the
-          product owner for a decision.
+          This has come up in support and onboarding. I added both sources to
+          today’s feedback brief and asked the product owner for a decision.
         </AnimatedAgentReply>
       </div>
     </SlackChrome>
@@ -392,18 +454,23 @@ export function SlackWatchMockup() {
 
 export function SlackReactionMockup() {
   return (
-    <SlackChrome channel="product-support" channelDescription="Customer reports, debugging, and handoffs">
+    <SlackChrome
+      channel="product-support"
+      channelDescription="Customer reports, debugging, and handoffs"
+    >
       <motion.div
         variants={reveal}
         custom={0.15}
-        className="flex items-center gap-3 border-b border-[#dddddd] bg-[#f8f8f8] px-4 py-2.5"
+        className="flex items-center gap-3 border-b border-border bg-surface-secondary px-4 py-2.5"
       >
-        <span className="flex size-7 items-center justify-center rounded-[5px] bg-[#fefefe] text-sm shadow-[inset_0_0_0_1px_#dddddd]">
+        <span className="flex size-7 items-center justify-center rounded-[5px] border border-border bg-surface text-sm">
           👀
         </span>
         <div>
           <p className="text-[11px] font-bold">Reaction trigger</p>
-          <p className="text-[9px] text-[#616061]">When someone adds 👀, run the Support agent on that message.</p>
+          <p className="text-[9px] text-muted">
+            When someone adds 👀, run the Support agent on that message.
+          </p>
         </div>
       </motion.div>
       <div className="py-2">
@@ -422,23 +489,27 @@ export function SlackReactionMockup() {
                 >
                   👀 2
                 </motion.span>
-                <span className="rounded-full border border-[#dddddd] px-2 py-0.5 text-[10px] text-[#616061]">+</span>
+                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted">
+                  +
+                </span>
               </div>
             }
           >
-            SSO setup stops after domain verification. The error and request ID are attached.
+            SSO setup stops after domain verification. The error and request ID
+            are attached.
           </Message>
         </motion.div>
         <motion.div
           variants={reveal}
           custom={1.22}
-          className="mx-4 my-1.5 flex items-center gap-2 border-y border-[#eeeeee] py-2 text-[9.5px] text-[#616061]"
+          className="mx-4 my-1.5 flex items-center gap-2 border-y border-border py-2 text-[9.5px] text-muted"
         >
-          <HivyAvatar size="small" /> Reaction matched. hivy handed this message and its thread to the Support agent.
+          <HivyAvatar size="small" /> Reaction matched. hivy handed this message
+          and its thread to the Support agent.
         </motion.div>
         <AnimatedAgentReply time="2:07 PM" delay={2.45}>
-          I picked this up from the 👀 reaction. I’m tracing the verification callback now and will put the cause in
-          this thread.
+          I picked this up from the 👀 reaction. I’m tracing the verification
+          callback now and will put the cause in this thread.
         </AnimatedAgentReply>
       </div>
     </SlackChrome>
@@ -447,12 +518,17 @@ export function SlackReactionMockup() {
 
 export function SlackThreadContinuityMockup() {
   return (
-    <SlackChrome focused channel="product-support" channelDescription="Customer reports, debugging, and handoffs">
+    <SlackChrome
+      focused
+      channel="product-support"
+      channelDescription="Customer reports, debugging, and handoffs"
+    >
       <div className="grid min-h-[385px] md:grid-cols-[minmax(0,0.92fr)_minmax(330px,1.08fr)]">
-        <div className="border-b border-[#dddddd] bg-[#fefefe] py-3 md:border-r md:border-b-0">
+        <div className="border-b border-border bg-surface py-3 md:border-r md:border-b-0">
           <motion.div variants={reveal} custom={0.2}>
             <Message person={people.maya} time="10:42 AM">
-              Multi-workspace imports are still failing. <SlackMention /> can you take this from here?
+              Multi-workspace imports are still failing. <SlackMention /> can
+              you take this from here?
             </Message>
           </motion.div>
           <motion.div
@@ -462,15 +538,15 @@ export function SlackThreadContinuityMockup() {
           >
             <span className="flex -space-x-1">
               <span
-                className="size-5 rounded-[4px] bg-cover bg-center ring-2 ring-[#fefefe]"
+                className="size-5 rounded-[4px] bg-cover bg-center ring-2 ring-surface"
                 style={{ backgroundImage: `url(${people.maya.image})` }}
               />
-              <span className="flex size-5 items-center justify-center rounded-[4px] bg-[#fff7ef] p-1 ring-2 ring-[#fefefe]">
+              <span className="flex size-5 items-center justify-center rounded-[4px] bg-background p-1 ring-2 ring-surface">
                 <LogoMark className="size-full" />
               </span>
             </span>
             4 replies
-            <span className="font-normal text-[#616061]">Last reply just now</span>
+            <span className="font-normal text-muted">Last reply just now</span>
           </motion.div>
         </div>
 
@@ -483,21 +559,22 @@ export function SlackThreadContinuityMockup() {
               transition: { delay: 0.55, duration: 0.5, ease: easeOut },
             },
           }}
-          className="flex min-w-0 flex-col bg-[#fefefe]"
+          className="flex min-w-0 flex-col bg-surface"
         >
-          <div className="flex h-11 shrink-0 items-center justify-between border-b border-[#dddddd] px-4">
+          <div className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
             <div className="flex items-baseline gap-2">
               <span className="text-[13px] font-bold">Thread</span>
-              <span className="text-[9px] text-[#616061]">#product-support</span>
+              <span className="text-[9px] text-muted">#product-support</span>
             </div>
-            <AppIcon icon="x" size={14} className="text-[#616061]" />
+            <AppIcon icon="x" size={14} className="text-muted" />
           </div>
-          <div className="border-b border-[#eeeeee] py-1.5">
+          <div className="border-b border-border py-1.5">
             <Message person={people.maya} time="10:42 AM" compact>
-              Multi-workspace imports are still failing. <SlackMention /> can you take this from here?
+              Multi-workspace imports are still failing. <SlackMention /> can
+              you take this from here?
             </Message>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 text-[9px] text-[#616061] before:h-px before:flex-1 before:bg-[#dddddd] after:h-px after:flex-1 after:bg-[#dddddd]">
+          <div className="flex items-center gap-2 px-4 py-2 text-[9px] text-muted before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
             4 replies
           </div>
           <motion.div variants={reveal} custom={1.02}>

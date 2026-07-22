@@ -52,74 +52,6 @@ function Initials({ children }: { children: ReactNode }) {
   return <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-default text-[0.68rem] font-medium text-muted">{children}</span>
 }
 
-export function TeamBoundaryPreview() {
-  return (
-    <SceneFrame label="Product team access path in a Hivy workspace">
-      <motion.div variants={reveal} custom={0.05} className="flex items-center justify-between border-b border-border px-5 py-4">
-        <div className="flex items-center gap-3">
-          <span className="flex size-8 items-center justify-center rounded-sm bg-accent-soft">
-            <AppIcon icon="users-round" size={16} />
-          </span>
-          <div>
-            <p className="text-sm font-medium">Atlas workspace</p>
-            <p className="text-[0.68rem] text-muted">2 teams · 7 people</p>
-          </div>
-        </div>
-        <Chip size="sm">Workspace owner</Chip>
-      </motion.div>
-
-      <div className="grid md:grid-cols-[1.15fr_0.85fr]">
-        <motion.div variants={reveal} custom={0.12} className="border-b border-border p-5 md:border-r md:border-b-0 md:p-7">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-medium text-muted">Access for</p>
-              <h3 className="mt-1 text-lg font-medium tracking-[-0.025em]">Product team</h3>
-            </div>
-            <span className="rounded-sm bg-accent-soft px-2.5 py-1 text-[0.68rem] font-medium text-foreground">Ready</span>
-          </div>
-          <div className="mt-7 grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-border bg-border">
-            {[
-              ["People", "4", "users"],
-              ["Agents", "2", "bot"],
-              ["Connections", "3", "plug"],
-              ["Knowledge sources", "5", "database"],
-            ].map(([label, value, icon]) => (
-              <div key={label} className="bg-surface p-4">
-                <AppIcon icon={icon} size={15} className="text-muted" />
-                <p className="mt-5 text-lg font-medium">{value}</p>
-                <p className="mt-0.5 text-[0.68rem] text-muted">{label}</p>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        <motion.div variants={reveal} custom={0.2} className="bg-surface-secondary p-5 md:p-7">
-          <p className="text-xs font-medium text-muted">Why this agent has access</p>
-          <div className="mt-5 space-y-0">
-            {[
-              ["Casey", "Member of Product", "circle-user"],
-              ["Product team", "Access boundary", "users"],
-              ["Research agent", "Assigned to Product", "bot"],
-              ["Product knowledge", "Granted to the team", "database"],
-            ].map(([name, note, icon], index) => (
-              <div key={name} className="relative flex gap-3 pb-5 last:pb-0">
-                {index < 3 ? <span className="absolute top-7 bottom-0 left-[15px] w-px bg-border" /> : null}
-                <span className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-surface">
-                  <AppIcon icon={icon} size={14} />
-                </span>
-                <div className="pt-0.5">
-                  <p className="text-xs font-medium">{name}</p>
-                  <p className="mt-0.5 text-[0.68rem] text-muted">{note}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      </div>
-    </SceneFrame>
-  )
-}
-
 const roles = [
   {
     id: "owner",
@@ -173,6 +105,7 @@ function RoleAccessPreview() {
               {roles.map((role) => (
                 <Tabs.Tab id={role.id} key={role.id}>
                   {role.label}
+                  <Tabs.Indicator />
                 </Tabs.Tab>
               ))}
             </Tabs.List>
@@ -381,6 +314,7 @@ export function ProvisioningPreview() {
                     <AppIcon icon={group.icon} size={14} />
                     {group.label}
                   </span>
+                  <Tabs.Indicator />
                 </Tabs.Tab>
               ))}
             </Tabs.List>
@@ -551,6 +485,7 @@ function AccessDecisionPreview() {
               {decisions.map((decision) => (
                 <Tabs.Tab id={decision.id} key={decision.id}>
                   {decision.label}
+                  <Tabs.Indicator />
                 </Tabs.Tab>
               ))}
             </Tabs.List>

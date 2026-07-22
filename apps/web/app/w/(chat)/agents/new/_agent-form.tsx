@@ -51,9 +51,7 @@ export function AgentFormView({
   headerAction?: React.ReactNode
 }) {
   const { activeOrg } = useAuth()
-  const availableSandboxSizes = sandboxSizeOptionsForTier(
-    activeOrg?.capacity_tier
-  )
+  const sandboxSizeOptions = sandboxSizeOptionsForTier(activeOrg?.capacity_tier)
   const router = useRouter()
   const modelsQuery = $api.useQuery("get", "/v1/agents/models")
   const models = modelsQuery.data ?? EMPTY_MODELS
@@ -233,10 +231,13 @@ export function AgentFormView({
             <OptionSelect
               ariaLabel="Sandbox size"
               value={form.sandboxSize}
-              options={availableSandboxSizes.map((option) => ({
+              options={sandboxSizeOptions.map((option) => ({
                 key: option.key,
                 label: option.label,
-                hint: option.specs,
+                hint: option.disabledReason
+                  ? `${option.specs} · ${option.disabledReason}`
+                  : option.specs,
+                isDisabled: option.isDisabled,
               }))}
               onValueChange={(value) =>
                 update({ sandboxSize: value as AgentSandboxSize })
@@ -321,7 +322,12 @@ function OptionSelect({
 }: {
   ariaLabel: string
   value: string
-  options: Array<{ key: string; label: string; hint: string }>
+  options: Array<{
+    key: string
+    label: string
+    hint: string
+    isDisabled?: boolean
+  }>
   onValueChange: (value: string) => void
   disabled?: boolean
 }) {
@@ -331,7 +337,9 @@ function OptionSelect({
       aria-label={ariaLabel}
       selectedKey={value}
       onSelectionChange={(key) => {
-        if (key !== null) onValueChange(String(key))
+        if (key === null) return
+        const option = options.find((item) => item.key === String(key))
+        if (!option?.isDisabled) onValueChange(String(key))
       }}
       isDisabled={disabled}
       className="w-full"
@@ -347,6 +355,7 @@ function OptionSelect({
               key={option.key}
               id={option.key}
               textValue={`${option.label} ${option.hint}`}
+              isDisabled={option.isDisabled}
             >
               <span className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <span className="text-sm font-medium">{option.label}</span>

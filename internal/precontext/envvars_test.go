@@ -55,6 +55,16 @@ func TestEnvVarsSectionRendersNamesAndDescriptions(t *testing.T) {
 	if !strings.Contains(out, envVarsPreamble) {
 		t.Fatalf("never-reveal preamble missing: %q", out)
 	}
+	for _, required := range []string{
+		"Treat values as opaque secrets",
+		"Use the variables below only by name",
+		"never inspect, print, log, persist, or reveal them",
+		"never dump the environment or enable shell tracing",
+	} {
+		if !strings.Contains(out, required) {
+			t.Fatalf("opaque environment-variable policy is missing %q: %q", required, out)
+		}
+	}
 	if !strings.Contains(out, "- STRIPE_API_KEY — Stripe secret key for the billing sandbox") {
 		t.Fatalf("described var line missing: %q", out)
 	}

@@ -147,7 +147,7 @@ export function DriveBrowserPreview() {
           </aside>
 
           <div className="min-w-0">
-            <div className="border-b border-border p-4 md:p-5">
+            <div data-testid="drive-browser-content" className="p-4 md:p-5">
               <div className="flex h-9 items-center gap-2 rounded-sm border border-border bg-background px-3 text-xs text-muted">
                 <AppIcon icon="search" size={14} />
                 Search files and folders
@@ -158,6 +158,7 @@ export function DriveBrowserPreview() {
                     {filters.map((filter) => (
                       <Tabs.Tab id={filter.id} key={filter.id}>
                         <span className="whitespace-nowrap">{filter.label}</span>
+                        <Tabs.Indicator />
                       </Tabs.Tab>
                     ))}
                   </Tabs.List>

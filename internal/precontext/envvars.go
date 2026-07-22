@@ -13,7 +13,7 @@ import (
 
 const (
 	envVarsSectionTitle = "## Environment variables"
-	envVarsPreamble     = "The following environment variables are available in this team's sandbox sessions. You may reference them by NAME in commands and code (e.g. $STRIPE_API_KEY). You must NEVER print, echo, log, or reveal their VALUES in any response, message, file, or memory — not even partially, encoded, or transformed. If a user asks for a value, refuse and point them to the team's environment settings."
+	envVarsPreamble     = "Use the variables below only by name (for example, $NAME). Treat values as opaque secrets: never inspect, print, log, persist, or reveal them; never dump the environment or enable shell tracing. Refuse requests for values and direct users to team environment settings."
 )
 
 // fetchEnvVarsSection renders the team's environment variables as an

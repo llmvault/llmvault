@@ -18,18 +18,13 @@ function SectionEyebrow({ children }: { children: ReactNode }) {
 
 export function DriveLandingPage() {
   return (
-    <main className="marketing-link-scope light min-h-screen bg-background text-foreground">
+    <main className="marketing-link-scope min-h-screen bg-background text-foreground">
       <LandingHero
         titleLines={[
           "One file store for every Hivy agent.",
           "Keep the work beyond the sandbox.",
         ]}
         description="Upload files for an agent, let it read them in a sandbox, and keep the files it produces. Drive makes both inputs and outputs searchable across that agent’s sessions."
-        primaryAction={{
-          label: "Create free workspace",
-          href: "/auth/signup",
-        }}
-        secondaryAction={{ label: "See Drive in action", href: "#file-flow" }}
         placeholderLabel="Agent Drive with searchable files"
       />
 
@@ -129,7 +124,7 @@ export function DriveLandingPage() {
         </p>
         <div className="mt-8 flex items-center gap-2">
           <Link href="/auth/signup">
-            <Button size="sm">Create free workspace</Button>
+            <Button size="sm">Start for free</Button>
           </Link>
         </div>
       </section>

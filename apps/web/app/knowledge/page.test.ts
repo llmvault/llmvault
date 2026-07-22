@@ -24,12 +24,19 @@ describe("KnowledgePage", () => {
     expect(html).toContain('aria-label="notion"')
     expect(html).toContain('aria-label="linear"')
     expect(html).toContain('aria-label="chrome"')
+    expect(html).toContain('data-testid="knowledge-source-actions"')
+    expect(html).toContain("lg:grid-cols-[calc(33.333333%_-_16px)_1fr]")
+    expect(html).not.toContain(
+      'knowledge-source-actions" class="mt-9 flex items-center justify-end gap-2 border-t border-border pt-5'
+    )
     expect(html).toContain("Answers stay grounded as your sources change.")
     expect(html).toContain("Changed sources re-index")
     expect(html).toContain("Evidence")
     expect(html).toContain("Audit export decision")
     expect(html).toContain("Give your first agent company memory.")
-    expect(html).toContain("Create free workspace")
+    expect(html).toContain("Watch a 2min demo")
+    expect(html.match(/>Start for free</g)).toHaveLength(3)
+    expect(html).not.toContain("Create free workspace")
     expect(html).not.toContain(
       "Know what’s ready before an agent relies on it."
     )
@@ -38,7 +45,6 @@ describe("KnowledgePage", () => {
     )
     expect(html).not.toContain("Company knowledge changes.")
     expect(html).toContain('href="/auth/signup"')
-    expect(html).toContain('href="#source-setup"')
     expect(html).toContain("marketing-link-scope")
   })
 })

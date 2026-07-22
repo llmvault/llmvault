@@ -2,6 +2,7 @@
 
 import { Button, Link, Separator, Typography } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
+import { IntegrationLogo } from "@/components/integration-logo"
 import Image from "next/image"
 import NextLink from "next/link"
 import { apiUrl } from "@/lib/api/client"
@@ -10,9 +11,7 @@ export function AuthCard({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4 py-12">
       <div className="relative z-10 w-full max-w-105 bg-transparent">
-        <div className="flex flex-col gap-8 py-8 px-6">
-          {children}
-        </div>
+        <div className="flex flex-col gap-8 px-6 py-8">{children}</div>
       </div>
     </div>
   )
@@ -41,7 +40,9 @@ export function AuthDivider() {
   return (
     <div className="flex items-center gap-4">
       <Separator className="flex-1" />
-      <Typography.Paragraph size="xs" color="muted">or</Typography.Paragraph>
+      <Typography.Paragraph size="xs" color="muted">
+        or
+      </Typography.Paragraph>
       <Separator className="flex-1" />
     </div>
   )
@@ -51,15 +52,8 @@ export function AuthFooter() {
   return (
     <div className="text-center">
       <Typography.Paragraph size="xs" color="muted">
-        By continuing, you agree to our{" "}
-        <Link href="/terms">
-          Terms
-        </Link>{" "}
-        and{" "}
-        <Link href="/legal">
-          Privacy Policy
-        </Link>
-        .
+        By continuing, you agree to our <Link href="/terms">Terms</Link> and{" "}
+        <Link href="/legal">Privacy Policy</Link>.
       </Typography.Paragraph>
     </div>
   )
@@ -74,31 +68,32 @@ export function OAuthButtons({ nextPath = "/w" }: { nextPath?: string }) {
   return (
     <div className="flex flex-col gap-3">
       <Button
-        className="w-full"
+        className="justify-center gap-3"
         variant="tertiary"
         size="lg"
+        fullWidth
         onPress={() => window.location.assign(withNext("/oauth/google"))}
       >
-        <AppIcon icon="google" />
+        <IntegrationLogo
+          provider="google"
+          size={20}
+          className="-mt-2.5 rounded-none bg-transparent p-0"
+        />
         Continue with Google
       </Button>
       <Button
-        className="w-full"
+        className="justify-center gap-3"
         variant="tertiary"
         size="lg"
+        fullWidth
         onPress={() => window.location.assign(withNext("/oauth/github"))}
       >
-        <AppIcon icon="github" />
+        <IntegrationLogo
+          provider="github"
+          size={20}
+          className="-mt-2.5 rounded-none bg-transparent p-0 dark:invert"
+        />
         Continue with GitHub
-      </Button>
-      <Button
-        className="w-full"
-        variant="tertiary"
-        size="lg"
-        onPress={() => window.location.assign(withNext("/oauth/x"))}
-      >
-        <AppIcon icon="twitter-x" />
-        Continue with X
       </Button>
     </div>
   )
