@@ -63,19 +63,21 @@ type sendEmailArgs struct {
 	To            []string `json:"to"`
 	CC            []string `json:"cc"`
 	Subject       string   `json:"subject"`
+	Markdown      string   `json:"markdown"`
 	Text          string   `json:"text"`
 	HTML          string   `json:"html"`
 	HivySessionID string   `json:"_hivy_session_id"`
 }
 
 func registerSendEmail(server *mcp.Server, db *gorm.DB, enq enqueue.TaskEnqueuer, token *model.Token, agentID uuid.UUID) {
-	server.AddTool(&mcp.Tool{Name: toolSendEmail, Description: "Queue an email from this agent's inbox. Provide plain-text text, HTML, or both; HTML is sent as supplied, so use semantic, self-contained email markup. When called from an email-triggered session, the recipient and email thread are derived automatically; provide only the body, optionally cc and a subject override. Otherwise, to and subject are required to start a new email conversation. The tool handles Resend idempotency and reply headers; never invent RFC Message-ID headers yourself.", InputSchema: map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{"to": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Recipient email addresses. Required only when not responding from an email-triggered session."}, "cc": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "subject": map[string]any{"type": "string", "description": "Required only for a new email. Optional override when replying."}, "text": map[string]any{"type": "string", "description": "Plain-text body. Include when possible for accessibility."}, "html": map[string]any{"type": "string", "description": "Optional complete HTML email body."}}}}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	server.AddTool(&mcp.Tool{Name: toolSendEmail, Description: "Queue an email from this agent's inbox. Markdown is preferred and is rendered into sanitized email HTML with a plain-text fallback. The sandbox runtime may expose Markdown as a file-path argument and inject the file contents automatically. Legacy text and HTML bodies remain supported. When called from an email-triggered session, the recipient and email thread are derived automatically; provide only the body, optionally cc and a subject override. Otherwise, to and subject are required to start a new email conversation. The tool handles Resend idempotency and reply headers; never invent RFC Message-ID headers yourself.", InputSchema: map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{"to": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Recipient email addresses. Required only when not responding from an email-triggered session."}, "cc": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "subject": map[string]any{"type": "string", "description": "Required only for a new email. Optional override when replying."}, "markdown": map[string]any{"type": "string", "description": "Preferred Markdown body. Mutually exclusive with text and html."}, "text": map[string]any{"type": "string", "description": "Legacy plain-text body."}, "html": map[string]any{"type": "string", "description": "Legacy HTML body. Prefer markdown."}}}}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var args sendEmailArgs
 		if result := decodeArgs(req, &args); result != nil {
 			return result, nil
 		}
-		if len(args.Text)+len(args.HTML) == 0 || len(args.Text)+len(args.HTML) > maxEmailBody {
-			return toolError("provide text or html with a combined maximum of 1 MiB"), nil
+		bodies, err := normalizeEmailBodies(args.Markdown, args.Text, args.HTML)
+		if err != nil {
+			return toolError(err.Error()), nil
 		}
 		var agent model.Agent
 		if err := db.WithContext(ctx).Where("id = ? AND org_id = ? AND status <> ?", agentID, token.OrgID, "archived").First(&agent).Error; err != nil {
@@ -114,7 +116,7 @@ func registerSendEmail(server *mcp.Server, db *gorm.DB, enq enqueue.TaskEnqueuer
 		now := time.Now().UTC()
 		toJSON, _ := json.Marshal(to)
 		ccJSON, _ := json.Marshal(args.CC)
-		message := model.AgentEmailMessage{OrgID: token.OrgID, AgentID: agentID, ThreadID: thread.ID, Direction: model.AgentEmailDirectionOutbound, Status: model.AgentEmailStatusQueued, ToAddresses: model.RawJSON(toJSON), CCAddresses: model.RawJSON(ccJSON), Subject: subject, TextBody: args.Text, HTMLBody: args.HTML, Headers: model.RawJSON("{}"), ProviderAt: now}
+		message := model.AgentEmailMessage{OrgID: token.OrgID, AgentID: agentID, ThreadID: thread.ID, Direction: model.AgentEmailDirectionOutbound, Status: model.AgentEmailStatusQueued, ToAddresses: model.RawJSON(toJSON), CCAddresses: model.RawJSON(ccJSON), Subject: subject, TextBody: bodies.text, HTMLBody: bodies.html, Headers: model.RawJSON("{}"), ProviderAt: now}
 		if err := db.WithContext(ctx).Create(&message).Error; err != nil {
 			return toolError("failed to queue email"), nil
 		}

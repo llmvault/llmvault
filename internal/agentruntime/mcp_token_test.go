@@ -67,6 +67,20 @@ func TestBuildHivyMCPServerSelectsAgentToken(t *testing.T) {
 	if got := agentMCP["url"].(string); !strings.HasSuffix(got, "/"+agentToken.JTI) {
 		t.Fatalf("agent mcp url = %q, want suffix %q", got, agentToken.JTI)
 	}
+	bindings := agentMCP["tool_input_bindings"].([]any)
+	if len(bindings) != 1 {
+		t.Fatalf("tool input binding count = %d, want 1", len(bindings))
+	}
+	binding := bindings[0].(map[string]any)
+	if binding["tool"] != "send_email" || binding["path_argument"] != "markdown_file_path" || binding["content_argument"] != "markdown" {
+		t.Fatalf("unexpected send_email file binding: %#v", binding)
+	}
+	if binding["max_bytes"] != 1<<20 {
+		t.Fatalf("max_bytes = %#v, want 1 MiB", binding["max_bytes"])
+	}
+	if _, exists := binding["allowed_roots"]; exists {
+		t.Fatalf("allowed_roots must not be configurable: %#v", binding)
+	}
 }
 
 func TestBuildAgentRuntimeConfigUpdateWithProxyTokenReusesToken(t *testing.T) {

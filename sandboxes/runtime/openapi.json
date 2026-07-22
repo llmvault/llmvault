@@ -1868,6 +1868,12 @@
                   }
                 ]
               },
+              "tool_input_bindings": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ToolInputBinding"
+                }
+              },
               "tool_name_prefix": {
                 "type": [
                   "string",
@@ -1911,6 +1917,12 @@
                     "$ref": "#/components/schemas/ToolFilter"
                   }
                 ]
+              },
+              "tool_input_bindings": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ToolInputBinding"
+                }
               },
               "tool_name_prefix": {
                 "type": [
@@ -1960,6 +1972,12 @@
                   }
                 ]
               },
+              "tool_input_bindings": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ToolInputBinding"
+                }
+              },
               "tool_name_prefix": {
                 "type": [
                   "string",
@@ -2006,6 +2024,12 @@
                     "$ref": "#/components/schemas/ToolFilter"
                   }
                 ]
+              },
+              "tool_input_bindings": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ToolInputBinding"
+                }
               },
               "tool_name_prefix": {
                 "type": [
@@ -3166,6 +3190,51 @@
             }
           }
         }
+      },
+      "ToolInputBinding": {
+        "type": "object",
+        "required": [
+          "tool",
+          "kind",
+          "path_argument",
+          "content_argument",
+          "max_bytes",
+          "encoding"
+        ],
+        "properties": {
+          "allowed_extensions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "content_argument": {
+            "type": "string"
+          },
+          "encoding": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ToolInputBindingKind"
+          },
+          "max_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "path_argument": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string"
+          }
+        }
+      },
+      "ToolInputBindingKind": {
+        "type": "string",
+        "enum": [
+          "workspace_text_file"
+        ]
       },
       "ToolSpec": {
         "oneOf": [

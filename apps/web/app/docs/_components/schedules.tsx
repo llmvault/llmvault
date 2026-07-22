@@ -17,9 +17,9 @@ export function Schedules() {
     <div className="mt-10 text-base leading-7">
       <p className="max-w-2xl text-muted">
         A schedule gives an agent the same task at a recurring time. Each run
-        opens a fresh session for the team, which suits work such
-        as a weekly report, a nightly data check, an hourly inbox review, or a
-        monthly audit.
+        opens a fresh session for the team, which suits work such as a weekly
+        report, a nightly data check, an hourly inbox review, or a monthly
+        audit.
       </p>
 
       <DocsMediaPlaceholder
@@ -107,8 +107,8 @@ export function Schedules() {
         <DocSection title="Pause before you delete">
           <p>
             Pause a schedule when the work needs to stop for a while; Hivy keeps
-            its name, team, agent, cadence, and task. Resume it later or
-            delete it once the recurring task has ended.
+            its name, team, agent, cadence, and task. Resume it later or delete
+            it once the recurring task has ended.
           </p>
           <p className="mt-3">
             You can&apos;t change the agent on an existing schedule. Create

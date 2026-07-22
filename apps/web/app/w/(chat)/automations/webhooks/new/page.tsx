@@ -120,7 +120,7 @@ export default function NewWebhookTriggerPage() {
             tutorial="webhooks"
             title="Create a secure webhook trigger"
             description="See how to send a request, protect it with a secret, and inspect the agent run."
-            docsPath="automations/webhooks"
+            docsPath="automations/http-webhooks"
           />
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">

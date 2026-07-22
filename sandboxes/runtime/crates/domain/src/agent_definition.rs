@@ -205,10 +205,10 @@ pub struct Limits {
 impl Default for Limits {
     fn default() -> Self {
         Self {
-            max_turns_per_session: 5_000,
-            input_token_budget: 180_000,
-            output_token_budget: 8_000,
-            tool_call_timeout_seconds: 60,
+            max_turns_per_session: 20_000,
+            input_token_budget: 720_000,
+            output_token_budget: 32_000,
+            tool_call_timeout_seconds: 240,
         }
     }
 }
@@ -309,5 +309,19 @@ mod auto_load_skills_tests {
             reparsed.auto_load_skills[0].files,
             vec!["references/commands.md"]
         );
+    }
+}
+
+#[cfg(test)]
+mod limits_tests {
+    use super::Limits;
+
+    #[test]
+    fn defaults_use_quadrupled_agent_run_budgets() {
+        let limits = Limits::default();
+        assert_eq!(limits.max_turns_per_session, 20_000);
+        assert_eq!(limits.input_token_budget, 720_000);
+        assert_eq!(limits.output_token_budget, 32_000);
+        assert_eq!(limits.tool_call_timeout_seconds, 240);
     }
 }

@@ -51,6 +51,17 @@ func hivyMCPServer(baseURL, jti string) any {
 		"headers": map[string]string{
 			"Authorization": agentMCPAuthorizationHeader(),
 		},
+		"tool_input_bindings": []any{
+			map[string]any{
+				"tool":               "send_email",
+				"kind":               "workspace_text_file",
+				"path_argument":      "markdown_file_path",
+				"content_argument":   "markdown",
+				"allowed_extensions": []string{".md", ".markdown"},
+				"max_bytes":          1 << 20,
+				"encoding":           "utf-8",
+			},
+		},
 	}
 }
 

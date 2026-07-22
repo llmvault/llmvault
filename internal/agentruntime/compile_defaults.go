@@ -51,10 +51,10 @@ func ProxyModelConfig(cfg *config.Config, modelID, reasoningEffort string) Model
 
 func defaultLimits() map[string]any {
 	return map[string]any{
-		"max_turns_per_session":     50,
-		"input_token_budget":        180000,
-		"output_token_budget":       8000,
-		"tool_call_timeout_seconds": 60,
+		"max_turns_per_session":     200,
+		"input_token_budget":        720000,
+		"output_token_budget":       32000,
+		"tool_call_timeout_seconds": 240,
 	}
 }
 

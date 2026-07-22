@@ -83,7 +83,7 @@ export function KnowledgeSources() {
           separate.
         </p>
         <DocLink href="/docs/connections-and-skills/connect-tools">
-          Compare connections and connections
+          Compare knowledge with connections
         </DocLink>
       </section>
 
@@ -158,8 +158,8 @@ export function KnowledgeSources() {
           <p className="mt-3">
             For a website, enter the URL and run discovery before selecting
             individual pages or complete sections. With a connected service,
-            Hivy lists the repositories, pages, Slack channels, or Linear teams that
-            the connection can read.
+            Hivy lists the repositories, pages, Slack channels, or Linear teams
+            that the connection can read.
           </p>
         </DocSection>
 

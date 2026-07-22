@@ -82,8 +82,8 @@ export function GeneratedWork() {
           <p>
             When the agent starts a preview, its session shows a preview card.
             Select <strong className="text-foreground">Open</strong> to load the
-            running app in Browser, where navigation and refresh controls remain
-            available beside the session.
+            running app in Browser, where you can refresh the preview beside the
+            session.
           </p>
           <p className="mt-3">
             The card points to a process inside that session&apos;s sandbox. If
@@ -102,9 +102,9 @@ export function GeneratedWork() {
 
         <DocSection title="Keep long-term information in Sheets">
           <p>
-            A Hivy Sheet is a team database shared by agents and people.
-            Because the Sheet belongs to the team instead of one session,
-            later tasks can read and update the same records.
+            A Hivy Sheet is a team database shared by agents and people. Because
+            the Sheet belongs to the team instead of one session, later tasks
+            can read and update the same records.
           </p>
           <p className="mt-3">
             In Sheets, you can switch databases, manage pages and fields, or
@@ -115,20 +115,30 @@ export function GeneratedWork() {
           </DocLink>
         </DocSection>
 
-        <DocSection title="Turn data and services into an app">
+        <DocSection title="Turn a Sheet into an app">
           <p>
-            An agent-built app can use a Hivy Sheet, your own database, or an
-            external service behind any interface the team needs. Run it inside
-            Hivy during the session, or open it in another tab.
+            An agent-built app binds to one Hivy Sheet and puts a focused
+            interface over its rows. Run it inside Hivy during the session, or
+            open it in another tab.
           </p>
           <p className="mt-3">
             Choose{" "}
-            <strong className="text-foreground">Ricky, App builder</strong> when
-            the requested result is an app rather than a report or data table.
+            <strong className="text-foreground">Ricky - App builder</strong>{" "}
+            when the requested result is an app rather than a report or data
+            table.
           </p>
           <DocLink href="/docs/sheets-and-apps/agent-built-apps">
             Build an app with an agent
           </DocLink>
+        </DocSection>
+
+        <DocSection title="Save files that should outlive the sandbox">
+          <p>
+            Files in the right panel belong to the current sandbox. Ask the
+            agent to upload a finished file to Agent Drive when it should remain
+            available after the sandbox stops or another session begins.
+          </p>
+          <DocLink href="/docs/agents/drive">Use Agent Drive</DocLink>
         </DocSection>
 
         <DocSection title="Inspect delegated work separately">

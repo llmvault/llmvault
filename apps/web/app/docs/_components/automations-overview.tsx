@@ -29,8 +29,8 @@ export function AutomationsOverview() {
     <div className="mt-10 text-base leading-7">
       <p className="max-w-2xl text-muted">
         An automation starts agent work without waiting for someone to open
-        Hivy. It runs a named agent for a team, where the
-        responsible team can see the request, result, follow-ups, and cost.
+        Hivy. It runs a named agent for a team, where the responsible team can
+        see the request, result, follow-ups, and cost.
       </p>
 
       <DocsMediaPlaceholder
@@ -79,9 +79,9 @@ export function AutomationsOverview() {
       <div className="mt-16 space-y-14 border-t border-border pt-14">
         <DocSection title="Scope every run before you automate it">
           <p>
-            The team puts every new session beside related work and
-            limits the agent picker to that team&apos;s agents. Automated and
-            manual sessions therefore follow the same access boundary.
+            The team puts every new session beside related work and limits the
+            agent picker to that team&apos;s agents. Automated and manual
+            sessions therefore follow the same access boundary.
           </p>
           <p className="mt-3">
             Choose an agent prepared for the job and describe the finished
@@ -93,7 +93,7 @@ export function AutomationsOverview() {
         <DocSection title="Manage automations in one place">
           <p>
             Open <strong className="text-foreground">Automations</strong>, then
-            switch between Connections, Schedules, and Webhooks. Each list has
+            switch between Triggers, Schedules, and Webhooks. Each list has
             search and filters; open an item to check its scope or status.
           </p>
           <p className="mt-3">

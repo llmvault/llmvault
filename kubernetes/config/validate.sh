@@ -9,6 +9,7 @@ required_env_files=(
   env/infrastructure/backend-overrides.env
   env/infrastructure/hetzner-s3.env
   env/observability/grafana-admin.env
+  env/platform-engineering/platform-engineering-agent.env
   env/production/backend.env
   env/production/microsandbox-control.env
   env/production/microsandbox-postgres-backup.env
@@ -45,6 +46,7 @@ required_kubeconfigs=(
   kubeconfigs/k8s0/local.yaml
   kubeconfigs/k8s0/tunnel.yaml
   kubeconfigs/k8s1/admin.yaml
+  kubeconfigs/platform-engineering-agent.yaml
 )
 
 required_credentials=(
@@ -60,6 +62,9 @@ required_credentials=(
   credentials/k3s/k8s1/server-token
   credentials/providers/hetzner-token
   credentials/providers/vercel-token
+  credentials/platform-engineering-agent/known_hosts
+  credentials/platform-engineering-agent/tunnel
+  credentials/platform-engineering-agent/tunnel.pub
 )
 
 tracked_config_env_files=(
@@ -70,6 +75,7 @@ tracked_config_env_files=(
   env/staging/backend.config.env
   env/staging/nango.config.env
   env/staging/web.config.env
+  env/platform-engineering/platform-engineering-agent.config.env
 )
 
 file_mode() {

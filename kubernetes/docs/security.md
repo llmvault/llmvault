@@ -64,6 +64,16 @@ Keep the `staging` and `production` GitHub Environments separate. Never put an
 administrator kubeconfig in `KUBE_CONFIG_B64`, and don't reuse the production
 deployment token in staging.
 
+The external `platform-engineering-agent` ServiceAccount is a separate
+cluster-wide operational observer. It can read workload and infrastructure
+objects, logs, metrics APIs, operator resources, node status, and RBAC
+configuration in every namespace. It cannot read Secrets, use `nodes/proxy`,
+exec or attach to Pods, open Kubernetes port-forwards, or mutate resources. A
+dedicated `hivy-deploy-platform-engineering-agent` Unix account supplies the
+same tunnel-only network path without reusing either CI identity. Its ignored
+credential bundle, rotation procedure, and setup and teardown scripts are
+documented in [Platform Engineering Agent access](platform-engineering-agent.md).
+
 ## Public ingress
 
 Public IPv4 traffic enters the Hetzner load balancer at `65.109.40.68`. The load

@@ -58,3 +58,18 @@ func TestProxyModelUsesHivyOpenRouterAppName(t *testing.T) {
 		t.Fatalf("X-Title = %q, want Hivy", got.ExtraHeaders["X-Title"])
 	}
 }
+
+func TestDefaultLimitsUseQuadrupledAgentRunBudgets(t *testing.T) {
+	limits := defaultLimits()
+	want := map[string]any{
+		"max_turns_per_session":     200,
+		"input_token_budget":        720000,
+		"output_token_budget":       32000,
+		"tool_call_timeout_seconds": 240,
+	}
+	for key, expected := range want {
+		if limits[key] != expected {
+			t.Fatalf("%s = %#v, want %#v", key, limits[key], expected)
+		}
+	}
+}

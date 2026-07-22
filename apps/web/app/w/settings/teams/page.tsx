@@ -88,7 +88,7 @@ export default function TeamsSettingsPage() {
         tutorial="teams"
         title="Understand team permissions"
         description="See how teams scope members, agents, connections, skills, and knowledge access."
-        docsPath="teams-and-permissions"
+        docsPath="workspace-and-access/teams"
       />
 
       <section className="flex flex-col gap-3">

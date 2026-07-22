@@ -6,6 +6,8 @@ import { AppIcon } from "@/components/icon"
 import { AccessControl } from "../_components/access-control"
 import { AgentCatalog } from "../_components/agent-catalog"
 import { AgentBuiltApps } from "../_components/agent-built-apps"
+import { AgentDrive } from "../_components/agent-drive"
+import { AgentMemories } from "../_components/agent-memories"
 import { AgentSessions } from "../_components/agent-sessions"
 import { AutomationRuns } from "../_components/automation-runs"
 import { AutomationsOverview } from "../_components/automations-overview"
@@ -18,14 +20,17 @@ import { HowHivyOrganizesWork } from "../_components/how-hivy-organizes-work"
 import { HttpWebhooks } from "../_components/http-webhooks"
 import { KnowledgeAccessControl } from "../_components/knowledge-access-control"
 import { KnowledgeSources } from "../_components/knowledge-sources"
-import { MemoriesAndRules } from "../_components/memories-and-rules"
+import { McpServers } from "../_components/mcp-servers"
 import { RunFirstAgent } from "../_components/run-first-agent"
 import { Schedules } from "../_components/schedules"
+import { SetUpWorkspace } from "../_components/set-up-workspace"
 import { Sheets } from "../_components/sheets"
+import { Skills } from "../_components/skills"
 import { Teams } from "../_components/teams"
 import { ToolsAndSubAgents } from "../_components/tools-and-sub-agents"
 import { UsageBilling } from "../_components/usage-billing"
 import { WelcomeToHivy } from "../_components/welcome-to-hivy"
+import { WorkspaceSettings } from "../_components/workspace-settings"
 import { DOC_PAGES, getAdjacentDocPages, getDocPage } from "../_lib/navigation"
 
 type DocsPageProps = {
@@ -34,6 +39,7 @@ type DocsPageProps = {
 
 const DOC_PAGE_COMPONENTS: Partial<Record<string, ComponentType>> = {
   "welcome-to-hivy": WelcomeToHivy,
+  "set-up-your-workspace": SetUpWorkspace,
   "run-your-first-agent": RunFirstAgent,
   "how-hivy-organizes-work": HowHivyOrganizesWork,
   "workspace-and-access/teams": Teams,
@@ -43,11 +49,14 @@ const DOC_PAGE_COMPONENTS: Partial<Record<string, ComponentType>> = {
   "agents/tools-and-sub-agents": ToolsAndSubAgents,
   "agents/sessions": AgentSessions,
   "agents/generated-work": GeneratedWork,
+  "agents/drive": AgentDrive,
   "connections-and-skills/how-access-works": ConnectionsAccess,
   "connections-and-skills/connect-tools": ConnectTools,
+  "connections-and-skills/skills": Skills,
+  "connections-and-skills/mcp-servers": McpServers,
   "knowledge-and-memory/knowledge-sources": KnowledgeSources,
   "knowledge-and-memory/indexing-and-access": KnowledgeAccessControl,
-  "knowledge-and-memory/memories-and-rules": MemoriesAndRules,
+  "knowledge-and-memory/agent-memories": AgentMemories,
   "automations/overview": AutomationsOverview,
   "automations/event-triggers": EventTriggers,
   "automations/schedules": Schedules,
@@ -55,6 +64,7 @@ const DOC_PAGE_COMPONENTS: Partial<Record<string, ComponentType>> = {
   "automations/runs-and-troubleshooting": AutomationRuns,
   "sheets-and-apps/sheets": Sheets,
   "sheets-and-apps/agent-built-apps": AgentBuiltApps,
+  "administration/workspace-settings": WorkspaceSettings,
   "administration/usage-and-billing": UsageBilling,
 }
 

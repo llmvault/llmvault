@@ -123,7 +123,7 @@ function AutomationTutorial({
     automations: {
       title: "Build your first connection automation",
       description: "See how an event in a connected app can start agent work.",
-      path: "automations/connections",
+      path: "automations/event-triggers",
     },
     schedules: {
       title: "Schedule recurring agent work",
@@ -133,7 +133,7 @@ function AutomationTutorial({
     webhooks: {
       title: "Trigger an agent with a webhook",
       description: "Follow a request from its unique URL through to an agent run.",
-      path: "automations/webhooks",
+      path: "automations/http-webhooks",
     },
   }[kind]
   return (

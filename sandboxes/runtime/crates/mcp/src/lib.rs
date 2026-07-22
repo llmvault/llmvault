@@ -1,3 +1,4 @@
+mod file_inputs;
 mod legacy_sse;
 mod materialize;
 mod ssrf;
@@ -11,7 +12,7 @@ use std::time::Duration;
 use arc_swap::ArcSwap;
 use base64::prelude::{Engine as _, BASE64_URL_SAFE_NO_PAD};
 use dashmap::DashMap;
-use domain::{McpSpec, ToolFilter};
+use domain::{McpSpec, ToolFilter, ToolInputBinding};
 use futures::{stream, StreamExt};
 use http::{HeaderName, HeaderValue};
 use rmcp::{
@@ -47,6 +48,7 @@ struct McpServerState {
     server_name: String,
     tool_name_prefix: Option<String>,
     tool_filter: Option<ToolFilter>,
+    tool_input_bindings: Vec<ToolInputBinding>,
     tools: ArcSwap<Vec<McpToolDefinition>>,
     last_discovery_error: RwLock<Option<String>>,
 }
@@ -56,11 +58,13 @@ impl McpServerState {
         server_name: String,
         tool_name_prefix: Option<String>,
         tool_filter: Option<ToolFilter>,
+        tool_input_bindings: Vec<ToolInputBinding>,
     ) -> Self {
         Self {
             server_name,
             tool_name_prefix,
             tool_filter,
+            tool_input_bindings,
             tools: ArcSwap::from_pointee(Vec::new()),
             last_discovery_error: RwLock::new(None),
         }
@@ -109,6 +113,7 @@ impl ClientHandler for RuntimeMcpClient {
                 &state.server_name,
                 state.tool_name_prefix.as_deref(),
                 &state.tool_filter,
+                &state.tool_input_bindings,
             )
             .await
             {
@@ -177,6 +182,7 @@ pub struct McpToolDefinition {
     pub parameters: Value,
     pub output_schema: Option<Value>,
     pub annotations: Option<Value>,
+    input_bindings: Vec<ToolInputBinding>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -302,6 +308,7 @@ impl McpRegistry {
                     spec.name().to_string(),
                     spec.tool_name_prefix().map(str::to_string),
                     spec_tool_filter(&spec).clone(),
+                    spec.tool_input_bindings().to_vec(),
                 )),
                 spec,
             })
@@ -536,6 +543,12 @@ impl McpRegistry {
                     }
                 }
             }
+            file_inputs::apply_tool_input_bindings(
+                &self.workspace_root,
+                &tool.input_bindings,
+                &mut arguments,
+            )
+            .await?;
             let result = entry
                 .peer
                 .call_tool(
@@ -755,6 +768,7 @@ async fn connect_and_discover_with_state(
             server_name.clone(),
             spec.tool_name_prefix().map(str::to_string),
             spec_tool_filter(spec).clone(),
+            spec.tool_input_bindings().to_vec(),
         ))
     });
     let handler = RuntimeMcpClient {
@@ -825,6 +839,7 @@ async fn connect_and_discover_with_state(
         &server_name,
         spec.tool_name_prefix(),
         spec_tool_filter(spec),
+        spec.tool_input_bindings(),
     )
     .await?;
     state.replace_tools(tools);
@@ -849,6 +864,7 @@ async fn discover_tools(
     server_name: &str,
     tool_name_prefix: Option<&str>,
     tool_filter: &Option<ToolFilter>,
+    tool_input_bindings: &[ToolInputBinding],
 ) -> anyhow::Result<Vec<McpToolDefinition>> {
     let discovered = peer.list_all_tools().await?;
     let mut definitions = Vec::new();
@@ -861,22 +877,34 @@ async fn discover_tools(
         if !mcp_tool_allowed(&prefixed, &raw, server_name, tool_filter.as_ref()) {
             continue;
         }
+        let input_bindings: Vec<ToolInputBinding> = tool_input_bindings
+            .iter()
+            .filter(|binding| binding.tool == raw)
+            .cloned()
+            .collect();
+        let mut parameters = Value::Object((*tool.input_schema).clone());
+        file_inputs::project_tool_schema(&mut parameters, &input_bindings)?;
+        let mut description = tool
+            .description
+            .map(|value| value.into_owned())
+            .unwrap_or_default();
+        if !input_bindings.is_empty() {
+            description.push_str(" File-backed inputs are read by the runtime from the sandbox workspace; pass the requested file path, not the file contents.");
+        }
         definitions.push(McpToolDefinition {
             server_name: server_name.to_string(),
             prefixed_name: prefixed,
             raw_name: raw,
             title: tool.title,
-            description: tool
-                .description
-                .map(|value| value.into_owned())
-                .unwrap_or_default(),
-            parameters: Value::Object((*tool.input_schema).clone()),
+            description,
+            parameters,
             output_schema: tool
                 .output_schema
                 .map(|schema| Value::Object((*schema).clone())),
             annotations: tool
                 .annotations
                 .and_then(|annotations| serde_json::to_value(annotations).ok()),
+            input_bindings,
         });
     }
     definitions.sort_by(|left, right| left.prefixed_name.cmp(&right.prefixed_name));
@@ -1358,7 +1386,12 @@ mod tests {
         let (server_transport, client_transport) = tokio::io::duplex(8 * 1024);
         let server_task = tokio::spawn(async move { server.serve(server_transport).await });
 
-        let state = Arc::new(McpServerState::new("dynamic".to_string(), None, None));
+        let state = Arc::new(McpServerState::new(
+            "dynamic".to_string(),
+            None,
+            None,
+            Vec::new(),
+        ));
         let client = RuntimeMcpClient {
             state: state.clone(),
             protocol_version: rmcp::model::ProtocolVersion::default(),
@@ -1367,7 +1400,7 @@ mod tests {
             .serve(client_transport)
             .await
             .expect("connect in-process MCP client");
-        let initial = discover_tools(client_service.peer(), "dynamic", None, &None)
+        let initial = discover_tools(client_service.peer(), "dynamic", None, &None, &[])
             .await
             .expect("initial discovery");
         state.replace_tools(initial);
@@ -1400,6 +1433,7 @@ mod tests {
             parameters: json!({ "type": "object" }),
             output_schema: None,
             annotations: None,
+            input_bindings: Vec::new(),
         }
     }
 }

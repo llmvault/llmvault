@@ -2580,6 +2580,7 @@ mod tests {
                     )]),
                     tool_filter: None,
                     tool_name_prefix: None,
+                    tool_input_bindings: Vec::new(),
                 }],
                 &HashMap::from([(
                     "USER_OAUTH_TOKEN".to_string(),

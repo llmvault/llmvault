@@ -138,7 +138,7 @@ export default function KnowledgeSettingsPage() {
         tutorial="knowledge"
         title="Give agents trusted company context"
         description="See how to connect a source, choose its scope, and grant team access."
-        docsPath="knowledge"
+        docsPath="knowledge-and-memory/knowledge-sources"
       />
 
       {sourcesQuery.isLoading ? (

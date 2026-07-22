@@ -8,15 +8,15 @@ describe("RunFirstAgent", () => {
     const html = renderToString(React.createElement(RunFirstAgent))
 
     expect(html).toContain("Choose the agent for the job")
-    expect(html).toContain("DeepSeek V4 Flash")
+    expect(html).toContain("lower-cost model")
     expect(html).toContain("Ricky - App builder")
     expect(html).toContain("Sheets are team-scoped databases")
-    expect(html).toContain(
-      "/docs/captures/model-picker-deepseek-reasoning-light.png"
-    )
+    expect(html).toContain("Image placeholder")
     expect(html).toContain("Record a 45-second clip at 100% zoom")
     expect(html).not.toContain("run-first-agent-model-picker-light.png")
     expect(html).not.toContain("run-first-agent-sheet-result-light.png")
     expect(html).not.toContain("run-first-agent-app-result-light.png")
+    expect(html).not.toContain("/docs/captures/")
+    expect(html).not.toContain("DeepSeek V4 Flash")
   })
 })

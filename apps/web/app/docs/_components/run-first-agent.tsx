@@ -34,17 +34,17 @@ export function RunFirstAgent() {
           </p>
         </DocStep>
 
-        <DocStep number="2" title="Use a cost-efficient model">
+        <DocStep number="2" title="Choose a cost-efficient model">
           <p>
-            Use DeepSeek V4 Flash with Low reasoning for this research task. The
-            example session cost less than $0.10; extra tool calls or a costlier
-            model will raise that amount.
+            Pick a fast, lower-cost model with Low reasoning for this first
+            research task. Models and provider prices change, so compare the
+            choices in the picker and use the session total as your guide.
           </p>
           <DocsMediaPlaceholder
             className="mt-6"
             type="image"
-            title="Choose DeepSeek V4 Flash"
-            description="Capture the model picker at 100% zoom with DeepSeek V4 Flash and Low reasoning visible. Crop close enough to read every model name."
+            title="Choose a model and reasoning effort"
+            description="Capture the model picker at 100% zoom with several current models and Low reasoning visible. Crop close enough to read names and price information."
           />
         </DocStep>
 
@@ -93,9 +93,9 @@ export function RunFirstAgent() {
             and what the app should let people do.
           </p>
           <p className="mt-3">
-            Apps can read from a Hivy sheet, your database, or an external
-            service. A larger build takes more time and model tokens, so check
-            the session cost before asking for another round of work.
+            Each app binds to one Hivy Sheet. A larger build takes more time and
+            model tokens, so check the session cost before asking for another
+            round of work.
           </p>
           <DocsMediaPlaceholder
             className="mt-6"
@@ -118,7 +118,7 @@ export function RunFirstAgent() {
           <ul className="mt-4 space-y-3 text-sm text-muted">
             {[
               "Match the agent to the job.",
-              "For this task, use DeepSeek V4 Flash with Low reasoning.",
+              "Choose a fast, lower-cost model with Low reasoning.",
               "Name the result and its required fields.",
               "Check the sheet, then make corrections in the same session.",
               "Choose Ricky - App builder if you want an app, and watch the session cost as it works.",

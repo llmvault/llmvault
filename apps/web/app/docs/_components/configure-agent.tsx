@@ -98,10 +98,10 @@ export function ConfigureAgent() {
 
         <DocSection title="Choose a model for the job">
           <p>
-            New sessions use the model selected here by default. Start with{" "}
-            <strong className="text-foreground">DeepSeek V4 Flash</strong> for
-            routine work where speed and cost matter; move to a stronger model
-            for harder research or code work.
+            New sessions use the model selected here by default. Start with a
+            fast, lower-cost model for routine work; move to a stronger model
+            when real results show that the job needs harder reasoning or code
+            work.
           </p>
           <p className="mt-3">
             Someone starting a session can still pick another model, so this
@@ -160,9 +160,9 @@ export function ConfigureAgent() {
         <DocSection title="Set the runtime for the workload">
           <p>
             Use the default sandbox image for general work; choose the developer
-            image when the job needs preinstalled developer tools. Start with a
-            small sandbox, then raise its CPU, memory, or disk only after a
-            session hits a resource limit.
+            image when the job needs preinstalled developer tools. Start with
+            the smallest size your workspace tier allows, then raise its CPU,
+            memory, or disk only after a session hits a resource limit.
           </p>
           <p className="mt-3">
             Saving the form doesn&apos;t create a sandbox. Hivy waits until the
@@ -181,9 +181,9 @@ export function ConfigureAgent() {
             Test one real task before automating it
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-            Run one representative task for the team and inspect both the
-            result and its cost. Fix the instructions or tool access before you
-            put the agent into an automation.
+            Run one representative task for the team and inspect both the result
+            and its cost. Fix the instructions or tool access before you put the
+            agent into an automation.
           </p>
         </section>
       </div>

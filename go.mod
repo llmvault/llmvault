@@ -32,6 +32,7 @@ require (
 	github.com/hibiken/asynq v0.26.0
 	github.com/hibiken/asynqmon v0.7.2
 	github.com/lib/pq v1.11.2
+	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.4.1
 	github.com/oapi-codegen/runtime v1.4.0
 	github.com/oklog/ulid/v2 v2.1.1
@@ -48,6 +49,7 @@ require (
 	github.com/svix/svix-webhooks v1.98.0
 	github.com/swaggo/swag v1.16.6
 	github.com/wneessen/go-mail v0.8.0
+	github.com/yuin/goldmark v1.8.4
 	go.mongodb.org/mongo-driver/v2 v2.6.0
 	go.uber.org/goleak v1.3.0
 	golang.org/x/crypto v0.53.0
@@ -65,10 +67,12 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
+	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
 	github.com/daytona/clients/analytics-api-client-go v0.0.0-20260717111817-a1ed5aaad4c8 // indirect
 	github.com/goccy/go-yaml v1.17.1 // indirect
 	github.com/google/dotprompt/go v0.0.0-20251014011017-8d056e027254 // indirect
+	github.com/gorilla/css v1.0.1 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/mbleigh/raymond v0.0.0-20250414171441-6b3a58ab9e0a // indirect

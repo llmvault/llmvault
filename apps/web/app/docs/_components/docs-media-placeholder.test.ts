@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest"
 import { DocsMediaPlaceholder } from "./docs-media-placeholder"
 
 describe("DocsMediaPlaceholder", () => {
-  it("renders a theme-aware screenshot with an annotation", () => {
+  it("renders a capture brief without an image asset", () => {
     const html = renderToString(
       React.createElement(DocsMediaPlaceholder, {
         type: "image",
@@ -13,18 +13,12 @@ describe("DocsMediaPlaceholder", () => {
       })
     )
 
-    expect(html).toContain(
-      "/docs/captures/agent-catalog-installation-light.png"
-    )
-    expect(html).toContain("/docs/captures/agent-catalog-installation-dark.png")
     expect(html).toContain("A catalog agent’s team installation screen")
-    expect(html).toContain(
-      "Live Hivy capture, available in light and dark themes"
-    )
-    expect(html).toContain("<button")
-    expect(html).toContain(
-      "Open A catalog agent’s team installation screen in a lightbox"
-    )
+    expect(html).toContain("Capture the catalog with the category filter open.")
+    expect(html).toContain("Image placeholder")
+    expect(html).not.toContain("/docs/")
+    expect(html).not.toContain("<img")
+    expect(html).not.toContain("<button")
   })
 
   it("bleeds images but keeps videos inside the reading column", () => {

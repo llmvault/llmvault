@@ -5,6 +5,7 @@ const marketingTabSources = [
   "./access-control/_components/access-control-scenes.tsx",
   "./agents/_components/agent-catalog-explorer.tsx",
   "./automations/_components/automation-previews.tsx",
+  "./blog/_components/blog-page.tsx",
   "./drive/_components/drive-previews.tsx",
   "./knowledge/_components/knowledge-scenes.tsx",
   "./sheets/_components/sheets-previews.tsx",

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use domain::McpSpec;
+use domain::{McpSpec, ToolInputBinding, ToolInputBindingKind};
 use mcp::McpRegistry;
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -207,6 +207,84 @@ async fn streamable_http_auth_catalog_activation_and_calls_work_end_to_end() {
 }
 
 #[tokio::test]
+async fn workspace_text_file_binding_projects_schema_and_injects_file_contents() {
+    let fixture = FixtureServer::start().await;
+    let workspace = std::env::temp_dir().join(format!(
+        "hivy-mcp-binding-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos()
+    ));
+    tokio::fs::create_dir_all(workspace.join("investigations"))
+        .await
+        .expect("create workspace");
+    tokio::fs::write(
+        workspace.join("investigations/report.md"),
+        "# Cluster healthy\n",
+    )
+    .await
+    .expect("write report");
+    let specs = vec![McpSpec::StreamableHttp {
+        name: "hivy".to_string(),
+        url: format!("{}/noauth", fixture.base_url),
+        headers: HashMap::new(),
+        tool_filter: None,
+        tool_name_prefix: None,
+        tool_input_bindings: vec![ToolInputBinding {
+            tool: "echo".to_string(),
+            kind: ToolInputBindingKind::WorkspaceTextFile,
+            path_argument: "message_file_path".to_string(),
+            content_argument: "message".to_string(),
+            allowed_extensions: vec![".md".to_string()],
+            max_bytes: 1_048_576,
+            encoding: "utf-8".to_string(),
+        }],
+    }];
+    let registry = McpRegistry::from_specs_allowing_loopback_for_tests(
+        &specs,
+        &HashMap::new(),
+        workspace.clone(),
+    )
+    .await;
+
+    let details = registry
+        .activate_tool_filtered("binding-session", "hivy_echo", None)
+        .await
+        .expect("activate bound tool");
+    assert_eq!(
+        details["input_schema"]["required"],
+        json!(["message_file_path"])
+    );
+    assert!(details["input_schema"]["properties"]
+        .get("message")
+        .is_none());
+    assert_eq!(
+        details["input_schema"]["properties"]["message_file_path"]["type"],
+        "string"
+    );
+
+    let result = registry
+        .call_tool(
+            "hivy_echo",
+            json!({"message_file_path": "investigations/report.md"}),
+        )
+        .await
+        .expect("call tool with workspace file");
+    assert_eq!(
+        result["structuredContent"]["message"],
+        "# Cluster healthy\n"
+    );
+
+    drop(registry);
+    tokio::fs::remove_dir_all(workspace)
+        .await
+        .expect("remove workspace");
+    fixture.stop().await;
+}
+
+#[tokio::test]
 async fn config_reload_discovers_in_background_then_leaves_servers_dormant_until_activation() {
     let fixture = FixtureServer::start().await;
     let registry = std::sync::Arc::new(
@@ -281,6 +359,7 @@ async fn explicit_tool_prefix_sets_the_model_facing_connection_name() {
         headers: HashMap::new(),
         tool_filter: None,
         tool_name_prefix: Some("postgres_primary".to_string()),
+        tool_input_bindings: Vec::new(),
     }];
     let registry = McpRegistry::from_specs_allowing_loopback_for_tests(
         &specs,
@@ -315,6 +394,7 @@ async fn legacy_http_sse_connects_discovers_activates_and_calls_with_oauth_heade
         )]),
         tool_filter: None,
         tool_name_prefix: None,
+        tool_input_bindings: Vec::new(),
     }];
     let runtime_env = HashMap::from([(
         "LEGACY_OAUTH_TOKEN".to_string(),
@@ -475,6 +555,7 @@ async fn production_policy_rejects_loopback_and_cloud_metadata_before_dial() {
             headers: HashMap::new(),
             tool_filter: None,
             tool_name_prefix: None,
+            tool_input_bindings: Vec::new(),
         },
     ];
     let registry = McpRegistry::from_specs(&specs, &HashMap::new(), std::env::temp_dir()).await;
@@ -508,6 +589,7 @@ async fn streamable_and_legacy_transports_refuse_redirects() {
             headers: HashMap::new(),
             tool_filter: None,
             tool_name_prefix: None,
+            tool_input_bindings: Vec::new(),
         },
     ];
     let registry = McpRegistry::from_specs_allowing_loopback_for_tests(
@@ -536,6 +618,7 @@ async fn stdio_startup_timeout_is_enforced_and_reported() {
         env: HashMap::new(),
         tool_filter: None,
         tool_name_prefix: None,
+        tool_input_bindings: Vec::new(),
         startup_timeout_seconds: Some(1),
     }];
     let started = std::time::Instant::now();
@@ -561,5 +644,6 @@ fn streamable_spec(name: &str, url: String, headers: HashMap<String, String>) ->
         headers,
         tool_filter: None,
         tool_name_prefix: None,
+        tool_input_bindings: Vec::new(),
     }
 }

@@ -14,7 +14,10 @@ export const footerGroups = [
   },
   {
     title: "Resources",
-    links: [{ label: "Docs", href: "/docs" }],
+    links: [
+      { label: "Docs", href: "/docs" },
+      { label: "Blog", href: "/blog" },
+    ],
   },
   {
     title: "Legal",

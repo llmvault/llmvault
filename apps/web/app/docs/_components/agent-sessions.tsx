@@ -15,6 +15,11 @@ const START_CHOICES = [
     label: "Model",
     detail: "Sets the model and cost profile for this session only.",
   },
+  {
+    label: "Reasoning effort",
+    detail:
+      "Controls how much reasoning the selected model uses before it answers.",
+  },
 ]
 
 export function AgentSessions() {
@@ -103,6 +108,11 @@ export function AgentSessions() {
             If the agent heads in the wrong direction, stop the active turn.
             Hivy keeps the session intact for a corrected follow-up.
           </p>
+          <p className="mt-3">
+            An agent may pause with one to three structured questions. Choose an
+            option, add a free-form answer when needed, then submit the answers
+            so the same turn can continue.
+          </p>
         </DocSection>
 
         <DocSection title="Continue from the existing result">
@@ -133,6 +143,12 @@ export function AgentSessions() {
             workspace members as participants when they need access, and archive
             finished work that no longer belongs in the active session list.
           </p>
+          <p className="mt-3">
+            To bring it back, open{" "}
+            <strong className="text-foreground">Settings</strong>, choose{" "}
+            <strong className="text-foreground">Archived chats</strong>, and
+            select <strong className="text-foreground">Restore</strong>.
+          </p>
         </DocSection>
 
         <section
@@ -146,8 +162,9 @@ export function AgentSessions() {
             Sessions inherit the team boundary
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-            A session can use only its team&apos;s agents. Sharing or reopening a
-            session doesn&apos;t bypass the team boundary or participant access.
+            A session can use only its team&apos;s agents. Sharing or reopening
+            a session doesn&apos;t bypass the team boundary or participant
+            access.
           </p>
         </section>
       </div>

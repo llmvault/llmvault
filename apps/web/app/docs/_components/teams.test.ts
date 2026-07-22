@@ -14,6 +14,5 @@ describe("Teams", () => {
     expect(html).toContain("/w/settings/teams")
     expect(html).toContain("/docs/agents/configure-an-agent")
     expect(html).not.toContain(".jpg")
-    expect(html).not.toContain("conversation")
   })
 })

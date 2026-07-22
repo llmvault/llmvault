@@ -18,6 +18,12 @@ const ACCESS_LAYERS = [
   },
   {
     number: "03",
+    title: "Agent switch",
+    description:
+      "An optional connection can be switched off for one agent without changing the team grant. Required catalog connections stay on.",
+  },
+  {
+    number: "04",
     title: "Generated MCP tools",
     description:
       "The connection exposes its capabilities directly as generated MCP tools; no bundled skill is installed.",
@@ -27,7 +33,7 @@ const ACCESS_LAYERS = [
 const ACCESS_ROLES = [
   [
     "Workspace owners and admins",
-    "They create external account connections, control resources, grant connection instances to teams, and manage org-wide skills.",
+    "They create external account connections, control resources, grant connection instances to teams, and manage workspace skills.",
   ],
   [
     "Team members",
@@ -35,7 +41,7 @@ const ACCESS_ROLES = [
   ],
   [
     "Agents",
-    "Agents receive team-owned skills, directly granted org skills, and generated MCP tools from their team's connections.",
+    "Agents receive team-owned skills, workspace skills granted to their team, and generated MCP tools from their team's connections.",
   ],
 ]
 
@@ -53,12 +59,12 @@ export function ConnectionsAccess() {
           id="four-layers-of-access"
           className="text-xl font-semibold tracking-tight text-foreground"
         >
-          Follow the three layers of access
+          Follow the four layers of access
         </h2>
         <p className="mt-3 max-w-2xl text-muted">
           A connection alone doesn&apos;t open an external service to an agent.
-          Hivy checks the connection instance and team grant whenever an agent
-          calls its generated MCP server.
+          Hivy checks the connection instance, team grant, and agent setting
+          whenever an agent calls its generated MCP server.
         </p>
 
         <ol className="mt-8 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
@@ -108,7 +114,7 @@ export function ConnectionsAccess() {
           </p>
           <p className="mt-3">
             Revoke the connection grant to remove its generated MCP access.
-            Team-owned and org-owned skills remain independent resources.
+            Team-owned and workspace-owned skills remain independent resources.
           </p>
           <DocLink href="/docs/connections-and-skills/connect-tools">
             Connect and configure a tool
@@ -121,15 +127,17 @@ export function ConnectionsAccess() {
           description="Use team settings with one concrete connection instance enabled and its generated MCP tools visible at a readable size."
         />
 
-        <DocSection title="Teams decide which agents receive a connection">
+        <DocSection title="Team grants open access; agent switches narrow it">
           <p>
             Creating a connection adds an instance to the workspace, not every
             team. An owner or admin opens team settings and switches that
-            instance on; every agent on that team inherits the grant.
+            instance on; every agent on that team can receive the grant.
           </p>
           <p className="mt-3">
-            Switch the grant off and the team&apos;s agents lose the connection.
-            Nothing changes for teams with their own grant.
+            Open an agent&apos;s settings to switch off an optional connection
+            for that agent only. A catalog agent&apos;s required connections are
+            locked on. Switch off the team grant when every agent on the team
+            should lose access; other teams keep their own grants.
           </p>
           <DocLink href="/docs/workspace-and-access/teams">
             Learn how teams control access
@@ -143,7 +151,7 @@ export function ConnectionsAccess() {
             without a connection.
           </p>
           <p className="mt-3">
-            Workspace admins can also create org-wide skills and grant them to
+            Workspace admins can also create workspace skills and grant them to
             one or more teams.
           </p>
           <DocLink href="/docs/agents/configure-an-agent">
@@ -185,10 +193,11 @@ export function ConnectionsAccess() {
                 Change the smallest boundary that solves the problem
               </h2>
               <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-                Revoke a team grant when that team should lose a connection.
-                Disconnect an account only after every team has finished with
-                that concrete instance. Manage independent team and org skills
-                from Settings → Skills.
+                Switch off one agent&apos;s optional connection when only that
+                agent should lose it. Revoke a team grant when the whole team
+                should lose access. Disconnect an account only after every team
+                has finished with that concrete instance. Manage independent
+                team and workspace skills from Settings → Skills.
               </p>
             </div>
           </div>

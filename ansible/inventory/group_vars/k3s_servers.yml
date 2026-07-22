@@ -45,10 +45,12 @@ k3s_etcd_s3_config_secret: k3s-etcd-s3
 k3s_system_reserved: "cpu=1000m,memory=2Gi,ephemeral-storage=5Gi"
 k3s_kube_reserved: "cpu=1000m,memory=2Gi,ephemeral-storage=5Gi"
 
-# Public keys for GitHub Actions deployment tunnels. Each account is restricted
+# Public keys for automated Kubernetes API tunnels. Each account is restricted
 # to local TCP forwarding into the Kubernetes API and has no interactive shell.
 k3s_deploy_tunnel_accounts:
   - name: hivy-deploy-staging
     public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOu8MvS467LVqnLrkkpUvxSdIouQ4nRSb0VX2TZ3N29F"
   - name: hivy-deploy-production
     public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAUglWsTVoJwimV+M3svIfhad0TT8q+PzYrpoUZsYQk+"
+  - name: hivy-deploy-platform-engineering-agent
+    public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6KIpVfK/Ugi/49kzGF6u9v96lCvhsHqOkZtaWXUwzZ"

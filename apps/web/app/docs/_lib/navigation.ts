@@ -20,6 +20,12 @@ export const DOC_SECTIONS: DocSection[] = [
           "Hivy gives each team its own agents. They can use approved tools and knowledge, then run again on a schedule or external event.",
       },
       {
+        slug: "set-up-your-workspace",
+        title: "Set up your workspace",
+        description:
+          "Create the first team, connect one tool, and finish the guided setup before starting your first chat.",
+      },
+      {
         slug: "run-your-first-agent",
         title: "Run your first agent",
         description:
@@ -83,6 +89,12 @@ export const DOC_SECTIONS: DocSection[] = [
         description:
           "Track the files and artifacts an agent creates while its tool calls and delegated work remain visible in the session.",
       },
+      {
+        slug: "agents/drive",
+        title: "Agent Drive",
+        description:
+          "Keep useful files after a sandbox stops. Each agent can search its own Drive, download an exact file, and save new work for later sessions.",
+      },
     ],
   },
   {
@@ -92,13 +104,25 @@ export const DOC_SECTIONS: DocSection[] = [
         slug: "connections-and-skills/how-access-works",
         title: "Connections and team access",
         description:
-          "A connection belongs to a person; teams receive connection access, and agents inherit only what their team allows.",
+          "A workspace connection opens access for selected teams. Each agent can narrow optional access without changing the team grant.",
       },
       {
         slug: "connections-and-skills/connect-tools",
         title: "Connect and configure your tools",
         description:
           "Connect the account a connection needs and restrict the resources it may touch. Team switches control where the connection appears.",
+      },
+      {
+        slug: "connections-and-skills/skills",
+        title: "Skills",
+        description:
+          "Write reusable instructions once, publish them for a team or the workspace, and let agents load them when the job calls for them.",
+      },
+      {
+        slug: "connections-and-skills/mcp-servers",
+        title: "Custom MCP servers",
+        description:
+          "Connect a remote MCP server, choose whose credential it uses, and attach its tools to the right teams or agents.",
       },
     ],
   },
@@ -109,7 +133,7 @@ export const DOC_SECTIONS: DocSection[] = [
         slug: "knowledge-and-memory/knowledge-sources",
         title: "Knowledge sources",
         description:
-          "Index uploaded files and selected content from connected services. Grant the finished source to specific teams.",
+          "Index selected content from GitHub, Notion, Slack, Linear, or a website, then grant the finished source to specific teams.",
       },
       {
         slug: "knowledge-and-memory/indexing-and-access",
@@ -118,10 +142,10 @@ export const DOC_SECTIONS: DocSection[] = [
           "Limit each source to chosen resources and teams. Check sync health or indexed documents when results look wrong.",
       },
       {
-        slug: "knowledge-and-memory/memories-and-rules",
-        title: "Memories and rules",
+        slug: "knowledge-and-memory/agent-memories",
+        title: "Agent memories",
         description:
-          "See what an agent's sessions taught Hivy. Confirm or fix what it learned; pinned rules apply to every future session.",
+          "Review what an agent learned from earlier work. Edit a useful memory when its wording is wrong, or forget it when it should no longer apply.",
       },
     ],
   },
@@ -173,13 +197,19 @@ export const DOC_SECTIONS: DocSection[] = [
         slug: "sheets-and-apps/agent-built-apps",
         title: "Agent-built apps",
         description:
-          "Ask Ricky to build an app around any data source you choose, including Hivy Sheets and external databases. It can also call outside services.",
+          "Ask Ricky - App builder to turn one Hivy Sheet into a focused app, review its preview, then approve the production release.",
       },
     ],
   },
   {
     title: "Administration",
     pages: [
+      {
+        slug: "administration/workspace-settings",
+        title: "Workspace context and environments",
+        description:
+          "Set the company background every agent receives, keep team secrets out of prompts, and choose the ports used for sandbox previews.",
+      },
       {
         slug: "administration/usage-and-billing",
         title: "Usage and billing",

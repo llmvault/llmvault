@@ -12,8 +12,8 @@ const WORK_HIERARCHY = [
     description: "People and agents assigned to the same area of work.",
   },
   {
-    title: "Session",
-    description: "One agent-led conversation and its work artifacts.",
+    title: "Agent",
+    description: "One specialist, owned by a team, with a saved job and tools.",
   },
   {
     title: "Session",
@@ -39,8 +39,8 @@ export function HowHivyOrganizesWork() {
           Where a session lives
         </h2>
         <p className="mt-3 max-w-2xl text-muted">
-          Every session belongs to a team and an agent. People can find
-          the work without opening the whole workspace to every member or agent.
+          Every session belongs to a team and an agent. People can find the work
+          without opening the whole workspace to every member or agent.
         </p>
 
         <ol className="mt-8 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
@@ -71,8 +71,7 @@ export function HowHivyOrganizesWork() {
         <DocSection title="Agents belong to teams">
           <p>
             Each agent belongs to one team. That team can create specialists for
-            any work it owns, and Hivy offers those agents only inside the
-            team.
+            any work it owns, and Hivy offers those agents only inside the team.
           </p>
           <p className="mt-3">
             Workspace and team controls set the tools, connections, knowledge,
@@ -87,30 +86,29 @@ export function HowHivyOrganizesWork() {
 
         <DocSection title="Teams organize related work">
           <p>
-            Teams own their agents, sessions, and shared resources. Team members can read
-            the request and result, then continue where someone stopped without
-            searching through one person’s private history.
+            Teams own their agents, sessions, and shared resources. Team members
+            can read the request and result, then continue where someone stopped
+            without searching through one person’s private history.
           </p>
           <p className="mt-3">
             Use teams to define shared access, then keep each task in its own
             session.
-            .
           </p>
         </DocSection>
 
         <DocSection title="Useful results outlive the session">
           <p>
             Hivy keeps generated files and artifacts with their source session.
-            Sheets store long-term data for a team; an app can read from a
-            sheet, your database, or an external service.
+            Agent Drive preserves useful files across one agent&apos;s sessions;
+            Sheets store shared team data, and each app binds to one Sheet.
           </p>
         </DocSection>
 
         <DocSection title="Automations use the same structure">
           <p>
             A schedule, connected-app event, or HTTP webhook can start an agent.
-            During setup, you choose the team and agent; the team will find
-            each run there afterward.
+            During setup, you choose the team and agent; the team will find each
+            run there afterward.
           </p>
           <p className="mt-3">
             Read the{" "}

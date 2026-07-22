@@ -24,7 +24,7 @@ changed fingerprint.
 | K3s host packages, kernel settings, swap state, nftables, K3s binary and systemd unit | Gateway API CRDs, Cilium, cert-manager, operators | Hetzner bare-metal purchase and OS installation |
 | K3s vSwitch Netplan on Kubernetes nodes | namespaces, Services, workloads, policies, storage objects | attaching servers and the Load Balancer to the Hetzner private network |
 | runner packages, UFW, BuildKit, CoreDNS, HAProxy, Microsandbox binary and service | application Secrets and ConfigMaps | Hetzner Load Balancer services and target membership |
-| restricted SSH accounts used by GitHub Actions | Kustomize application deployments | Vercel application DNS records |
+| restricted SSH accounts used by GitHub Actions and the Platform Engineering Agent | Kustomize application deployments | Vercel application DNS records |
 | export of K3s tokens and administrator kubeconfigs to `kubernetes/config/` | rendered chart manifests applied with `kubectl` | object-storage buckets and credentials |
 
 There is no Flux controller, OpenTofu state, or Ansible task that applies the
@@ -119,8 +119,8 @@ The `k3s-server` role performs these host operations:
 The role's nftables handler runs `nft -f /etc/nftables.conf`; it does not stop
 the nftables service, because stopping it would flush Cilium's live rules.
 
-Use the narrow tunnel playbook after changing only the deployment SSH
-accounts:
+Use the narrow tunnel playbook after changing only the automated Kubernetes
+API tunnel accounts:
 
 ```sh
 ansible-playbook playbooks/k3s/deploy-tunnel.yml

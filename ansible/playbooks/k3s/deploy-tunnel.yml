@@ -1,5 +1,5 @@
 ---
-- name: Configure restricted GitHub Actions deployment tunnels
+- name: Configure restricted Kubernetes API tunnels
   hosts: k3s_servers
   become: true
   gather_facts: false

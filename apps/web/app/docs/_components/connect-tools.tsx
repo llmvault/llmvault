@@ -32,7 +32,7 @@ const SETUP_STEPS = [
     number: "5",
     title: "Enable it for a team",
     description:
-      "Open team settings and switch on the exact connection instance the team may use.",
+      "Open team settings and switch on the exact connection instance the team may use, then turn it off for any agent that does not need it.",
   },
 ]
 
@@ -140,8 +140,8 @@ export function ConnectTools() {
             that team&apos;s agents automatically.
           </p>
           <p className="mt-3">
-            Team-owned and directly granted org skills remain separate and
-            editable through Settings → Skills.
+            Team-owned skills and workspace skills granted to the team remain
+            separate and editable through Settings → Skills.
           </p>
         </DocSection>
 
@@ -155,6 +155,11 @@ export function ConnectTools() {
             Installation alone never gives an agent access. Each team needs its
             own grant, even when several teams use the same workspace
             connection.
+          </p>
+          <p className="mt-3">
+            To narrow access further, open an agent&apos;s settings and switch
+            off an optional connection for that agent. Required catalog
+            connections remain on until you uninstall the catalog agent.
           </p>
           <DocLink href="/w/settings/teams">Open team settings</DocLink>
         </DocSection>

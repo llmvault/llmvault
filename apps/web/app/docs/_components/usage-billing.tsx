@@ -65,7 +65,7 @@ export function UsageBilling() {
       <DocsMediaPlaceholder
         type="video"
         title="Buy credits through Paystack"
-        description="Use a demo owner account to open Settings > Usage & billing, review the balance, enter a purchase amount, and show the fee and total before opening Paystack. Keep payment details out of frame and finish within 60 to 90 seconds."
+        description="Use a demo owner account to open Settings > Usage & billing, choose a fixed credit pack, compare its 12% fee and total, then select a saved card or a new card. Keep payment details out of frame."
         className="mt-12"
       />
 
@@ -92,11 +92,11 @@ export function UsageBilling() {
             which gives you a clean way to compare models on the same job.
           </p>
           <p className="mt-3">
-            Members get this local cost only for sessions their team access
-            lets them open; Hivy shows the workspace bill only to admins and the
+            Members get this local cost only for sessions their team access lets
+            them open; Hivy shows the workspace bill only to admins and the
             owner.
           </p>
-          <DocLink href="/docs/agents/agent-sessions">
+          <DocLink href="/docs/agents/sessions">
             Read about agent sessions
           </DocLink>
         </DocSection>
@@ -110,13 +110,27 @@ export function UsageBilling() {
 
         <DocSection title="Buy the credits you need">
           <p>
-            New workspaces receive welcome credits once. When you need more, the
-            owner enters a purchase amount and Hivy shows the credits, 10%
+            New workspaces receive 1,000 welcome credits once. When you need
+            more, the owner chooses a fixed pack. Hivy shows the credits, 12%
             deposit fee, and final Paystack charge before checkout.
           </p>
           <p className="mt-3">
-            Run the tasks your team repeats, compare their session totals, and
-            move simple work to a cheaper model before buying more credits.
+            USD packs contain $10, $25, $50, or $100 of credits. NGN packs are
+            ₦5,000, ₦10,000, ₦25,000, or ₦50,000 at the configured exchange
+            rate. Run the tasks your team repeats and compare their session
+            totals before choosing a pack.
+          </p>
+        </DocSection>
+
+        <DocSection title="Reuse a card without storing it in Hivy">
+          <p>
+            Pay with a new card and choose whether Paystack should save the
+            payment authorization. On a later purchase, the owner can select a
+            saved card or remove it from the workspace billing page.
+          </p>
+          <p className="mt-3">
+            A pending purchase remains in Recent purchases. The owner can ask
+            Hivy to verify it after Paystack finishes processing the payment.
           </p>
         </DocSection>
 
@@ -129,6 +143,46 @@ export function UsageBilling() {
           <p className="mt-3">
             Purchases are one-time deposits, not recurring charges. Credits are
             added only after Paystack confirms the exact amount and currency.
+          </p>
+        </DocSection>
+
+        <DocSection title="Lifetime deposits unlock permanent capacity">
+          <p>
+            Capacity depends on the total credits the workspace has purchased,
+            not the current balance. Reaching a threshold permanently unlocks
+            more simultaneous agent sessions, a larger maximum sandbox, and more
+            indexed knowledge storage.
+          </p>
+          <div className="mt-6 overflow-hidden rounded-xl border border-border bg-surface">
+            <div className="grid grid-cols-[4.5rem_1fr] gap-4 border-b border-border px-4 py-3 text-sm">
+              <strong className="text-foreground">Start</strong>
+              <span className="text-muted">
+                1 session, Nano sandbox, 1 GB knowledge
+              </span>
+            </div>
+            <div className="grid grid-cols-[4.5rem_1fr] gap-4 border-b border-border px-4 py-3 text-sm">
+              <strong className="text-foreground">$100</strong>
+              <span className="text-muted">
+                2 sessions, Small sandbox, 3 GB knowledge
+              </span>
+            </div>
+            <div className="grid grid-cols-[4.5rem_1fr] gap-4 border-b border-border px-4 py-3 text-sm">
+              <strong className="text-foreground">$250</strong>
+              <span className="text-muted">
+                5 sessions, Medium sandbox, 5 GB knowledge
+              </span>
+            </div>
+            <div className="grid grid-cols-[4.5rem_1fr] gap-4 px-4 py-3 text-sm">
+              <strong className="text-foreground">$500</strong>
+              <span className="text-muted">
+                10 sessions, Large sandbox, 10 GB knowledge
+              </span>
+            </div>
+          </div>
+          <p className="mt-4">
+            Thresholds use the USD value of completed deposits, including NGN
+            purchases. Spending credits or receiving a refund never lowers an
+            unlocked capacity tier.
           </p>
         </DocSection>
 
@@ -149,7 +203,7 @@ export function UsageBilling() {
             </AccessItem>
             <AccessItem>
               Money stays with the owner: only that person can select the
-              billing currency or buy credits.
+              billing currency, buy or verify credits, and manage saved cards.
             </AccessItem>
             <AccessItem>
               Members see costs inside the sessions they can already open.

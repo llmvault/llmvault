@@ -46,7 +46,7 @@ export default function NewTriggerPage() {
           tutorial="automations"
           title="Install your first connection trigger"
           description="See how a connected app event becomes a reliable agent workflow."
-          docsPath="automations/connections"
+          docsPath="automations/event-triggers"
         />
       }
     />

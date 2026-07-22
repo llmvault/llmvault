@@ -57,7 +57,7 @@ export function Sheets() {
           Keep a table in the session when you only need a quick answer. Choose
           a Sheet when the team will return to the data, filter or edit it, and
           ask an agent to continue the work later. Because the Sheet belongs to
-            a team rather than one session, it stays near the work it supports.
+          a team rather than one session, it stays near the work it supports.
         </p>
 
         <ol className="mt-8 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
@@ -88,10 +88,10 @@ export function Sheets() {
         <DocSection title="Create it yourself or ask an agent">
           <p>
             Open <strong className="text-foreground">Sheets</strong> from the
-            workspace sidebar; Hivy groups each database under its team. If
-            you know the columns you need, start with a blank Sheet. Otherwise,
-            ask an agent with the Sheets connection to plan the structure and
-            add the records.
+            workspace sidebar; Hivy groups each database under its team. If you
+            know the columns you need, start with a blank Sheet. Otherwise, ask
+            an agent with Sheets tools to plan the structure and add the
+            records.
           </p>
           <p className="mt-3">
             Tell the agent what one row represents and what you&apos;ll do with
@@ -175,10 +175,10 @@ export function Sheets() {
                 Sheet access follows the team
               </h2>
               <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-                Hivy keeps every Sheet inside the team where someone created
-                it. A person needs access to that team. An agent also needs a
-                session there and must have the Sheets connection before it can
-                read or change the records.
+                Hivy keeps every Sheet inside the team where someone created it.
+                A person needs access to that team. An agent also needs a
+                session there and must have Sheets tools before it can read or
+                change the records.
               </p>
             </div>
           </div>

@@ -11,7 +11,7 @@ const FIRST_CHECKS = [
   ],
   [
     "Scope",
-      "Check that the agent still belongs to the team and can use the provider connection.",
+    "Check that the agent still belongs to the team and can use the provider connection.",
   ],
   [
     "Instructions",
@@ -102,8 +102,8 @@ export function AutomationRuns() {
           </p>
           <p className="mt-3">
             Open the schedule for its latest status. If someone moved its agent
-            to another team or archived it, create or retarget the automation
-            until the agent belongs to the selected team again.
+            to another team or archived it, create a new schedule with an agent
+            that belongs to the selected team.
           </p>
         </DocSection>
 
@@ -134,11 +134,12 @@ export function AutomationRuns() {
         <DocSection title="Fix the automation or refine the session">
           <p>
             Change the automation when future runs need another source, cadence,
-            agent, team, or instruction. If only one result is wrong, correct
-            it with a follow-up in that session and leave the saved automation
-            alone.
+            team, or instruction. A schedule cannot change agents; create a new
+            one when a different agent should run the task. If only one result
+            is wrong, correct it with a follow-up in that session and leave the
+            saved automation alone.
           </p>
-          <DocLink href="/docs/agents/agent-sessions">
+          <DocLink href="/docs/agents/sessions">
             Learn how agent sessions work
           </DocLink>
         </DocSection>

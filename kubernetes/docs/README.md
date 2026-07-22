@@ -24,6 +24,7 @@ deploy application workloads.
 | Restore the local infrastructure configuration folder or rotate a Kubernetes Secret | [Configuration and secrets](configuration-and-secrets.md) |
 | Find logs, pod metrics, node pressure, restart history, or a dashboard | [Observability](observability.md) |
 | Review trust boundaries, RBAC, NetworkPolicy, TLS, and credential handling | [Security](security.md) |
+| Give the external Platform Engineering Agent cluster-wide diagnostic access | [Platform Engineering Agent](platform-engineering-agent.md) |
 | Diagnose a failed request, sandbox, database, DNS path, volume, or Gateway route | [Troubleshooting](troubleshooting.md) |
 
 ## Current machines
@@ -44,7 +45,7 @@ sit in `10.80.1.0/24`. K3s assigns Pods from `10.42.0.0/16` and Services from
 
 | Layer | How it is managed |
 | --- | --- |
-| Ubuntu preparation, vSwitch interface, host firewall, K3s service, runner binary and systemd service, runner CoreDNS, runner HAProxy, restricted CI tunnel users | Ansible playbooks under `ansible/` |
+| Ubuntu preparation, vSwitch interface, host firewall, K3s service, runner binary and systemd service, runner CoreDNS, runner HAProxy, restricted automation tunnel users | Ansible playbooks under `ansible/` |
 | Gateway API CRDs, Cilium, cert-manager and its Vercel DNS webhook | Pinned render or direct `kubectl apply` during bootstrap |
 | Longhorn, CloudNativePG, Barman Cloud, Redis Operator | Pinned manifests rendered or downloaded locally, then server-side `kubectl apply` |
 | Production and staging application resources | Kustomize overlays under `kubernetes/environments/` |

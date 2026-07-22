@@ -55,7 +55,7 @@ export function AgentCatalog() {
         <p className="mt-3 max-w-2xl text-muted">
           Open <strong className="font-medium text-foreground">Agents</strong>{" "}
           from the workspace sidebar, where Hivy keeps catalog entries beside
-          the agents your organization created.
+          the agents your workspace created.
         </p>
 
         <ol className="mt-8 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
@@ -89,9 +89,8 @@ export function AgentCatalog() {
         <DocSection title="Each team gets its own agent">
           <p>
             Hivy creates a separate copy for the selected team, limited to that
-            team&apos;s capabilities. If another team needs the
-            same specialist, install another copy; its access and settings
-            remain separate.
+            team&apos;s capabilities. If another team needs the same specialist,
+            install another copy; its access and settings remain separate.
           </p>
         </DocSection>
 
@@ -104,7 +103,8 @@ export function AgentCatalog() {
           <p className="mt-3">
             The installed agent receives the team&apos;s connections, though you
             can switch off an optional connection for this agent without
-            affecting its teammates.
+            affecting its teammates. Connections listed as required are locked
+            on because the catalog agent depends on them.
           </p>
         </DocSection>
 

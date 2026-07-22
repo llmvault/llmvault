@@ -114,8 +114,8 @@ impl ModelProfile {
                 strict_tool_schema: true,
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(8192),
-                max_tool_calls_per_turn: 160,
-                max_consecutive_tool_errors: 10,
+                max_tool_calls_per_turn: 640,
+                max_consecutive_tool_errors: 40,
             },
             ModelProfileId::Glm => Self {
                 id,
@@ -124,8 +124,8 @@ impl ModelProfile {
                 strict_tool_schema: true,
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(8192),
-                max_tool_calls_per_turn: 120,
-                max_consecutive_tool_errors: 10,
+                max_tool_calls_per_turn: 480,
+                max_consecutive_tool_errors: 40,
             },
             ModelProfileId::Kimi => Self {
                 id,
@@ -134,8 +134,8 @@ impl ModelProfile {
                 strict_tool_schema: true,
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(8192),
-                max_tool_calls_per_turn: 160,
-                max_consecutive_tool_errors: 10,
+                max_tool_calls_per_turn: 640,
+                max_consecutive_tool_errors: 40,
             },
             ModelProfileId::MiniMax => Self {
                 id,
@@ -144,8 +144,8 @@ impl ModelProfile {
                 strict_tool_schema: false,
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(16_384),
-                max_tool_calls_per_turn: 120,
-                max_consecutive_tool_errors: 10,
+                max_tool_calls_per_turn: 480,
+                max_consecutive_tool_errors: 40,
             },
             ModelProfileId::MiMo => Self {
                 id,
@@ -154,8 +154,8 @@ impl ModelProfile {
                 strict_tool_schema: false,
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(8192),
-                max_tool_calls_per_turn: 100,
-                max_consecutive_tool_errors: 10,
+                max_tool_calls_per_turn: 400,
+                max_consecutive_tool_errors: 40,
             },
             ModelProfileId::Qwen => Self {
                 id,
@@ -164,8 +164,8 @@ impl ModelProfile {
                 strict_tool_schema: true,
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(8192),
-                max_tool_calls_per_turn: 160,
-                max_consecutive_tool_errors: 10,
+                max_tool_calls_per_turn: 640,
+                max_consecutive_tool_errors: 40,
             },
             ModelProfileId::OpenRouterCompatible => Self {
                 id,
@@ -174,8 +174,8 @@ impl ModelProfile {
                 strict_tool_schema: false,
                 default_temperature: Some(0.0),
                 default_max_output_tokens: Some(8192),
-                max_tool_calls_per_turn: 200,
-                max_consecutive_tool_errors: 10,
+                max_tool_calls_per_turn: 800,
+                max_consecutive_tool_errors: 40,
             },
         };
 
@@ -332,6 +332,30 @@ fn resolve_local_ref<'a>(root: &'a Value, reference: &str) -> Option<&'a Value> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn model_profiles_use_quadrupled_operational_limits() {
+        let cases = [
+            ("deepseek", 640),
+            ("glm", 480),
+            ("kimi", 640),
+            ("minimax", 480),
+            ("mimo", 400),
+            ("qwen", 640),
+            ("openrouter_compatible", 800),
+        ];
+        for (profile_name, expected_tool_calls) in cases {
+            let profile = ModelProfile::detect(Some(profile_name), None, None, None, "model", None);
+            assert_eq!(
+                profile.max_tool_calls_per_turn, expected_tool_calls,
+                "profile {profile_name}"
+            );
+            assert_eq!(
+                profile.max_consecutive_tool_errors, 40,
+                "profile {profile_name}"
+            );
+        }
+    }
 
     #[test]
     fn detects_open_weight_profiles_from_model_route_metadata() {

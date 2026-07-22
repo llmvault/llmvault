@@ -14,7 +14,7 @@ const APP_WORKFLOW = [
     number: "02",
     title: "Choose the data",
     description:
-      "Point Ricky to a Hivy Sheet, your database, or an external service, then say what the app may change.",
+      "Point Ricky to one Hivy Sheet, then say which rows the app should show or change.",
   },
   {
     number: "03",
@@ -35,9 +35,8 @@ export function AgentBuiltApps() {
     <div className="mt-10 text-base leading-7">
       <p className="max-w-2xl text-muted">
         Ask Ricky for the interface your work calls for, rather than forcing the
-        job into a generic form. It can build over Hivy Sheets, your own
-        database, or external services; you review and publish the app from the
-        same session.
+        job into a generic form. Each app binds to one Hivy Sheet; you review
+        and publish it from the same session.
       </p>
 
       <DocsMediaPlaceholder
@@ -107,10 +106,9 @@ export function AgentBuiltApps() {
 
         <DocSection title="Tell Ricky where the data lives">
           <p>
-            An app can use a Hivy Sheet, connect to your own database, or call
-            external services. Tell Ricky which source holds the data and which
-            writes you&apos;ll allow. You might permit status updates while
-            keeping billing records read-only.
+            Name the Hivy Sheet that should back the app and which rows people
+            may change. One app binds to one Sheet, and it can read and update
+            rows without changing that Sheet&apos;s schema.
           </p>
           <p className="mt-3">
             If the data lives in Hivy, name the existing Sheet or ask Ricky to
@@ -155,13 +153,13 @@ export function AgentBuiltApps() {
         <DocSection title="Open apps from one place">
           <p>
             Select <strong className="text-foreground">Apps</strong> in the
-            workspace sidebar. Hivy groups the list by team and lets you
-            search names or descriptions. Open a result in the right panel, or
-            send it to a separate browser tab when you need more room.
+            workspace sidebar. Hivy groups the list by team and lets you search
+            names or descriptions. Open a result in the right panel, or send it
+            to a separate browser tab when you need more room.
           </p>
           <p className="mt-3">
-            App access follows its team. A person must be able to use that
-            team before Hivy lists the app or issues a launch session.
+            App access follows its team. A person must be able to use that team
+            before Hivy lists the app or issues a launch session.
           </p>
           <DocLink href="/w/apps">Open Apps</DocLink>
         </DocSection>
@@ -182,10 +180,10 @@ export function AgentBuiltApps() {
                 Connect data without pasting secrets into the session
               </h2>
               <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-                Name the database or service, but don&apos;t paste its password,
-                token, or private connection string into the request. Add those
-                values through the workspace connection and secret settings;
-                they don&apos;t belong in the app interface or session history.
+                Don&apos;t paste a password, token, or private connection string
+                into the request. An app uses its bound Sheet; other agent work
+                should receive credentials through Connections or encrypted team
+                environment variables.
               </p>
             </div>
           </div>

@@ -101,10 +101,10 @@ export function EventTriggers() {
 
         <DocSection title="Disable a trigger without losing its setup">
           <p>
-            Open an installed trigger to change its name, resource, team,
-            agent, event settings, or instructions. Turn its status off to
-            ignore matches without losing the setup; delete it when you
-            won&apos;t use it again.
+            Open an installed trigger to change its name, resource, team, agent,
+            event settings, or instructions. Turn its status off to ignore
+            matches without losing the setup; delete it when you won&apos;t use
+            it again.
           </p>
           <p className="mt-3">
             Workspace owners and admins can edit, disable, or delete an

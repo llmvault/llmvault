@@ -20,7 +20,6 @@ const SANDBOX_SIZES = [
   ["Small", "1 CPU, 2 GB RAM, 10 GB disk"],
   ["Medium", "2 CPU, 4 GB RAM, 20 GB disk"],
   ["Large", "4 CPU, 8 GB RAM, 40 GB disk"],
-  ["Extra large", "8 CPU, 16 GB RAM, 60 GB disk"],
 ]
 
 export function ToolsAndSubAgents() {
@@ -42,9 +41,9 @@ export function ToolsAndSubAgents() {
       <div className="mt-16 space-y-14">
         <DocSection title="Tools control what the agent can do">
           <p>
-            Runtime tools act inside Hivy, while connections connect the agent
-            to company systems and external services. Grant only the combination
-            required by the job.
+            Runtime tools act inside the sandbox or Hivy. Connections and custom
+            MCP servers add outside tools, while skills provide reusable
+            instructions. Grant only the combination required by the job.
           </p>
           <dl className="mt-6 divide-y divide-border rounded-xl border border-border bg-surface">
             {TOOL_GROUPS.map(([term, description]) => (
@@ -60,22 +59,25 @@ export function ToolsAndSubAgents() {
             ))}
           </dl>
           <p className="mt-4">
-            Hivy selects every available tool on a new custom agent. Remove the
-            ones this role won&apos;t use; if you add a sub-agent, Hivy keeps
-            the delegation tool switched on.
+            Hivy selects every configurable built-in tool on a new custom agent.
+            Remove the ones this role won&apos;t use; if you add a sub-agent,
+            Hivy keeps the delegation tool switched on. Drive transfer tools
+            stay on because they protect useful files from temporary sandbox
+            storage.
           </p>
         </DocSection>
 
         <DocSection title="Team connections add external capabilities">
           <p>
             An agent receives the connections available to its team, which may
-            expose a connected service, a database, Sheets, or another Hivy
-            feature. Switch off an optional connection here when this role
-            doesn&apos;t need it.
+            expose a connected service or database. Switch off an optional
+            connection on one agent when that role doesn&apos;t need it; the
+            team grant remains available to its other agents.
           </p>
           <p className="mt-3">
             Catalog requirements work differently: Hivy blocks the team
-            installation until every required connection is available.
+            installation until every required connection is available, then
+            keeps those required connections on for the installed agent.
           </p>
           <DocLink href="/docs/connections-and-skills/how-access-works">
             Learn how connections and team access work
@@ -143,8 +145,9 @@ export function ToolsAndSubAgents() {
             ))}
           </dl>
           <p className="mt-4">
-            Small covers routine work. Move up a size only after a session runs
-            short of memory, disk, or processing capacity.
+            Start with the smallest size your workspace tier allows. Move up
+            only after a session runs short of memory, disk, or processing
+            capacity; lifetime credit deposits permanently unlock larger sizes.
           </p>
         </DocSection>
 
@@ -159,8 +162,8 @@ export function ToolsAndSubAgents() {
             Add capability only when the job earns it
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-            Begin with one agent and a small sandbox. Let a real session expose
-            the missing tool or resource before you add it.
+            Begin with one agent and the smallest available sandbox. Let a real
+            session expose the missing tool or resource before you add it.
           </p>
         </section>
       </div>

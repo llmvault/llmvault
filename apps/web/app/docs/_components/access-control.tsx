@@ -14,7 +14,7 @@ const WORKSPACE_ROLES = [
     role: "Admin",
     summary: "Runs membership and shared setup.",
     details:
-      "Admins invite and remove members, assign Admin or Member, manage teams, and configure shared connections, connections, and knowledge.",
+      "Admins invite and remove members, assign Admin or Member, manage teams, and configure shared connections, skills, MCP servers, and knowledge.",
   },
   {
     role: "Member",
@@ -29,8 +29,7 @@ export function AccessControl() {
     <div className="mt-10 text-base leading-7">
       <p className="max-w-2xl text-muted">
         Give people the access their jobs require, then stop. Workspace roles
-        control administration; team membership decides where
-        someone can work.
+        control administration; team membership decides where someone can work.
       </p>
 
       <section aria-labelledby="two-layers" className="mt-14">

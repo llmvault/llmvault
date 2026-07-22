@@ -62,9 +62,9 @@ export function KnowledgeAccessControl() {
           Access follows the team
         </h2>
         <p className="mt-3 max-w-2xl text-muted">
-          Sources belong to teams, not individual sessions. Every agent uses
-          the sources granted to its team, which keeps one access boundary in
-          place for all agents working there.
+          Sources belong to teams, not individual sessions. Every agent uses the
+          sources granted to its team, which keeps one access boundary in place
+          for all agents working there.
         </p>
         <ol className="mt-8 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
           {ACCESS_PATH.map((item) => (
@@ -94,9 +94,9 @@ export function KnowledgeAccessControl() {
         <DocSection title="Limit what enters the index">
           <p>
             A connection may read far more than an agent needs. Keep each source
-            to the smallest useful set of repositories, pages, databases,
-            Slack channels, Linear teams, or website URLs because everything in one
-            source shares the same team grants.
+            to the smallest useful set of repositories, Notion pages and
+            databases, Slack channels, Linear teams, or website URLs because
+            everything in one source shares the same team grants.
           </p>
           <p className="mt-3">
             If an admin removes a resource from the scope, Hivy deletes that
@@ -113,9 +113,9 @@ export function KnowledgeAccessControl() {
             leaves other teams unchanged.
           </p>
           <p className="mt-3">
-            On every search, Hivy checks the active session&apos;s team and
-            its grants. The agent cannot switch teams behind the
-            search or cross that boundary.
+            On every search, Hivy checks the active session&apos;s team and its
+            grants. The agent cannot switch teams behind the search or cross
+            that boundary.
           </p>
           <DocLink href="/w/settings/knowledge">
             Open Knowledge settings

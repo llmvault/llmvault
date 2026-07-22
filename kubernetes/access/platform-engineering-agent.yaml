@@ -1,0 +1,163 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform-engineering
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: platform-engineering-agent
+  namespace: platform-engineering
+automountServiceAccountToken: false
+---
+# This explicit token Secret supports external kubectl clients. It is recovery
+# material, never mounted into a Pod, and its value is exported only under the
+# Git-ignored kubernetes/config tree.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: platform-engineering-agent-token
+  namespace: platform-engineering
+  annotations:
+    kubernetes.io/service-account.name: platform-engineering-agent
+type: kubernetes.io/service-account-token
+---
+# The built-in view role supplies read-only access to ordinary namespaced
+# workload objects across production, staging, and infrastructure namespaces.
+# Kubernetes deliberately excludes Secrets and RBAC bindings from that role.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: platform-engineering-agent-view
+subjects:
+  - kind: ServiceAccount
+    name: platform-engineering-agent
+    namespace: platform-engineering
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: platform-engineering-agent-observer
+rules:
+  # Cluster state and logs. nodes/proxy is intentionally absent because GET on
+  # that subresource can execute commands through the kubelet API.
+  - apiGroups:
+      - ""
+    resources:
+      - componentstatuses
+      - events
+      - namespaces
+      - nodes
+      - nodes/status
+      - persistentvolumes
+      - pods/log
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - events.k8s.io
+    resources:
+      - events
+    verbs:
+      - get
+      - list
+      - watch
+
+  # Current resource use exposed by metrics-server and compatible adapters.
+  - apiGroups:
+      - metrics.k8s.io
+      - custom.metrics.k8s.io
+      - external.metrics.k8s.io
+    resources:
+      - "*"
+    verbs:
+      - get
+      - list
+      - watch
+
+  # Cluster-scoped configuration and status omitted by the built-in view role.
+  - apiGroups:
+      - admissionregistration.k8s.io
+      - apiextensions.k8s.io
+      - apiregistration.k8s.io
+      - certificates.k8s.io
+      - coordination.k8s.io
+      - flowcontrol.apiserver.k8s.io
+      - node.k8s.io
+      - rbac.authorization.k8s.io
+      - resource.k8s.io
+      - scheduling.k8s.io
+      - snapshot.storage.k8s.io
+      - storage.k8s.io
+    resources:
+      - "*"
+    verbs:
+      - get
+      - list
+      - watch
+
+  # Networking and ingress controllers.
+  - apiGroups:
+      - cilium.io
+      - discovery.k8s.io
+      - gateway.networking.k8s.io
+      - networking.k8s.io
+    resources:
+      - "*"
+    verbs:
+      - get
+      - list
+      - watch
+
+  # Data, storage, certificate, and observability operators installed here.
+  - apiGroups:
+      - acme.cert-manager.io
+      - cert-manager.io
+      - helm.cattle.io
+      - k3s.cattle.io
+      - longhorn.io
+      - monitoring.coreos.com
+      - operator.victoriametrics.com
+      - postgresql.cnpg.io
+      - redis.redis.opstreelabs.in
+    resources:
+      - "*"
+    verbs:
+      - get
+      - list
+      - watch
+
+  # Direct API server health and Prometheus metrics endpoints.
+  - nonResourceURLs:
+      - /healthz
+      - /healthz/*
+      - /livez
+      - /livez/*
+      - /metrics
+      - /readyz
+      - /readyz/*
+      - /version
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: platform-engineering-agent-observer
+subjects:
+  - kind: ServiceAccount
+    name: platform-engineering-agent
+    namespace: platform-engineering
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: platform-engineering-agent-observer
