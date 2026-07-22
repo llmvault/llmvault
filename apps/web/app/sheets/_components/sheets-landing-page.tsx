@@ -5,10 +5,8 @@ import {
   LandingHero,
   PlatformHighlights,
 } from "../../home/_components/landing-shared"
-import {
-  DatabaseBrowserPreview,
-  LiveAgentUpdatePreview,
-} from "./sheets-previews"
+import { LiveAgentUpdatePreview } from "./live-agent-update-preview"
+import { DatabaseBrowserPreview } from "./sheets-previews"
 
 function SectionEyebrow({ children }: { children: ReactNode }) {
   return (

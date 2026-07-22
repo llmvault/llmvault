@@ -235,7 +235,7 @@ type LandingHeroProps = {
   placeholderLabel?: string
 }
 
-export function LandingHeroActions({
+function LandingHeroActions({
   primaryAction = { label: "Watch a 2min demo", href: "#contact" },
   secondaryAction = { label: "Start for free", href: "/auth/signup" },
   className = "mt-8",

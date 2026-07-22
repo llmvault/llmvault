@@ -1,13 +1,13 @@
 import type { BlogPost } from "./blog-content"
 
-export type BlogArticleSection = {
+type BlogArticleSection = {
   id: string
   heading: string
   paragraphs: readonly string[]
   points?: readonly string[]
 }
 
-export type BlogArticleContent = {
+type BlogArticleContent = {
   summary: readonly string[]
   sections: readonly BlogArticleSection[]
 }
