@@ -156,7 +156,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 			PurchaseID: purchase.ID, OrgID: in.OrgID, CustomerEmail: in.Email,
 			AmountMinor: purchase.TotalMinor, Currency: currency,
 			Metadata: metadata,
-			Channels: []string{"card"},
+			Channels: checkoutChannels(currency),
 		})
 	}
 	if err != nil {
@@ -318,6 +318,15 @@ func (s *Service) creditsForSubtotal(currency billing.Currency, subtotal int64) 
 	default:
 		return 0, nil, ErrInvalidCurrency
 	}
+}
+
+// Omitting channels lets Paystack offer every checkout method enabled for the
+// merchant and supported by the transaction currency. USD remains card-only.
+func checkoutChannels(currency billing.Currency) []string {
+	if currency == billing.CurrencyUSD {
+		return []string{"card"}
+	}
+	return nil
 }
 
 func percentageCeil(amount, basisPoints int64) (int64, error) {

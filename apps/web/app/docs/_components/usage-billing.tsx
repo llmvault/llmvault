@@ -65,7 +65,7 @@ export function UsageBilling() {
       <DocsMediaPlaceholder
         type="video"
         title="Buy credits through Paystack"
-        description="Use a demo owner account to open Settings > Usage & billing, choose a preset or enter a custom deposit amount, compare its 12% fee and total, then select a saved card or a new card. Keep payment details out of frame."
+        description="Use a demo owner account to open Settings > Usage & billing, select Buy credits, choose a preset or enter a custom deposit amount, compare its 12% fee and total, then select a saved card or a new card. Keep payment details out of frame."
         className="mt-12"
       />
 
@@ -111,8 +111,10 @@ export function UsageBilling() {
         <DocSection title="Buy the credits you need">
           <p>
             New workspaces receive 1,000 welcome credits once. When you need
-            more, the owner chooses a fixed pack. Hivy shows the credits, 12%
-            deposit fee, and final Paystack charge before checkout.
+            more, the owner selects{" "}
+            <strong className="text-foreground">Buy credits</strong> to open a
+            dedicated purchase page and chooses a fixed pack. Hivy shows the
+            credits, 12% deposit fee, and final Paystack charge before checkout.
           </p>
           <p className="mt-3">
             USD packs start at $5. The matching NGN pack is ₦7,250 at

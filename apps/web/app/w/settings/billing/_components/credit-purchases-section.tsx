@@ -1,37 +1,14 @@
 "use client"
 
-import { useState } from "react"
-import {
-  Button,
-  Input,
-  Modal,
-  Skeleton,
-  Spinner,
-  Switch,
-  toast,
-} from "@heroui/react"
-import { useQueryClient } from "@tanstack/react-query"
+import { Skeleton } from "@heroui/react"
 import { $api } from "@/lib/api/hooks"
-import { queryKeys } from "@/lib/api/query-keys"
-import { extractErrorMessage } from "@/lib/api/error"
 import { useIsOwner } from "@/lib/auth/use-role"
 import { useCreditPurchase } from "@/hooks/use-credit-purchase"
 import type { components } from "@/lib/api/schema"
-import {
-  filterByPurchaseCurrency,
-  quoteCustomPurchase,
-  resolveCompatiblePaymentMethodID,
-  type PurchaseCurrency,
-} from "./purchase-currency"
+import type { PurchaseCurrency } from "./purchase-currency"
 
 type Currency = PurchaseCurrency
-type PaymentMethod = components["schemas"]["billingPaymentMethodResponse"]
-const CUSTOM_AMOUNT_ID = "custom"
-
-const CURRENCY_LABELS: Record<Currency, string> = {
-  USD: "US dollars",
-  NGN: "Nigerian naira",
-}
+type Purchase = components["schemas"]["creditPurchaseResponse"]
 
 function formatMoney(minor: number, currency: Currency): string {
   return new Intl.NumberFormat(currency === "NGN" ? "en-NG" : "en-US", {
@@ -41,19 +18,7 @@ function formatMoney(minor: number, currency: Currency): string {
   }).format(minor / 100)
 }
 
-function paymentMethodLabel(method: PaymentMethod): string {
-  const card = method.card_type?.trim() || "Card"
-  const bank = method.bank?.trim()
-  return `${bank ? `${bank} ` : ""}${card} ending in ${method.last4 ?? ""}`
-}
-
-export function CreditPurchasesSection({
-  isOpen,
-  onOpenChange,
-}: {
-  isOpen: boolean
-  onOpenChange: (open: boolean) => void
-}) {
+export function CreditPurchasesSection() {
   const isOwner = useIsOwner()
   const purchasesQuery = $api.useQuery("get", "/v1/billing/purchases", {
     params: { query: { limit: 10 } },
@@ -61,423 +26,64 @@ export function CreditPurchasesSection({
   const { verify, isPending } = useCreditPurchase()
 
   return (
-    <>
-      <section className="flex flex-col gap-3">
-        <div>
-          <h2 className="text-sm font-medium">Recent purchases</h2>
-          <p className="text-sm text-muted">
-            Completed and pending Paystack credit purchases.
-          </p>
+    <section className="flex flex-col gap-3">
+      <div>
+        <h2 className="text-sm font-medium">Recent purchases</h2>
+        <p className="text-sm text-muted">
+          Completed and pending Paystack credit purchases.
+        </p>
+      </div>
+      {purchasesQuery.isLoading ? (
+        <Skeleton className="h-20 rounded-xl" />
+      ) : (purchasesQuery.data?.purchases?.length ?? 0) === 0 ? (
+        <div className="rounded-xl border border-dashed border-border px-4 py-5 text-center text-sm text-muted">
+          No credit purchases yet.
         </div>
-        {purchasesQuery.isLoading ? (
-          <Skeleton className="h-20 rounded-xl" />
-        ) : (purchasesQuery.data?.purchases?.length ?? 0) === 0 ? (
-          <div className="rounded-xl border border-dashed border-border px-4 py-5 text-center text-sm text-muted">
-            No credit purchases yet.
-          </div>
-        ) : (
-          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
-            {purchasesQuery.data?.purchases?.map((item) => {
-              const itemCurrency = (item.currency ?? "USD") as Currency
-              const itemID = item.id
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium">
-                      {(item.credits ?? 0).toLocaleString()} credits
-                    </p>
-                    <p className="text-xs text-muted">
-                      {item.created_at
-                        ? new Date(item.created_at).toLocaleDateString()
-                        : ""}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">
-                      {formatMoney(item.total_minor ?? 0, itemCurrency)}
-                    </p>
-                    {item.status === "pending" && itemID && isOwner ? (
-                      <button
-                        type="button"
-                        disabled={isPending}
-                        onClick={() => verify(itemID)}
-                        className="text-xs font-medium text-foreground underline decoration-border underline-offset-2 disabled:opacity-50"
-                      >
-                        Verify payment
-                      </button>
-                    ) : (
-                      <p className="text-xs text-muted capitalize">
-                        {item.status}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
+      ) : (
+        <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+          {purchasesQuery.data?.purchases?.map((item: Purchase) => {
+            const currency = (item.currency ?? "USD") as Currency
+            const itemID = item.id
 
-      {isOwner ? (
-        <BuyCreditsModal isOpen={isOpen} onOpenChange={onOpenChange} />
-      ) : null}
-    </>
-  )
-}
-
-function BuyCreditsModal({
-  isOpen,
-  onOpenChange,
-}: {
-  isOpen: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  const queryClient = useQueryClient()
-  const accountQuery = $api.useQuery("get", "/v1/billing/account")
-  const methodsQuery = $api.useQuery("get", "/v1/billing/payment-methods")
-  const deleteMethod = $api.useMutation(
-    "delete",
-    "/v1/billing/payment-methods/{id}"
-  )
-  const { purchase, isPending } = useCreditPurchase()
-  const [currency, setCurrency] = useState<Currency>("USD")
-  const [packID, setPackID] = useState<string | null>(null)
-  const [customAmount, setCustomAmount] = useState("")
-  const [paymentMethodID, setPaymentMethodID] = useState<string | null>(null)
-  const [saveCard, setSaveCard] = useState(true)
-
-  const packs = filterByPurchaseCurrency(
-    accountQuery.data?.packs ?? [],
-    currency
-  )
-  const methods = filterByPurchaseCurrency(
-    methodsQuery.data?.payment_methods ?? [],
-    currency
-  )
-  const isCustomAmount = packID === CUSTOM_AMOUNT_ID
-  const selectedPack = isCustomAmount
-    ? undefined
-    : (packs.find((pack) => pack.id === packID) ?? packs[0])
-  const customQuote = quoteCustomPurchase(
-    customAmount,
-    currency,
-    accountQuery.data?.fee_basis_points ?? 0,
-    accountQuery.data?.fx_minor_per_usd ?? 0
-  )
-  const selectedSubtotalMinor = isCustomAmount
-    ? customQuote?.subtotalMinor
-    : selectedPack?.subtotal_minor
-  const selectedFeeMinor = isCustomAmount
-    ? customQuote?.feeMinor
-    : selectedPack?.fee_minor
-  const selectedTotalMinor = isCustomAmount
-    ? customQuote?.totalMinor
-    : selectedPack?.total_minor
-  const selectedCredits = isCustomAmount
-    ? customQuote?.credits
-    : selectedPack?.credits
-  const selectedFeeBasisPoints =
-    selectedPack?.fee_basis_points ?? accountQuery.data?.fee_basis_points ?? 0
-  const effectiveMethodID = resolveCompatiblePaymentMethodID(
-    methods,
-    paymentMethodID
-  )
-
-  const chooseCurrency = (choice: Currency) => {
-    setCurrency(choice)
-    setPackID(null)
-    setCustomAmount("")
-    setPaymentMethodID(null)
-  }
-
-  const removeMethod = (id: string) => {
-    deleteMethod.mutate(
-      { params: { path: { id } } },
-      {
-        onSuccess: () => {
-          setPaymentMethodID("new")
-          void queryClient.invalidateQueries({
-            queryKey: queryKeys.billingPaymentMethods(),
-          })
-          toast.success("Saved card removed")
-        },
-        onError: (error) =>
-          toast.danger(extractErrorMessage(error, "Could not remove card")),
-      }
-    )
-  }
-
-  const submit = () => {
-    const useNewCard = effectiveMethodID === "new"
-    if (isCustomAmount) {
-      if (!customQuote) return
-      purchase({
-        currency,
-        subtotalMinor: customQuote.subtotalMinor,
-        paymentMethodID: useNewCard ? undefined : effectiveMethodID,
-        savePaymentMethod: useNewCard && saveCard,
-        onComplete: () => onOpenChange(false),
-      })
-      return
-    }
-    if (!selectedPack?.id) return
-    purchase({
-      currency,
-      packID: selectedPack.id,
-      paymentMethodID: useNewCard ? undefined : effectiveMethodID,
-      savePaymentMethod: useNewCard && saveCard,
-      onComplete: () => onOpenChange(false),
-    })
-  }
-
-  return (
-    <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
-      <Modal.Backdrop>
-        <Modal.Container placement="center">
-          <Modal.Dialog className="w-full max-w-lg p-6">
-            <Modal.CloseTrigger />
-            <Modal.Header>
-              <Modal.Heading>Buy credits</Modal.Heading>
-            </Modal.Header>
-            <Modal.Body className="flex flex-col gap-5">
-              {accountQuery.isLoading ? (
-                <Skeleton className="h-72 rounded-xl" />
-              ) : (
-                <>
-                  <div>
-                    <div className="flex items-center justify-between gap-4">
-                      <p className="text-sm font-medium">Payment currency</p>
-                      <span className="text-xs text-muted">
-                        Choose for this deposit
-                      </span>
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3">
-                      {(["USD", "NGN"] as const).map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() => chooseCurrency(option)}
-                          className={`rounded-xl border px-4 py-3 text-left transition-colors ${
-                            currency === option
-                              ? "border-foreground bg-default"
-                              : "border-border hover:bg-default"
-                          }`}
-                        >
-                          <span className="block text-sm font-medium">
-                            {option}
-                          </span>
-                          <span className="text-xs text-muted">
-                            {CURRENCY_LABELS[option]}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between gap-4">
-                      <p className="text-sm font-medium">Choose an amount</p>
-                      <span className="text-xs text-muted">{currency}</span>
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3">
-                      {packs.map((pack) => {
-                        const selected = pack.id === selectedPack?.id
-                        return (
-                          <button
-                            key={pack.id}
-                            type="button"
-                            onClick={() => setPackID(pack.id ?? null)}
-                            className={`rounded-xl border p-3 text-left transition-colors ${
-                              selected
-                                ? "border-foreground bg-default"
-                                : "border-border hover:bg-default"
-                            }`}
-                          >
-                            <span className="block text-sm font-medium">
-                              {formatMoney(pack.subtotal_minor ?? 0, currency)}
-                            </span>
-                            <span className="text-xs text-muted">
-                              {(pack.credits ?? 0).toLocaleString()} credits
-                            </span>
-                          </button>
-                        )
-                      })}
-                      <button
-                        type="button"
-                        onClick={() => setPackID(CUSTOM_AMOUNT_ID)}
-                        className={`rounded-xl border p-3 text-left transition-colors ${
-                          isCustomAmount
-                            ? "border-foreground bg-default"
-                            : "border-border hover:bg-default"
-                        }`}
-                      >
-                        <span className="block text-sm font-medium">
-                          Custom amount
-                        </span>
-                        <span className="text-xs text-muted">
-                          Enter any deposit amount
-                        </span>
-                      </button>
-                    </div>
-                    {isCustomAmount ? (
-                      <div className="mt-3">
-                        <Input
-                          aria-label={`Custom amount in ${currency}`}
-                          inputMode="decimal"
-                          placeholder="0.00"
-                          value={customAmount}
-                          onChange={(event) =>
-                            setCustomAmount(event.target.value)
-                          }
-                          aria-invalid={
-                            customAmount.length > 0 && !customQuote
-                              ? true
-                              : undefined
-                          }
-                        />
-                        <p className="mt-2 text-xs text-muted">
-                          {customQuote
-                            ? `${customQuote.credits.toLocaleString()} credits will be added after payment.`
-                            : `Enter a positive ${currency} amount with up to two decimal places.`}
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-medium">Payment method</p>
-                    <div className="mt-3 flex flex-col gap-2">
-                      {methods.map((method) => {
-                        const methodID = method.id
-                        return (
-                          <div
-                            key={methodID}
-                            className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
-                              effectiveMethodID === methodID
-                                ? "border-foreground bg-default"
-                                : "border-border"
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPaymentMethodID(methodID ?? "new")
-                              }
-                              className="min-w-0 flex-1 text-left"
-                            >
-                              <span className="block truncate text-sm font-medium">
-                                {paymentMethodLabel(method)}
-                              </span>
-                              <span className="text-xs text-muted">
-                                {method.currency} · Expires {method.exp_month}/
-                                {method.exp_year}
-                              </span>
-                            </button>
-                            {methodID ? (
-                              <button
-                                type="button"
-                                onClick={() => removeMethod(methodID)}
-                                className="text-xs text-muted hover:text-foreground"
-                              >
-                                Remove
-                              </button>
-                            ) : null}
-                          </div>
-                        )
-                      })}
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethodID("new")}
-                        className={`rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
-                          effectiveMethodID === "new"
-                            ? "border-foreground bg-default"
-                            : "border-border hover:bg-default"
-                        }`}
-                      >
-                        Pay with a new card
-                      </button>
-                    </div>
-                  </div>
-
-                  {effectiveMethodID === "new" ? (
-                    <div className="flex items-center justify-between gap-4 rounded-xl bg-default p-3">
-                      <div>
-                        <p className="text-sm font-medium">
-                          Save card for next time
-                        </p>
-                        <p className="text-xs text-muted">
-                          Hivy stores only Paystack&apos;s encrypted reusable
-                          token.
-                        </p>
-                      </div>
-                      <Switch
-                        aria-label="Save card for future purchases"
-                        isSelected={saveCard}
-                        onChange={setSaveCard}
-                      >
-                        <Switch.Control>
-                          <Switch.Thumb />
-                        </Switch.Control>
-                      </Switch>
-                    </div>
-                  ) : null}
-
-                  {selectedTotalMinor !== undefined ? (
-                    <div className="flex flex-col gap-2 border-t border-border pt-4 text-sm">
-                      <div className="flex justify-between gap-4 text-muted">
-                        <span>Credit deposit</span>
-                        <span>
-                          {formatMoney(selectedSubtotalMinor ?? 0, currency)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between gap-4 text-muted">
-                        <span>Credits</span>
-                        <span>{(selectedCredits ?? 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between gap-4 text-muted">
-                        <span>
-                          Deposit fee ({selectedFeeBasisPoints / 100}%)
-                        </span>
-                        <span>
-                          {formatMoney(selectedFeeMinor ?? 0, currency)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between gap-4 font-medium">
-                        <span>Total charged</span>
-                        <span>{formatMoney(selectedTotalMinor, currency)}</span>
-                      </div>
-                    </div>
-                  ) : null}
-                  <p className="text-xs leading-5 text-muted">
-                    Paystack securely handles card details and authentication.
-                    Credits are added only after Hivy verifies the exact amount,
-                    currency, workspace, and purchase reference.
-                  </p>
-                </>
-              )}
-            </Modal.Body>
-            <Modal.Footer>
-              <Button variant="ghost" onPress={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                isDisabled={selectedTotalMinor === undefined || isPending}
-                onPress={submit}
+            return (
+              <div
+                key={item.id}
+                className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
               >
-                {isPending ? <Spinner size="sm" /> : null}
-                Pay{" "}
-                {selectedTotalMinor !== undefined
-                  ? formatMoney(selectedTotalMinor, currency)
-                  : ""}
-              </Button>
-            </Modal.Footer>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
+                <div className="min-w-0">
+                  <p className="font-medium">
+                    {(item.credits ?? 0).toLocaleString()} credits
+                  </p>
+                  <p className="text-xs text-muted">
+                    {item.created_at
+                      ? new Date(item.created_at).toLocaleDateString()
+                      : ""}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-medium">
+                    {formatMoney(item.total_minor ?? 0, currency)}
+                  </p>
+                  {item.status === "pending" && itemID && isOwner ? (
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => verify(itemID)}
+                      className="text-xs font-medium text-foreground underline decoration-border underline-offset-2 disabled:opacity-50"
+                    >
+                      Verify payment
+                    </button>
+                  ) : (
+                    <p className="text-xs text-muted capitalize">
+                      {item.status}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
   )
 }

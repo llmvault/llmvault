@@ -64,7 +64,9 @@ func TestIntegration_PurchaseStoresAndReusesPaystackAuthorization(t *testing.T) 
 	deposits := provider.Deposits()
 	if len(deposits) != 1 ||
 		deposits[0].AmountMinor != custom.Purchase.TotalMinor ||
-		deposits[0].Metadata["pack_id"] != purchase.CustomPackID {
+		deposits[0].Metadata["pack_id"] != purchase.CustomPackID ||
+		len(deposits[0].Channels) != 1 ||
+		deposits[0].Channels[0] != "card" {
 		t.Fatalf("custom deposit intent = %#v", deposits)
 	}
 
@@ -110,6 +112,10 @@ func TestIntegration_PurchaseStoresAndReusesPaystackAuthorization(t *testing.T) 
 	})
 	if err != nil {
 		t.Fatalf("create NGN purchase: %v", err)
+	}
+	deposits = provider.Deposits()
+	if len(deposits) != 3 || len(deposits[2].Channels) != 0 {
+		t.Fatalf("NGN deposit channels = %#v, want Paystack defaults", deposits)
 	}
 	provider.NextResolveResult = &billing.DepositResult{
 		Status: billing.PaymentPaid, PaidAmountMinor: ngnPurchase.Purchase.TotalMinor,

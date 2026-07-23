@@ -126,4 +126,14 @@ func TestResolvePurchaseAmountRequiresPackOrCustomAmount(t *testing.T) {
 	}
 }
 
+func TestCheckoutChannelsAreCurrencyAware(t *testing.T) {
+	usdChannels := checkoutChannels(billing.CurrencyUSD)
+	if len(usdChannels) != 1 || usdChannels[0] != "card" {
+		t.Fatalf("USD channels = %#v, want card only", usdChannels)
+	}
+	if ngnChannels := checkoutChannels(billing.CurrencyNGN); len(ngnChannels) != 0 {
+		t.Fatalf("NGN channels = %#v, want Paystack defaults", ngnChannels)
+	}
+}
+
 const maxInt64 = int64(^uint64(0) >> 1)

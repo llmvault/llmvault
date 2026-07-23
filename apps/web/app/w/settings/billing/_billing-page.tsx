@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth/auth-context"
 import { useIsAdmin } from "@/lib/auth/use-role"
@@ -12,7 +12,6 @@ export default function BillingPageContent() {
   const router = useRouter()
   const isAdmin = useIsAdmin()
   const { isLoading } = useAuth()
-  const [buyCreditsOpen, setBuyCreditsOpen] = useState(false)
 
   useEffect(() => {
     if (!isLoading && !isAdmin) router.replace("/w/teams")
@@ -21,7 +20,7 @@ export default function BillingPageContent() {
   if (!isAdmin) return null
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-10">
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold">Usage &amp; billing</h1>
         <p className="text-sm text-muted">
@@ -29,12 +28,11 @@ export default function BillingPageContent() {
         </p>
       </div>
 
-      <CreditsBalanceSection onBuyCredits={() => setBuyCreditsOpen(true)} />
-
-      <CreditPurchasesSection
-        isOpen={buyCreditsOpen}
-        onOpenChange={setBuyCreditsOpen}
+      <CreditsBalanceSection
+        onBuyCredits={() => router.push("/w/billing/purchase")}
       />
+
+      <CreditPurchasesSection />
 
       <CreditsUsageSection />
     </div>
