@@ -54,6 +54,37 @@ func TestSupportedHivyModelRoutesResolve(t *testing.T) {
 	}
 }
 
+func TestCrossModelProxyFallbacksResolveToDeclaredProviderRoutes(t *testing.T) {
+	reg := Global()
+	for _, hivyModel := range supportedHivyModels {
+		for _, route := range hivyModel.ProxyRoutes {
+			if route.CanonicalModelID == "" {
+				continue
+			}
+			resolved, ok := reg.ResolveModel(route.ProviderID, route.CanonicalModelID)
+			if !ok {
+				t.Errorf(
+					"%s fallback route %s/%s references unresolved canonical model %s",
+					hivyModel.ID,
+					route.ProviderID,
+					route.ModelID,
+					route.CanonicalModelID,
+				)
+				continue
+			}
+			if resolved.UpstreamID != route.ModelID {
+				t.Errorf(
+					"%s fallback route upstream = %s, want %s from canonical model %s",
+					hivyModel.ID,
+					route.ModelID,
+					resolved.UpstreamID,
+					route.CanonicalModelID,
+				)
+			}
+		}
+	}
+}
+
 func TestSupportedHivyModelIDsAreUnique(t *testing.T) {
 	seen := map[string]bool{}
 	for _, hivyModel := range supportedHivyModels {

@@ -25,9 +25,10 @@ var ErrNoHealthyRoute = errors.New("proxy: no healthy route for model")
 // RouteCandidate is one credential-backed upstream option for a canonical
 // model. Candidates are ordered by the model catalog's proxy route order.
 type RouteCandidate struct {
-	CredentialID string
-	ProviderID   string
-	UpstreamID   string
+	CredentialID     string
+	ProviderID       string
+	UpstreamID       string
+	CanonicalModelID string
 }
 
 // ModelRouter resolves system-credential-backed proxy routes and maintains
@@ -76,7 +77,7 @@ func (r *ModelRouter) Candidates(ctx context.Context, claims *middleware.TokenCl
 		return nil, fmt.Errorf("list system proxy credentials: %w", err)
 	}
 
-	all := candidatesForRoutes(routes, credentials)
+	all := candidatesForRoutes(canonicalModelID, routes, credentials)
 	if len(all) == 0 {
 		return nil, nil
 	}
@@ -104,17 +105,22 @@ func (r *ModelRouter) Candidates(ctx context.Context, claims *middleware.TokenCl
 	return nil, ErrNoHealthyRoute
 }
 
-func candidatesForRoutes(routes []registry.ModelRoute, credentials []model.Credential) []RouteCandidate {
+func candidatesForRoutes(canonicalModelID string, routes []registry.ModelRoute, credentials []model.Credential) []RouteCandidate {
 	out := make([]RouteCandidate, 0, len(routes))
 	for _, route := range routes {
 		for _, credential := range credentials {
 			if credential.ProviderID != route.ProviderID {
 				continue
 			}
+			candidateModelID := route.CanonicalModelID
+			if candidateModelID == "" {
+				candidateModelID = canonicalModelID
+			}
 			out = append(out, RouteCandidate{
-				CredentialID: credential.ID.String(),
-				ProviderID:   route.ProviderID,
-				UpstreamID:   route.ModelID,
+				CredentialID:     credential.ID.String(),
+				ProviderID:       route.ProviderID,
+				UpstreamID:       route.ModelID,
+				CanonicalModelID: candidateModelID,
 			})
 			break // Provider health is shared; use its oldest active credential.
 		}

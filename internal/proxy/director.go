@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,6 +24,7 @@ type routePlan struct {
 	canonicalModel  string
 	candidates      []RouteCandidate
 	index           int
+	streaming       bool
 	originalPath    string
 	originalRawPath string
 	originalQuery   string
@@ -73,9 +75,13 @@ func (d *Director) newRoutePlan(req *http.Request, claims *middleware.TokenClaim
 		directorError(req, fmt.Errorf("read request body: %w", err))
 		return nil, false
 	}
-	_, canonicalModel, ok := parseModelJSONBody(body)
+	payload, canonicalModel, ok := parseModelJSONBody(body)
 	if !ok || canonicalModel == "" {
 		return nil, false
+	}
+	var streaming bool
+	if raw, exists := payload["stream"]; exists {
+		_ = json.Unmarshal(raw, &streaming)
 	}
 	candidates, err := d.router.Candidates(req.Context(), claims, canonicalModel)
 	if err != nil {
@@ -88,6 +94,7 @@ func (d *Director) newRoutePlan(req *http.Request, claims *middleware.TokenClaim
 	return &routePlan{
 		canonicalModel:  canonicalModel,
 		candidates:      candidates,
+		streaming:       streaming,
 		originalPath:    req.URL.Path,
 		originalRawPath: req.URL.RawPath,
 		originalQuery:   req.URL.RawQuery,
@@ -146,9 +153,18 @@ func (d *Director) applyCandidate(req *http.Request, plan *routePlan, index int)
 		return fmt.Errorf("rewrite model for provider %q: %w", candidate.ProviderID, err)
 	}
 	if captured, ok := observe.CapturedDataFromContext(req.Context()); ok {
-		captured.Model = plan.canonicalModel
+		candidateModelID := candidate.CanonicalModelID
+		if candidateModelID == "" {
+			candidateModelID = plan.canonicalModel
+		}
+		captured.Usage = observe.UsageData{}
+		captured.Model = candidateModelID
 		captured.ProviderID = candidate.ProviderID
 		captured.CredentialID = candidate.CredentialID
+		captured.GenerationID = ""
+		captured.IsStreaming = false
+		captured.TTFBMs = 0
+		captured.TotalMs = 0
 		captured.ErrorType = ""
 		captured.ErrorMessage = ""
 		captured.UpstreamStatus = 0

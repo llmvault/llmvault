@@ -39,13 +39,21 @@ func TestProxyRoutesForMiMoPreferXiaomiWithOpenRouterFallback(t *testing.T) {
 	}
 }
 
-func TestProxyRoutesForMiMoUltraspeedUsesXiaomi(t *testing.T) {
+func TestProxyRoutesForMiMoUltraspeedFallsBackToMiMoPro(t *testing.T) {
 	routes := Global().ProxyRoutesForModel("mimo-v2.5-pro-ultraspeed")
-	if len(routes) != 1 {
-		t.Fatalf("route count = %d, want 1", len(routes))
+	if len(routes) != 2 {
+		t.Fatalf("route count = %d, want 2", len(routes))
 	}
 	if routes[0] != (ModelRoute{ProviderID: "xiaomi", ModelID: "mimo-v2.5-pro-ultraspeed"}) {
-		t.Fatalf("route = %#v, want Xiaomi MiMo Ultraspeed", routes[0])
+		t.Fatalf("primary route = %#v, want Xiaomi MiMo Ultraspeed", routes[0])
+	}
+	wantFallback := ModelRoute{
+		ProviderID:       "openrouter",
+		ModelID:          "xiaomi/mimo-v2.5-pro",
+		CanonicalModelID: "mimo-v2.5-pro",
+	}
+	if routes[1] != wantFallback {
+		t.Fatalf("fallback route = %#v, want %#v", routes[1], wantFallback)
 	}
 }
 

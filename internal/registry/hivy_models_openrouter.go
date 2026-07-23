@@ -206,6 +206,14 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		Routes: []ModelRoute{
 			{ProviderID: "xiaomi", ModelID: "mimo-v2.5-pro-ultraspeed"},
 		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "xiaomi", ModelID: "mimo-v2.5-pro-ultraspeed"},
+			{
+				ProviderID:       "openrouter",
+				ModelID:          "xiaomi/mimo-v2.5-pro",
+				CanonicalModelID: "mimo-v2.5-pro",
+			},
+		},
 	},
 	{
 		ID: "mimo-v2.5-pro",

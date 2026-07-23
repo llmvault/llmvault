@@ -266,7 +266,7 @@ func buildGeneration(r *http.Request, claims *TokenClaims, captured *observe.Cap
 		gen.BillingCostSource = billing.CostSourceRegistry
 	}
 
-	if captured.GenerationID != "" && providerheaders.IsOpenRouter(providerID, "") {
+	if captured.GenerationID != "" && providerheaders.IsOpenRouter(actualProviderID, "") {
 		id := captured.GenerationID
 		gen.OpenRouterGenerationID = &id
 	}

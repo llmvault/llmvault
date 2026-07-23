@@ -12,6 +12,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/observe"
+	"github.com/usehivy/hivy/internal/registry"
 )
 
 func TestGenerationCapturesAgentProxyCallsAndPreservesBillingFlag(t *testing.T) {
@@ -154,6 +155,40 @@ func TestGenerationLeavesSessionNilWithoutSandboxMeta(t *testing.T) {
 	}
 	if gen.UserID != "u1" {
 		t.Fatalf("user_id = %q, want u1", gen.UserID)
+	}
+}
+
+func TestBuildGenerationUsesFallbackProviderAndModel(t *testing.T) {
+	db := generationTestDB(t)
+	credentialID := uuid.New()
+	captured := &observe.CapturedData{
+		CredentialID: credentialID.String(),
+		ProviderID:   "openrouter",
+		Model:        "mimo-v2.5-pro",
+		GenerationID: "openrouter-generation-id",
+		Usage:        observe.UsageData{InputTokens: 10, OutputTokens: 5},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	claims := &TokenClaims{
+		OrgID:        uuid.NewString(),
+		CredentialID: uuid.NewString(),
+		TokenType:    model.TokenTypeAgentProxy,
+		IsSystem:     true,
+	}
+
+	generation := buildGeneration(request, claims, captured, "xiaomi", registry.Global(), db, nil)
+
+	if generation.CredentialID != credentialID {
+		t.Fatalf("credential_id = %s, want fallback credential %s", generation.CredentialID, credentialID)
+	}
+	if generation.ProviderID != "openrouter" {
+		t.Fatalf("provider_id = %q, want openrouter", generation.ProviderID)
+	}
+	if generation.Model != "mimo-v2.5-pro" {
+		t.Fatalf("model = %q, want fallback model", generation.Model)
+	}
+	if generation.OpenRouterGenerationID == nil || *generation.OpenRouterGenerationID != captured.GenerationID {
+		t.Fatalf("openrouter_generation_id = %v, want %q", generation.OpenRouterGenerationID, captured.GenerationID)
 	}
 }
 

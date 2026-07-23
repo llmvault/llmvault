@@ -8,6 +8,9 @@ import (
 type ModelRoute struct {
 	ProviderID string
 	ModelID    string
+	// CanonicalModelID is set when this route intentionally degrades to a
+	// different catalog model. Empty means the originally requested model.
+	CanonicalModelID string
 }
 
 type RoutedModel struct {
