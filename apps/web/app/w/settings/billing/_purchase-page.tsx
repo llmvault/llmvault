@@ -2,7 +2,7 @@
 
 import { type FormEvent, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button, Input, Skeleton, Spinner, Switch, toast } from "@heroui/react"
+import { Button, Input, Skeleton, Switch, toast } from "@heroui/react"
 import { Stripe } from "@thesvg/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { AppIcon } from "@/components/icon"
@@ -20,6 +20,11 @@ import {
   resolveCompatiblePaymentMethodID,
   type PurchaseCurrency,
 } from "./_components/purchase-currency"
+import {
+  formatPurchaseMoney,
+  PurchasePageSkeleton,
+  PurchaseSummary,
+} from "./_components/purchase-page-panels"
 
 type Currency = PurchaseCurrency
 type PaymentMethod = components["schemas"]["billingPaymentMethodResponse"]
@@ -29,14 +34,6 @@ const CURRENCIES = ["USD", "NGN"] as const
 const CURRENCY_LABELS: Record<Currency, string> = {
   USD: "US dollars",
   NGN: "Nigerian naira",
-}
-
-function formatMoney(minor: number, currency: Currency): string {
-  return new Intl.NumberFormat(currency === "NGN" ? "en-NG" : "en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: currency === "NGN" ? 0 : 2,
-  }).format(minor / 100)
 }
 
 function paymentMethodLabel(method: PaymentMethod): string {
@@ -316,7 +313,10 @@ export default function PurchaseCreditsPageContent() {
                     >
                       <span>
                         <span className="block text-sm font-semibold whitespace-nowrap tabular-nums">
-                          {formatMoney(pack.subtotal_minor ?? 0, currency)}
+                          {formatPurchaseMoney(
+                            pack.subtotal_minor ?? 0,
+                            currency
+                          )}
                         </span>
                         <span className="mt-0.5 block text-xs whitespace-nowrap text-muted">
                           {(pack.credits ?? 0).toLocaleString()} credits
@@ -490,140 +490,5 @@ export default function PurchaseCreditsPageContent() {
         </form>
       )}
     </main>
-  )
-}
-
-function PurchaseSummary({
-  balance,
-  currency,
-  credits,
-  feeBasisPoints,
-  feeMinor,
-  subtotalMinor,
-  totalMinor,
-  isPending,
-}: {
-  balance: number
-  currency: Currency
-  credits: number | undefined
-  feeBasisPoints: number
-  feeMinor: number | undefined
-  subtotalMinor: number | undefined
-  totalMinor: number | undefined
-  isPending: boolean
-}) {
-  return (
-    <aside className="flex flex-col border-t border-border bg-surface-secondary px-5 py-5 sm:px-7 sm:py-6 lg:border-t-0 lg:border-l">
-      <div className="lg:sticky lg:top-8">
-        <div className="flex items-baseline justify-between gap-4">
-          <p className="text-xs font-semibold tracking-wide text-muted uppercase">
-            Order summary
-          </p>
-          <p className="text-sm font-semibold tabular-nums">
-            {(credits ?? 0).toLocaleString()}{" "}
-            <span className="font-normal text-muted">credits</span>
-          </p>
-        </div>
-
-        <dl className="mt-5 space-y-2.5 border-t border-border pt-4 text-sm">
-          <div className="flex justify-between gap-4 text-muted">
-            <dt>Credit deposit</dt>
-            <dd className="tabular-nums">
-              {subtotalMinor === undefined
-                ? "Select an amount"
-                : formatMoney(subtotalMinor, currency)}
-            </dd>
-          </div>
-          <div className="flex justify-between gap-4 text-muted">
-            <dt>Deposit fee ({feeBasisPoints / 100}%)</dt>
-            <dd className="tabular-nums">
-              {feeMinor === undefined
-                ? "Not selected"
-                : formatMoney(feeMinor, currency)}
-            </dd>
-          </div>
-          <div className="flex justify-between gap-4 border-t border-border pt-3 font-semibold">
-            <dt>Total charged</dt>
-            <dd className="tabular-nums">
-              {totalMinor === undefined
-                ? "Not selected"
-                : formatMoney(totalMinor, currency)}
-            </dd>
-          </div>
-        </dl>
-
-        {credits !== undefined ? (
-          <p className="mt-3 text-xs leading-5 text-muted">
-            New workspace balance:{" "}
-            <span className="font-medium text-foreground">
-              {(balance + credits).toLocaleString()} credits
-            </span>
-          </p>
-        ) : null}
-
-        <Button
-          type="submit"
-          variant="primary"
-          className="mt-5 w-full"
-          isDisabled={totalMinor === undefined || isPending}
-        >
-          {isPending ? <Spinner size="sm" /> : null}
-          {isPending
-            ? "Confirming payment"
-            : totalMinor === undefined
-              ? "Choose an amount"
-              : `Pay ${formatMoney(totalMinor, currency)}`}
-        </Button>
-
-        <div className="mt-4 flex gap-3 border-t border-border pt-4">
-          <AppIcon
-            icon="shield-check"
-            strokeWidth={2}
-            className="size-5 shrink-0 text-success"
-          />
-          <p className="text-xs leading-5 text-muted">
-            Your card details are encrypted and handled by Paystack, a Stripe
-            company certified to PCI DSS Level 1 v4.0, ISO 27001:2022, and ISO
-            27701:2019.
-          </p>
-        </div>
-      </div>
-    </aside>
-  )
-}
-
-function PurchasePageSkeleton() {
-  return (
-    <div className="mt-8 grid overflow-hidden rounded-2xl border border-border bg-surface lg:grid-cols-[minmax(0,1fr)_19rem]">
-      <div className="col-span-full flex h-12 items-center justify-between border-b border-border px-5 sm:px-9">
-        <Skeleton className="h-4 w-56 rounded" />
-        <Skeleton className="h-8 w-24 rounded-lg" />
-      </div>
-      <div className="space-y-6 px-5 py-5 sm:px-9 sm:py-6">
-        <div>
-          <Skeleton className="h-4 w-28 rounded" />
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <Skeleton className="h-16 rounded-xl" />
-            <Skeleton className="h-16 rounded-xl" />
-            <Skeleton className="h-16 rounded-xl" />
-            <Skeleton className="h-16 rounded-xl" />
-            <Skeleton className="h-16 rounded-xl" />
-            <Skeleton className="h-16 rounded-xl" />
-          </div>
-        </div>
-        <div className="border-t border-border pt-5">
-          <Skeleton className="h-4 w-36 rounded" />
-          <Skeleton className="mt-3 h-14 rounded-xl" />
-        </div>
-      </div>
-      <div className="border-t border-border bg-surface-secondary px-7 py-6 lg:border-t-0 lg:border-l">
-        <div className="flex justify-between">
-          <Skeleton className="h-3 w-24 rounded" />
-          <Skeleton className="h-4 w-24 rounded" />
-        </div>
-        <Skeleton className="mt-5 h-28 rounded-xl" />
-        <Skeleton className="mt-5 h-10 rounded-lg" />
-      </div>
-    </div>
   )
 }

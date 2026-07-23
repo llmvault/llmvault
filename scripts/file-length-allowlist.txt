@@ -9,6 +9,11 @@
 # Code generated from the curated model catalog snapshot.
 internal/registry/models.go
 
+# Static provider-directory snapshots generated from authenticated model APIs.
+internal/registry/models_atlascloud.go
+internal/registry/models_novita.go
+internal/registry/models_together.go
+
 # Existing over-limit files on the current main merge tree. ci-quality scans the
 # full PR merge checkout, so this PR must grandfather them until dedicated splits
 # bring each file below the 300-line ceiling.

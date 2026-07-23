@@ -73,6 +73,8 @@ func TestLoad_NoRedisConfig(t *testing.T) {
 	setRequiredEnv(t)
 	t.Setenv("HIVY_REDIS_ADDR", "")
 	t.Setenv("HIVY_REDIS_URL", "")
+	t.Setenv("HIVY_REDIS_CLUSTER", "false")
+	t.Setenv("HIVY_REDIS_CLUSTER_ADDRS", "")
 
 	_, err := Load()
 	if err == nil {
