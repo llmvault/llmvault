@@ -11,10 +11,8 @@
 #   HIVY_APP_IMAGE=ghcr.io/usehivy/hivy-app:dev sandboxes/app/build_image.sh
 #   HIVY_APP_PLATFORM=linux/amd64 sandboxes/app/build_image.sh
 #
-# Release/CI: assemble the build context without building, so a caching
-# multi-tag pusher (docker/build-push-action) can consume it — the exact
-# pattern the runtime image release job uses. This keeps context assembly
-# single-sourced (no drift between local builds and the release workflow):
+# Context-only mode: assemble the build context without building. This keeps
+# context assembly reusable for local tooling:
 #   HIVY_APP_CONTEXT_OUT=/path/to/context sandboxes/app/build_image.sh
 set -euo pipefail
 

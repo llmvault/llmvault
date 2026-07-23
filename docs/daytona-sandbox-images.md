@@ -1,13 +1,16 @@
 # Daytona sandbox images
 
-Hivy publishes two Daytona images:
+Hivy previously published two Daytona images:
 
 ```text
 ghcr.io/usehivy/hivy-sandboxes-runtime-daytona:<release>
 ghcr.io/usehivy/hivy-sandboxes-runtime-developers-daytona:<release>
 ```
 
-The app image is not part of this path.
+The app image was not part of this path. Automated image and snapshot
+publication has been retired: no GitHub Actions workflow builds these targets,
+pushes them to a registry, creates release manifests, or uploads them to
+Daytona.
 
 ## Image contract
 
@@ -108,48 +111,11 @@ expiry. The token is embedded in the URL and remains valid across restarts until
 it expires. Hivy refreshes and persists another URL before its own shorter cache
 expires. See <https://www.daytona.io/docs/en/preview/>.
 
-## Release setup
+## Publication status
 
-Add one GitHub Actions secret:
-
-```text
-HIVY_DAYTONA_API_KEY
-```
-
-Add these GitHub Actions variables:
-
-```text
-HIVY_DAYTONA_API_URL=https://app.daytona.io/api
-HIVY_DAYTONA_TARGET=<organization target or empty>
-```
-
-The key needs snapshot and sandbox read/write permissions. Keep the key out of
-workflow output and release artifacts.
-
-The release workflow performs this sequence:
-
-1. Build the Linux AMD64 runtime and canvas binaries.
-2. Build and push the existing Microsandbox images.
-3. Build the `daytona` target from each Dockerfile and push the two Daytona
-   images with immutable release tags.
-4. Write all four runtime image references to `release-manifest.json`.
-5. Pull the exact Daytona AMD64 tags on the Actions runner.
-6. Run `daytona snapshot push` for default and developer variants, with the Hivy
-   entrypoint and each supported size.
-7. Wait until every snapshot is `active`.
-8. Launch the default and developer `small` snapshots and run the acceptance
-   verifier, including a Docker Compose workload in the developer sandbox.
-9. Set the API and worker Railway services to `HIVY_SANDBOX_PROVIDER_ID=daytona`
-   and write the Daytona connection variables.
-
-Railway is not changed if image publication or snapshot activation fails.
-Prereleases also build and verify their snapshots but do not update Railway.
-
-Daytona previously returned `denied` while pulling Hivy's public GHCR packages
-through its remote image path. The release job therefore authenticates to GHCR,
-pulls the images onto the Actions runner, and uses `daytona snapshot push` to
-upload the local AMD64 image. This is also the path Daytona documents for local
-images.
+The former release, runtime-manifest, and promotion workflows have been
+removed. Publishing a GitHub Release does not build or push Daytona images,
+publish snapshots, or update provider configuration.
 
 ### First provider cutover
 
@@ -162,34 +128,8 @@ session from its old sandbox row, revoke the old sandbox-scoped runtime token,
 and delete the old sandbox row in one database transaction. The session events
 remain in place; its next delivery creates and attaches a new Daytona sandbox.
 Rebuild any custom template through Daytona before assigning it to an agent.
-After this one-time drain, the release workflow can update both Railway services.
-
-## Manual publication
-
-Load the Daytona values without printing the key, install the Daytona CLI, and
-log Docker into GHCR. Then download the release manifest and run the same script
-used in Actions:
-
-```bash
-tag=v7.2.1
-tmpdir=$(mktemp -d)
-gh release download "$tag" --pattern release-manifest.json --dir "$tmpdir"
-
-set -a
-source .env
-set +a
-
-bash scripts/release/publish-daytona-snapshots.sh \
-  "$tmpdir/release-manifest.json"
-```
-
-The script is idempotent for active snapshots. It refuses to overwrite a
-versioned snapshot in any other state. Delete a failed test snapshot explicitly
-or publish a new recipe suffix instead of changing an active release snapshot.
-
-To republish selected variants or sizes through Actions, run
-`promote-sandbox-release.yml`. Its inputs support `micro`, `nano`, `small`,
-`medium`, `large`, `xlarge`, or `all`.
+After this one-time drain, update provider configuration explicitly; no release
+workflow performs that change.
 
 ## Acceptance checks
 
