@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/usehivy/hivy/internal/billing"
 )
 
 const defaultBaseURL = "https://api.paystack.co"
@@ -77,8 +79,19 @@ func (c *client) do(ctx context.Context, method, path string, body, out any) err
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("paystack %s %s: http %d: %s",
-			method, path, resp.StatusCode, truncate(string(raw), 200))
+		var failure struct {
+			Message string `json:"message"`
+			Type    string `json:"type"`
+			Code    string `json:"code"`
+		}
+		if err := json.Unmarshal(raw, &failure); err != nil || failure.Message == "" {
+			failure.Message = http.StatusText(resp.StatusCode)
+		}
+		return &billing.ProviderRequestError{
+			Provider: "paystack", Operation: method + " " + path,
+			StatusCode: resp.StatusCode, Type: failure.Type, Code: failure.Code,
+			Message: truncate(failure.Message, 200),
+		}
 	}
 
 	var env envelope

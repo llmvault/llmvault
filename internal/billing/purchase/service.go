@@ -21,67 +21,40 @@ import (
 const (
 	DepositFeeBasisPoints int64 = 1200
 	WelcomeCredits        int64 = 1000
-	providerName                = "paystack"
+	// NGNMinorPerUSD is the fixed product conversion rate in kobo per US dollar.
+	NGNMinorPerUSD int64 = 145_000
+	providerName         = "paystack"
 )
 
 var (
-	ErrCurrencyRequired         = errors.New("credit purchase: billing currency is required")
-	ErrCurrencyLocked           = errors.New("credit purchase: billing currency is already locked")
-	ErrInvalidCurrency          = errors.New("credit purchase: unsupported billing currency")
-	ErrInvalidAmount            = errors.New("credit purchase: invalid deposit amount")
-	ErrNotFound                 = errors.New("credit purchase: not found")
-	ErrPaymentPending           = errors.New("credit purchase: payment is not complete")
-	ErrPaymentMismatch          = errors.New("credit purchase: paid amount or currency does not match")
-	ErrInvalidPack              = errors.New("credit purchase: invalid credit pack")
-	ErrInvalidRequestKey        = errors.New("credit purchase: invalid idempotency key")
-	ErrPaymentMethodNotFound    = errors.New("credit purchase: payment method not found")
-	ErrPaymentMethodUnavailable = errors.New("credit purchase: saved payment method is unavailable")
+	ErrInvalidCurrency            = errors.New("credit purchase: unsupported billing currency")
+	ErrInvalidAmount              = errors.New("credit purchase: invalid deposit amount")
+	ErrNotFound                   = errors.New("credit purchase: not found")
+	ErrPaymentPending             = errors.New("credit purchase: payment is not complete")
+	ErrPaymentMismatch            = errors.New("credit purchase: paid amount or currency does not match")
+	ErrInvalidPack                = errors.New("credit purchase: invalid credit pack")
+	ErrInvalidRequestKey          = errors.New("credit purchase: invalid idempotency key")
+	ErrPaymentMethodNotFound      = errors.New("credit purchase: payment method not found")
+	ErrPaymentMethodUnavailable   = errors.New("credit purchase: saved payment method is unavailable")
+	ErrPaymentCurrencyUnavailable = errors.New("credit purchase: payment currency is unavailable")
 )
 
 type Service struct {
-	db             *gorm.DB
-	registry       *billing.Registry
-	credits        *billing.CreditsService
-	ngnMinorPerUSD int64
-	kms            *crypto.KeyWrapper
+	db       *gorm.DB
+	registry *billing.Registry
+	credits  *billing.CreditsService
+	kms      *crypto.KeyWrapper
 }
 
-func NewService(db *gorm.DB, registry *billing.Registry, credits *billing.CreditsService, ngnMinorPerUSD int64, kms *crypto.KeyWrapper) *Service {
-	return &Service{db: db, registry: registry, credits: credits, ngnMinorPerUSD: ngnMinorPerUSD, kms: kms}
-}
-
-func (s *Service) NGNMinorPerUSD() int64 { return s.ngnMinorPerUSD }
-
-func (s *Service) SelectCurrency(ctx context.Context, orgID uuid.UUID, currency billing.Currency) error {
-	if !currency.IsValid() {
-		return ErrInvalidCurrency
-	}
-	res := s.db.WithContext(ctx).Model(&model.Org{}).
-		Where("id = ? AND billing_currency = ''", orgID).
-		Update("billing_currency", string(currency))
-	if res.Error != nil {
-		return fmt.Errorf("select billing currency: %w", res.Error)
-	}
-	if res.RowsAffected == 1 {
-		return nil
-	}
-	var org model.Org
-	if err := s.db.WithContext(ctx).Where("id = ?", orgID).First(&org).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrNotFound
-		}
-		return fmt.Errorf("load org billing currency: %w", err)
-	}
-	if org.BillingCurrency == string(currency) {
-		return nil
-	}
-	return ErrCurrencyLocked
+func NewService(db *gorm.DB, registry *billing.Registry, credits *billing.CreditsService, kms *crypto.KeyWrapper) *Service {
+	return &Service{db: db, registry: registry, credits: credits, kms: kms}
 }
 
 type CreateInput struct {
 	OrgID             uuid.UUID
 	UserID            uuid.UUID
 	Email             string
+	Currency          billing.Currency
 	PackID            string
 	IdempotencyKey    string
 	PaymentMethodID   *uuid.UUID
@@ -105,10 +78,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		}
 		return nil, fmt.Errorf("load org: %w", err)
 	}
-	currency := billing.Currency(org.BillingCurrency)
-	if org.BillingCurrency == "" {
-		return nil, ErrCurrencyRequired
-	}
+	currency := in.Currency
 	if !currency.IsValid() {
 		return nil, ErrInvalidCurrency
 	}
@@ -169,7 +139,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 	metadata := map[string]string{"org_id": in.OrgID.String(), "purchase_id": purchase.ID.String(), "pack_id": pack.ID}
 	var session *billing.DepositSession
 	if in.PaymentMethodID != nil {
-		_, secret, loadErr := s.loadPaymentMethodSecret(ctx, in.OrgID, in.UserID, *in.PaymentMethodID)
+		_, secret, loadErr := s.loadPaymentMethodSecret(ctx, in.OrgID, in.UserID, *in.PaymentMethodID, currency)
 		if loadErr != nil {
 			s.markFailed(ctx, purchase.ID)
 			return nil, loadErr
@@ -190,6 +160,12 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 	}
 	if err != nil {
 		s.markFailed(ctx, purchase.ID)
+		var providerErr *billing.ProviderRequestError
+		if errors.As(err, &providerErr) &&
+			providerErr.StatusCode == 403 &&
+			providerErr.Type == "validation_error" {
+			return nil, fmt.Errorf("%w: %w", ErrPaymentCurrencyUnavailable, err)
+		}
 		return nil, fmt.Errorf("initialize deposit: %w", err)
 	}
 	if session.Reference != purchase.ID.String() {
@@ -329,14 +305,14 @@ func (s *Service) creditsForSubtotal(currency billing.Currency, subtotal int64) 
 		}
 		return subtotal * 10, nil, nil
 	case billing.CurrencyNGN:
-		if s.ngnMinorPerUSD <= 0 || subtotal > math.MaxInt64/1000 {
+		if subtotal > math.MaxInt64/1000 {
 			return 0, nil, ErrInvalidAmount
 		}
-		credits := subtotal * 1000 / s.ngnMinorPerUSD
+		credits := subtotal * 1000 / NGNMinorPerUSD
 		if credits <= 0 {
 			return 0, nil, ErrInvalidAmount
 		}
-		rate := s.ngnMinorPerUSD
+		rate := NGNMinorPerUSD
 		return credits, &rate, nil
 	default:
 		return 0, nil, ErrInvalidCurrency

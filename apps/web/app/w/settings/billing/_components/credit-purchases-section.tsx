@@ -9,8 +9,13 @@ import { extractErrorMessage } from "@/lib/api/error"
 import { useIsOwner } from "@/lib/auth/use-role"
 import { useCreditPurchase } from "@/hooks/use-credit-purchase"
 import type { components } from "@/lib/api/schema"
+import {
+  filterByPurchaseCurrency,
+  resolveCompatiblePaymentMethodID,
+  type PurchaseCurrency,
+} from "./purchase-currency"
 
-type Currency = "USD" | "NGN"
+type Currency = PurchaseCurrency
 type PaymentMethod = components["schemas"]["billingPaymentMethodResponse"]
 
 const CURRENCY_LABELS: Record<Currency, string> = {
@@ -123,43 +128,34 @@ function BuyCreditsModal({
   const queryClient = useQueryClient()
   const accountQuery = $api.useQuery("get", "/v1/billing/account")
   const methodsQuery = $api.useQuery("get", "/v1/billing/payment-methods")
-  const selectCurrency = $api.useMutation("put", "/v1/billing/account/currency")
   const deleteMethod = $api.useMutation(
     "delete",
     "/v1/billing/payment-methods/{id}"
   )
   const { purchase, isPending } = useCreditPurchase()
-  const [currencyChoice, setCurrencyChoice] = useState<Currency>("USD")
+  const [currency, setCurrency] = useState<Currency>("USD")
   const [packID, setPackID] = useState<string | null>(null)
   const [paymentMethodID, setPaymentMethodID] = useState<string | null>(null)
   const [saveCard, setSaveCard] = useState(true)
 
-  const currency = accountQuery.data?.currency as Currency | undefined
-  const packs = accountQuery.data?.packs ?? []
-  const methods = methodsQuery.data?.payment_methods ?? []
+  const packs = filterByPurchaseCurrency(
+    accountQuery.data?.packs ?? [],
+    currency
+  )
+  const methods = filterByPurchaseCurrency(
+    methodsQuery.data?.payment_methods ?? [],
+    currency
+  )
   const selectedPack = packs.find((pack) => pack.id === packID) ?? packs[0]
-  const effectiveMethodID =
-    paymentMethodID ?? methods.find((method) => method.id)?.id ?? "new"
+  const effectiveMethodID = resolveCompatiblePaymentMethodID(
+    methods,
+    paymentMethodID
+  )
 
-  const lockCurrency = () => {
-    selectCurrency.mutate(
-      { body: { currency: currencyChoice } },
-      {
-        onSuccess: () => {
-          toast.success(`${CURRENCY_LABELS[currencyChoice]} selected`)
-          void Promise.all([
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.billingAccount(),
-            }),
-            queryClient.invalidateQueries({ queryKey: queryKeys.authMe() }),
-          ])
-        },
-        onError: (error) =>
-          toast.danger(
-            extractErrorMessage(error, "Could not select billing currency")
-          ),
-      }
-    )
+  const chooseCurrency = (choice: Currency) => {
+    setCurrency(choice)
+    setPackID(null)
+    setPaymentMethodID(null)
   }
 
   const removeMethod = (id: string) => {
@@ -183,6 +179,7 @@ function BuyCreditsModal({
     if (!selectedPack?.id) return
     const useNewCard = effectiveMethodID === "new"
     purchase({
+      currency,
       packID: selectedPack.id,
       paymentMethodID: useNewCard ? undefined : effectiveMethodID,
       savePaymentMethod: useNewCard && saveCard,
@@ -202,48 +199,38 @@ function BuyCreditsModal({
             <Modal.Body className="flex flex-col gap-5">
               {accountQuery.isLoading ? (
                 <Skeleton className="h-72 rounded-xl" />
-              ) : !currency ? (
-                <div className="flex flex-col gap-4">
-                  <div>
-                    <p className="text-sm font-medium">
-                      Choose billing currency
-                    </p>
-                    <p className="mt-1 text-sm text-muted">
-                      This permanent choice keeps every deposit and
-                      reconciliation in one currency.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(["USD", "NGN"] as const).map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => setCurrencyChoice(option)}
-                        className={`rounded-xl border px-4 py-3 text-left transition-colors ${
-                          currencyChoice === option
-                            ? "border-foreground bg-default"
-                            : "border-border hover:bg-default"
-                        }`}
-                      >
-                        <span className="block text-sm font-medium">
-                          {option}
-                        </span>
-                        <span className="text-xs text-muted">
-                          {CURRENCY_LABELS[option]}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  <Button
-                    variant="primary"
-                    isPending={selectCurrency.isPending}
-                    onPress={lockCurrency}
-                  >
-                    Lock in {currencyChoice}
-                  </Button>
-                </div>
               ) : (
                 <>
+                  <div>
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="text-sm font-medium">Payment currency</p>
+                      <span className="text-xs text-muted">
+                        Choose for this deposit
+                      </span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      {(["USD", "NGN"] as const).map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => chooseCurrency(option)}
+                          className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                            currency === option
+                              ? "border-foreground bg-default"
+                              : "border-border hover:bg-default"
+                          }`}
+                        >
+                          <span className="block text-sm font-medium">
+                            {option}
+                          </span>
+                          <span className="text-xs text-muted">
+                            {CURRENCY_LABELS[option]}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div>
                     <div className="flex items-center justify-between gap-4">
                       <p className="text-sm font-medium">
@@ -302,7 +289,8 @@ function BuyCreditsModal({
                                 {paymentMethodLabel(method)}
                               </span>
                               <span className="text-xs text-muted">
-                                Expires {method.exp_month}/{method.exp_year}
+                                {method.currency} · Expires {method.exp_month}/
+                                {method.exp_year}
                               </span>
                             </button>
                             {methodID ? (
@@ -390,24 +378,22 @@ function BuyCreditsModal({
                 </>
               )}
             </Modal.Body>
-            {currency ? (
-              <Modal.Footer>
-                <Button variant="ghost" onPress={() => onOpenChange(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  isDisabled={!selectedPack || isPending}
-                  onPress={submit}
-                >
-                  {isPending ? <Spinner size="sm" /> : null}
-                  Pay{" "}
-                  {selectedPack
-                    ? formatMoney(selectedPack.total_minor ?? 0, currency)
-                    : ""}
-                </Button>
-              </Modal.Footer>
-            ) : null}
+            <Modal.Footer>
+              <Button variant="ghost" onPress={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                isDisabled={!selectedPack || isPending}
+                onPress={submit}
+              >
+                {isPending ? <Spinner size="sm" /> : null}
+                Pay{" "}
+                {selectedPack
+                  ? formatMoney(selectedPack.total_minor ?? 0, currency)
+                  : ""}
+              </Button>
+            </Modal.Footer>
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>

@@ -66,11 +66,13 @@ export function useCreditPurchase() {
 
   const purchase = useCallback(
     ({
+      currency,
       packID,
       paymentMethodID,
       savePaymentMethod,
       onComplete,
     }: {
+      currency: "USD" | "NGN"
       packID: string
       paymentMethodID?: string
       savePaymentMethod: boolean
@@ -79,6 +81,7 @@ export function useCreditPurchase() {
       createPurchase.mutate(
         {
           body: {
+            currency,
             pack_id: packID,
             idempotency_key: crypto.randomUUID(),
             payment_method_id: paymentMethodID,

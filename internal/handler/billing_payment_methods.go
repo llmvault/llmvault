@@ -12,6 +12,7 @@ import (
 
 type billingPaymentMethodResponse struct {
 	ID          string `json:"id"`
+	Currency    string `json:"currency"`
 	CardType    string `json:"card_type"`
 	Last4       string `json:"last4"`
 	ExpMonth    string `json:"exp_month"`
@@ -90,7 +91,7 @@ func (h *BillingHandler) DeletePaymentMethod(w http.ResponseWriter, r *http.Requ
 
 func paymentMethodDTO(method model.BillingPaymentMethod) billingPaymentMethodResponse {
 	return billingPaymentMethodResponse{
-		ID: method.ID.String(), CardType: method.CardType, Last4: method.Last4,
+		ID: method.ID.String(), Currency: method.Currency, CardType: method.CardType, Last4: method.Last4,
 		ExpMonth: method.ExpMonth, ExpYear: method.ExpYear, Bank: method.Bank,
 		CountryCode: method.CountryCode,
 	}

@@ -5,6 +5,7 @@ package billing
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,6 +25,21 @@ var (
 	ErrOrgMismatch         = errors.New("billing: transaction org does not match expected org")
 	ErrPurchaseMismatch    = errors.New("billing: transaction purchase does not match expected purchase")
 )
+
+// ProviderRequestError is a structured payment-provider rejection. Callers use
+// its status and type for stable error mapping without matching message text.
+type ProviderRequestError struct {
+	Provider   string
+	Operation  string
+	StatusCode int
+	Type       string
+	Code       string
+	Message    string
+}
+
+func (e *ProviderRequestError) Error() string {
+	return fmt.Sprintf("%s %s: http %d: %s", e.Provider, e.Operation, e.StatusCode, e.Message)
+}
 
 type DepositIntent struct {
 	PurchaseID    uuid.UUID

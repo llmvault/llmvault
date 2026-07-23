@@ -3215,62 +3215,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/billing/account/currency": {
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "billing"
-                ],
-                "summary": "Select billing currency",
-                "parameters": [
-                    {
-                        "description": "Billing currency",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/selectBillingCurrencyRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/statusResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/errorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/v1/billing/payment-methods": {
             "get": {
                 "security": [
@@ -3419,6 +3363,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/errorResponse"
                         }
@@ -16070,13 +16020,7 @@ const docTemplate = `{
                 "balance": {
                     "type": "integer"
                 },
-                "currency": {
-                    "type": "string"
-                },
                 "fee_basis_points": {
-                    "type": "integer"
-                },
-                "ngn_minor_per_usd": {
                     "type": "integer"
                 },
                 "packs": {
@@ -16103,6 +16047,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "country_code": {
+                    "type": "string"
+                },
+                "currency": {
                     "type": "string"
                 },
                 "exp_month": {
@@ -16607,6 +16554,9 @@ const docTemplate = `{
         "createCreditPurchaseRequest": {
             "type": "object",
             "properties": {
+                "currency": {
+                    "type": "string"
+                },
                 "idempotency_key": {
                     "type": "string"
                 },
@@ -18202,9 +18152,6 @@ const docTemplate = `{
         "orgMemberDTO": {
             "type": "object",
             "properties": {
-                "billing_currency": {
-                    "type": "string"
-                },
                 "byok": {
                     "type": "boolean"
                 },
@@ -18256,9 +18203,6 @@ const docTemplate = `{
             "properties": {
                 "active": {
                     "type": "boolean"
-                },
-                "billing_currency": {
-                    "type": "string"
                 },
                 "capacity_tier": {
                     "type": "integer"
@@ -19541,14 +19485,6 @@ const docTemplate = `{
                     "additionalProperties": {
                         "type": "string"
                     }
-                }
-            }
-        },
-        "selectBillingCurrencyRequest": {
-            "type": "object",
-            "properties": {
-                "currency": {
-                    "type": "string"
                 }
             }
         },

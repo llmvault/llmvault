@@ -38,14 +38,13 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	orgs := make([]orgMemberDTO, 0, len(memberships))
 	for _, m := range memberships {
 		dto := orgMemberDTO{
-			ID:              m.OrgID.String(),
-			Name:            m.Org.Name,
-			Role:            m.Role,
-			BYOK:            m.Org.BYOK,
-			CapacityTier:    m.Org.CapacityTier,
-			LogoURL:         m.Org.LogoURL,
-			BillingCurrency: m.Org.BillingCurrency,
-			OnboardingStep:  m.Org.OnboardingStep,
+			ID:             m.OrgID.String(),
+			Name:           m.Org.Name,
+			Role:           m.Role,
+			BYOK:           m.Org.BYOK,
+			CapacityTier:   m.Org.CapacityTier,
+			LogoURL:        m.Org.LogoURL,
+			OnboardingStep: m.Org.OnboardingStep,
 		}
 		if m.Role == "owner" || m.Role == "admin" {
 			balance, err := h.credits.Balance(m.OrgID)

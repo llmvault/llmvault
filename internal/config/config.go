@@ -223,8 +223,7 @@ type Config struct {
 	RagBatchSize int `env:"HIVY_RAG_BATCH_SIZE" envDefault:"100"`
 
 	// Paystack (billing provider). Empty PaystackSecretKey disables deposits.
-	PaystackSecretKey     string `env:"HIVY_PAYSTACK_SECRET_KEY"`
-	BillingNGNMinorPerUSD int64  `env:"HIVY_BILLING_NGN_MINOR_PER_USD" envDefault:"160000"`
+	PaystackSecretKey string `env:"HIVY_PAYSTACK_SECRET_KEY"`
 }
 
 func Load() (*Config, error) {

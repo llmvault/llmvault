@@ -1160,11 +1160,7 @@ definitions:
     properties:
       balance:
         type: integer
-      currency:
-        type: string
       fee_basis_points:
-        type: integer
-      ngn_minor_per_usd:
         type: integer
       packs:
         items:
@@ -1182,6 +1178,8 @@ definitions:
       card_type:
         type: string
       country_code:
+        type: string
+      currency:
         type: string
       exp_month:
         type: string
@@ -1511,6 +1509,8 @@ definitions:
     type: object
   createCreditPurchaseRequest:
     properties:
+      currency:
+        type: string
       idempotency_key:
         type: string
       pack_id:
@@ -2555,8 +2555,6 @@ definitions:
     type: object
   orgMemberDTO:
     properties:
-      billing_currency:
-        type: string
       byok:
         type: boolean
       capacity_tier:
@@ -2591,8 +2589,6 @@ definitions:
     properties:
       active:
         type: boolean
-      billing_currency:
-        type: string
       capacity_tier:
         type: integer
       concurrent_session_limit:
@@ -3431,11 +3427,6 @@ definitions:
         additionalProperties:
           type: string
         type: object
-    type: object
-  selectBillingCurrencyRequest:
-    properties:
-      currency:
-        type: string
     type: object
   sendSessionMessageRequest:
     properties:
@@ -6809,41 +6800,6 @@ paths:
       summary: Get billing account
       tags:
       - billing
-  /v1/billing/account/currency:
-    put:
-      consumes:
-      - application/json
-      parameters:
-      - description: Billing currency
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/selectBillingCurrencyRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/statusResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/errorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/errorResponse'
-      security:
-      - BearerAuth: []
-      summary: Select billing currency
-      tags:
-      - billing
   /v1/billing/payment-methods:
     get:
       produces:
@@ -6932,6 +6888,10 @@ paths:
             $ref: '#/definitions/errorResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "409":
+          description: Conflict
           schema:
             $ref: '#/definitions/errorResponse'
         "500":

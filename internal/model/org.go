@@ -22,10 +22,6 @@ type Org struct {
 	OnboardingStep string         `gorm:"not null;default:'complete';size:32"`
 	AllowedOrigins pq.StringArray `gorm:"type:text[]"`
 
-	// BillingCurrency is selected once by the org owner before the first credit
-	// purchase. Empty means the org has not selected USD or NGN yet.
-	BillingCurrency string `gorm:"not null;default:'';size:3"`
-
 	// BYOK reports whether the org runs agents on its own LLM credentials.
 	// When false, agents fall back to platform-owned system credentials.
 	BYOK bool `gorm:"not null;default:false"`

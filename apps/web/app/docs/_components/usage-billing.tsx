@@ -115,10 +115,10 @@ export function UsageBilling() {
             deposit fee, and final Paystack charge before checkout.
           </p>
           <p className="mt-3">
-            USD packs contain $10, $25, $50, or $100 of credits. NGN packs are
-            ₦5,000, ₦10,000, ₦25,000, or ₦50,000 at the configured exchange
-            rate. Run the tasks your team repeats and compare their session
-            totals before choosing a pack.
+            USD packs start at $5. The matching NGN pack is ₦7,250 at
+            Hivy&apos;s fixed ₦1,450 per USD credit conversion. Run the tasks
+            your team repeats and compare their session totals before choosing a
+            pack.
           </p>
         </DocSection>
 
@@ -126,7 +126,8 @@ export function UsageBilling() {
           <p>
             Pay with a new card and choose whether Paystack should save the
             payment authorization. On a later purchase, the owner can select a
-            saved card or remove it from the workspace billing page.
+            saved card in the same currency or remove it from the workspace
+            billing page.
           </p>
           <p className="mt-3">
             A pending purchase remains in Recent purchases. The owner can ask
@@ -134,11 +135,10 @@ export function UsageBilling() {
           </p>
         </DocSection>
 
-        <DocSection title="Choose the currency once">
+        <DocSection title="Choose a currency for each deposit">
           <p>
-            Before the first purchase, the owner chooses USD or NGN. That choice
-            is permanent for the workspace so every deposit and reconciliation
-            stays in one currency.
+            The owner can pay in USD or NGN on each purchase. Saved cards remain
+            tied to the currency in which Paystack authorized them.
           </p>
           <p className="mt-3">
             Purchases are one-time deposits, not recurring charges. Credits are
@@ -202,8 +202,8 @@ export function UsageBilling() {
               usage.
             </AccessItem>
             <AccessItem>
-              Money stays with the owner: only that person can select the
-              billing currency, buy or verify credits, and manage saved cards.
+              Money stays with the owner: only that person can buy or verify
+              credits and manage saved cards.
             </AccessItem>
             <AccessItem>
               Members see costs inside the sessions they can already open.

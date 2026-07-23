@@ -43,16 +43,21 @@ func (s *Service) DeletePaymentMethod(ctx context.Context, orgID, userID, method
 	return nil
 }
 
-func (s *Service) loadPaymentMethodSecret(ctx context.Context, orgID, userID, methodID uuid.UUID) (*model.BillingPaymentMethod, *paymentMethodSecret, error) {
+func (s *Service) loadPaymentMethodSecret(ctx context.Context, orgID, userID, methodID uuid.UUID, currency billing.Currency) (*model.BillingPaymentMethod, *paymentMethodSecret, error) {
 	if s.kms == nil {
 		return nil, nil, ErrPaymentMethodUnavailable
 	}
 	var method model.BillingPaymentMethod
-	if err := s.db.WithContext(ctx).Where("id = ? AND org_id = ? AND user_id = ?", methodID, orgID, userID).First(&method).Error; err != nil {
+	if err := s.db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND user_id = ?", methodID, orgID, userID).
+		First(&method).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil, ErrPaymentMethodNotFound
 		}
 		return nil, nil, fmt.Errorf("load payment method: %w", err)
+	}
+	if method.Currency != string(currency) {
+		return nil, nil, ErrPaymentMethodUnavailable
 	}
 	dek, err := s.kms.Unwrap(ctx, method.WrappedDEK)
 	if err != nil {
@@ -101,6 +106,7 @@ func (s *Service) savePaymentMethod(ctx context.Context, purchase model.CreditPu
 		UserID:                 *purchase.CreatedByUserID,
 		Provider:               providerName,
 		ProviderSignature:      authorization.Signature,
+		Currency:               purchase.Currency,
 		EncryptedAuthorization: encrypted,
 		WrappedDEK:             wrapped,
 		CardType:               strings.TrimSpace(authorization.CardType),
@@ -111,7 +117,7 @@ func (s *Service) savePaymentMethod(ctx context.Context, purchase model.CreditPu
 		CountryCode:            authorization.CountryCode,
 	}
 	return s.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "org_id"}, {Name: "user_id"}, {Name: "provider"}, {Name: "provider_signature"}},
+		Columns: []clause.Column{{Name: "org_id"}, {Name: "user_id"}, {Name: "provider"}, {Name: "provider_signature"}, {Name: "currency"}},
 		DoUpdates: clause.AssignmentColumns([]string{
 			"encrypted_authorization", "wrapped_dek", "card_type", "last4",
 			"exp_month", "exp_year", "bank", "country_code", "updated_at",

@@ -28,10 +28,8 @@ func NewBillingHandler(db *gorm.DB, purchases *purchase.Service, credits *billin
 }
 
 type billingAccountResponse struct {
-	Currency            string               `json:"currency,omitempty"`
 	Balance             int64                `json:"balance"`
 	FeeBasisPoints      int64                `json:"fee_basis_points"`
-	NGNMinorPerUSD      int64                `json:"ngn_minor_per_usd"`
 	SupportedCurrencies []string             `json:"supported_currencies"`
 	Packs               []creditPackResponse `json:"packs"`
 }
@@ -67,7 +65,7 @@ func (h *BillingHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load billing account"})
 		return
 	}
-	packs := h.purchases.Packs(billing.Currency(org.BillingCurrency))
+	packs := h.purchases.Packs()
 	packResponses := make([]creditPackResponse, 0, len(packs))
 	for _, pack := range packs {
 		packResponses = append(packResponses, creditPackResponse{
@@ -77,50 +75,15 @@ func (h *BillingHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, http.StatusOK, billingAccountResponse{
-		Currency:            org.BillingCurrency,
 		Balance:             balance,
 		FeeBasisPoints:      purchase.DepositFeeBasisPoints,
-		NGNMinorPerUSD:      h.purchases.NGNMinorPerUSD(),
 		SupportedCurrencies: []string{string(billing.CurrencyUSD), string(billing.CurrencyNGN)},
 		Packs:               packResponses,
 	})
 }
 
-type selectBillingCurrencyRequest struct {
-	Currency string `json:"currency"`
-}
-
-// SelectCurrency permanently selects the org's deposit currency.
-// @Summary Select billing currency
-// @Tags billing
-// @Accept json
-// @Produce json
-// @Param body body selectBillingCurrencyRequest true "Billing currency"
-// @Success 200 {object} statusResponse
-// @Failure 400 {object} errorResponse
-// @Failure 401 {object} errorResponse
-// @Failure 409 {object} errorResponse
-// @Security BearerAuth
-// @Router /v1/billing/account/currency [put]
-func (h *BillingHandler) SelectCurrency(w http.ResponseWriter, r *http.Request) {
-	org, ok := middleware.OrgFromContext(r.Context())
-	if !ok {
-		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
-		return
-	}
-	var body selectBillingCurrencyRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
-		return
-	}
-	if err := h.purchases.SelectCurrency(r.Context(), org.ID, billing.Currency(body.Currency)); err != nil {
-		h.writePurchaseError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, statusResponse{Status: "selected"})
-}
-
 type createCreditPurchaseRequest struct {
+	Currency          string  `json:"currency"`
 	PackID            string  `json:"pack_id"`
 	IdempotencyKey    string  `json:"idempotency_key"`
 	PaymentMethodID   *string `json:"payment_method_id,omitempty"`
@@ -156,6 +119,7 @@ type creditPurchaseResponse struct {
 // @Success 201 {object} creditPurchaseResponse
 // @Failure 400 {object} errorResponse
 // @Failure 401 {object} errorResponse
+// @Failure 409 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Security BearerAuth
 // @Router /v1/billing/purchases [post]
@@ -194,6 +158,7 @@ func (h *BillingHandler) CreatePurchase(w http.ResponseWriter, r *http.Request) 
 		OrgID:             org.ID,
 		UserID:            *userID,
 		Email:             user.Email,
+		Currency:          billing.Currency(body.Currency),
 		PackID:            body.PackID,
 		IdempotencyKey:    body.IdempotencyKey,
 		PaymentMethodID:   paymentMethodID,
@@ -305,10 +270,6 @@ func (h *BillingHandler) writePurchaseError(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid idempotency key"})
 	case errors.Is(err, purchase.ErrInvalidCurrency):
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "unsupported billing currency"})
-	case errors.Is(err, purchase.ErrCurrencyRequired):
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "select a billing currency before buying credits"})
-	case errors.Is(err, purchase.ErrCurrencyLocked):
-		writeJSON(w, http.StatusConflict, errorResponse{Error: "billing currency cannot be changed"})
 	case errors.Is(err, purchase.ErrNotFound):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "credit purchase not found"})
 	case errors.Is(err, purchase.ErrPaymentPending):
@@ -319,6 +280,9 @@ func (h *BillingHandler) writePurchaseError(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "payment method not found"})
 	case errors.Is(err, purchase.ErrPaymentMethodUnavailable):
 		writeJSON(w, http.StatusConflict, errorResponse{Error: "saved payment method is unavailable"})
+	case errors.Is(err, purchase.ErrPaymentCurrencyUnavailable):
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "payment provider rejected credit purchase", "error", err)
+		writeJSON(w, http.StatusConflict, errorResponse{Error: "selected payment currency is unavailable"})
 	default:
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "credit purchase failed", "error", err)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "credit purchase failed"})

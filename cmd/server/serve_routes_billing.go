@@ -19,7 +19,6 @@ func mountBillingRoutes(r chi.Router, db *gorm.DB, billingHandler *handler.Billi
 	})
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireOrgOwner(db))
-		r.Put("/billing/account/currency", billingHandler.SelectCurrency)
 		r.Get("/billing/payment-methods", billingHandler.ListPaymentMethods)
 		r.Delete("/billing/payment-methods/{id}", billingHandler.DeletePaymentMethod)
 		r.Post("/billing/purchases", billingHandler.CreatePurchase)

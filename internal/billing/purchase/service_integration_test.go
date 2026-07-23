@@ -23,7 +23,7 @@ func TestIntegration_PurchaseStoresAndReusesPaystackAuthorization(t *testing.T) 
 	db, cleanup := connectPurchaseTestDB(t)
 	defer cleanup()
 	ctx := context.Background()
-	org := model.Org{ID: uuid.New(), Name: "purchase-" + uuid.NewString(), Active: true, BillingCurrency: "USD"}
+	org := model.Org{ID: uuid.New(), Name: "purchase-" + uuid.NewString(), Active: true}
 	user := model.User{ID: uuid.New(), Email: "purchase-" + uuid.NewString() + "@example.com"}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("create user: %v", err)
@@ -44,10 +44,10 @@ func TestIntegration_PurchaseStoresAndReusesPaystackAuthorization(t *testing.T) 
 	registry := billing.NewRegistry()
 	registry.Register(provider)
 	credits := billing.NewCreditsService(db)
-	service := purchase.NewService(db, registry, credits, 160_000, kms)
+	service := purchase.NewService(db, registry, credits, kms)
 
 	first, err := service.Create(ctx, purchase.CreateInput{
-		OrgID: org.ID, UserID: user.ID, Email: user.Email, PackID: "usd_10",
+		OrgID: org.ID, UserID: user.ID, Email: user.Email, Currency: billing.CurrencyUSD, PackID: "usd_10",
 		IdempotencyKey: uuid.NewString(), SavePaymentMethod: true,
 	})
 	if err != nil {
@@ -70,9 +70,44 @@ func TestIntegration_PurchaseStoresAndReusesPaystackAuthorization(t *testing.T) 
 	if err != nil || len(methods) != 1 {
 		t.Fatalf("payment methods = %#v, err = %v", methods, err)
 	}
+	if methods[0].Currency != string(billing.CurrencyUSD) {
+		t.Fatalf("payment method currency = %q, want USD", methods[0].Currency)
+	}
+
+	_, err = service.Create(ctx, purchase.CreateInput{
+		OrgID: org.ID, UserID: user.ID, Email: user.Email, Currency: billing.CurrencyNGN, PackID: "ngn_7250",
+		IdempotencyKey: uuid.NewString(), PaymentMethodID: &methods[0].ID,
+	})
+	if !errors.Is(err, purchase.ErrPaymentMethodUnavailable) {
+		t.Fatalf("cross-currency saved-card error = %v, want ErrPaymentMethodUnavailable", err)
+	}
+
+	ngnPurchase, err := service.Create(ctx, purchase.CreateInput{
+		OrgID: org.ID, UserID: user.ID, Email: user.Email, Currency: billing.CurrencyNGN, PackID: "ngn_7250",
+		IdempotencyKey: uuid.NewString(), SavePaymentMethod: true,
+	})
+	if err != nil {
+		t.Fatalf("create NGN purchase: %v", err)
+	}
+	provider.NextResolveResult = &billing.DepositResult{
+		Status: billing.PaymentPaid, PaidAmountMinor: ngnPurchase.Purchase.TotalMinor,
+		Currency: billing.CurrencyNGN, PaidAt: &paidAt, CustomerEmail: user.Email,
+		Authorization: &billing.PaymentAuthorization{
+			AuthorizationCode: "AUTH_scrubbed", CardType: "visa", Last4: "4081",
+			ExpMonth: "12", ExpYear: "2030", Bank: "TEST BANK", Channel: "card",
+			Signature: "SIG_scrubbed", Reusable: true, CountryCode: "NG",
+		},
+	}
+	if _, err := service.Verify(ctx, org.ID, ngnPurchase.Purchase.ID); err != nil {
+		t.Fatalf("verify NGN purchase: %v", err)
+	}
+	currencyMethods, err := service.ListPaymentMethods(ctx, org.ID, user.ID)
+	if err != nil || len(currencyMethods) != 2 {
+		t.Fatalf("currency-scoped payment methods = %#v, err = %v", currencyMethods, err)
+	}
 
 	second, err := service.Create(ctx, purchase.CreateInput{
-		OrgID: org.ID, UserID: user.ID, Email: "changed@example.com", PackID: "usd_25",
+		OrgID: org.ID, UserID: user.ID, Email: "changed@example.com", Currency: billing.CurrencyUSD, PackID: "usd_25",
 		IdempotencyKey: uuid.NewString(), PaymentMethodID: &methods[0].ID,
 	})
 	if err != nil {
@@ -90,9 +125,21 @@ func TestIntegration_PurchaseStoresAndReusesPaystackAuthorization(t *testing.T) 
 		t.Fatalf("verify saved-card purchase: %v", err)
 	}
 	balance, err := credits.Balance(org.ID)
-	if err != nil || balance != 35_000 {
+	if err != nil || balance != 40_000 {
 		t.Fatalf("balance = %d, err = %v", balance, err)
 	}
+	provider.NextCreateError = &billing.ProviderRequestError{
+		Provider: "paystack", Operation: "POST /transaction/initialize",
+		StatusCode: 403, Type: "validation_error", Message: "currency unavailable",
+	}
+	_, err = service.Create(ctx, purchase.CreateInput{
+		OrgID: org.ID, UserID: user.ID, Email: user.Email, Currency: billing.CurrencyUSD, PackID: "usd_5",
+		IdempotencyKey: uuid.NewString(),
+	})
+	if !errors.Is(err, purchase.ErrPaymentCurrencyUnavailable) {
+		t.Fatalf("provider rejection error = %v, want ErrPaymentCurrencyUnavailable", err)
+	}
+	provider.NextCreateError = nil
 	if err := service.DeletePaymentMethod(ctx, org.ID, uuid.New(), methods[0].ID); !errors.Is(err, purchase.ErrPaymentMethodNotFound) {
 		t.Fatalf("cross-user delete error = %v", err)
 	}
@@ -100,8 +147,11 @@ func TestIntegration_PurchaseStoresAndReusesPaystackAuthorization(t *testing.T) 
 		t.Fatalf("delete payment method: %v", err)
 	}
 	methods, err = service.ListPaymentMethods(ctx, org.ID, user.ID)
-	if err != nil || len(methods) != 0 {
-		t.Fatalf("payment methods after delete = %#v, err = %v", methods, err)
+	if err != nil || len(methods) != 1 || methods[0].Currency != string(billing.CurrencyNGN) {
+		t.Fatalf("payment methods after USD delete = %#v, err = %v", methods, err)
+	}
+	if err := service.DeletePaymentMethod(ctx, org.ID, user.ID, methods[0].ID); err != nil {
+		t.Fatalf("delete NGN payment method: %v", err)
 	}
 }
 

@@ -44,15 +44,14 @@ type updateProfileRequest struct {
 }
 
 type orgMemberDTO struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	Role            string `json:"role"`
-	BillingCurrency string `json:"billing_currency,omitempty"`
-	Credits         *int64 `json:"credits,omitempty"`
-	BYOK            bool   `json:"byok"`
-	CapacityTier    int    `json:"capacity_tier"`
-	LogoURL         string `json:"logo_url,omitempty"`
-	OnboardingStep  string `json:"onboarding_step"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Role           string `json:"role"`
+	Credits        *int64 `json:"credits,omitempty"`
+	BYOK           bool   `json:"byok"`
+	CapacityTier   int    `json:"capacity_tier"`
+	LogoURL        string `json:"logo_url,omitempty"`
+	OnboardingStep string `json:"onboarding_step"`
 }
 
 type meResponse struct {

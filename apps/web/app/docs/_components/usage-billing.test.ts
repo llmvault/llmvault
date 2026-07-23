@@ -10,7 +10,7 @@ describe("UsageBilling", () => {
     expect(html).toContain("Know what a credit buys")
     expect(html).toContain("Find the workspace total")
     expect(html).toContain("Read a session price")
-    expect(html).toContain("Choose the currency once")
+    expect(html).toContain("Choose a currency for each deposit")
     expect(html).toContain("Who gets billing access")
     expect(html).toContain("Usage &amp; billing")
     expect(html).toContain("Buy the credits you need")

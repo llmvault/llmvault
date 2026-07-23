@@ -3954,74 +3954,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/billing/account/currency": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Select billing currency */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Billing currency */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["selectBillingCurrencyRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["statusResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["errorResponse"];
-                    };
-                };
-            };
-        };
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/billing/payment-methods": {
         parameters: {
             query?: never;
@@ -4191,6 +4123,15 @@ export interface paths {
                 };
                 /** @description Unauthorized */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -17476,9 +17417,7 @@ export interface components {
         };
         billingAccountResponse: {
             balance?: number;
-            currency?: string;
             fee_basis_points?: number;
-            ngn_minor_per_usd?: number;
             packs?: components["schemas"]["creditPackResponse"][];
             supported_currencies?: string[];
         };
@@ -17486,6 +17425,7 @@ export interface components {
             bank?: string;
             card_type?: string;
             country_code?: string;
+            currency?: string;
             exp_month?: string;
             exp_year?: string;
             id?: string;
@@ -17644,6 +17584,7 @@ export interface components {
             remaining?: number;
         };
         createCreditPurchaseRequest: {
+            currency?: string;
             idempotency_key?: string;
             pack_id?: string;
             payment_method_id?: string;
@@ -18197,7 +18138,6 @@ export interface components {
             team_ids?: string[];
         };
         orgMemberDTO: {
-            billing_currency?: string;
             byok?: boolean;
             capacity_tier?: number;
             credits?: number;
@@ -18216,7 +18156,6 @@ export interface components {
         };
         orgResponse: {
             active?: boolean;
-            billing_currency?: string;
             capacity_tier?: number;
             concurrent_session_limit?: number;
             created_at?: string;
@@ -18635,9 +18574,6 @@ export interface components {
             refs?: {
                 [key: string]: string;
             };
-        };
-        selectBillingCurrencyRequest: {
-            currency?: string;
         };
         sendSessionMessageRequest: {
             artifact_comments?: components["schemas"]["JSON"][];

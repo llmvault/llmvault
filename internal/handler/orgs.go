@@ -41,7 +41,6 @@ func (h *OrgHandler) buildOrgResponse(org model.Org) orgResponse {
 		Website:             org.Website,
 		PromptCompany:       org.PromptCompany,
 		SandboxExposedPorts: sandboxExposedPorts,
-		BillingCurrency:     org.BillingCurrency,
 		CapacityTier:        limits.Tier,
 		ConcurrentSessions:  limits.ConcurrentSessions,
 		MaxSandboxSize:      limits.MaxSandboxSize,
@@ -72,7 +71,6 @@ type orgResponse struct {
 	Website             string `json:"website,omitempty"`
 	PromptCompany       string `json:"prompt_company,omitempty"`
 	SandboxExposedPorts []int  `json:"sandbox_exposed_ports"`
-	BillingCurrency     string `json:"billing_currency,omitempty"`
 	CapacityTier        int    `json:"capacity_tier"`
 	ConcurrentSessions  int    `json:"concurrent_session_limit"`
 	MaxSandboxSize      string `json:"max_sandbox_size"`

@@ -4020,72 +4020,6 @@
         }
       }
     },
-    "/v1/billing/account/currency": {
-      "put": {
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "tags": [
-          "billing"
-        ],
-        "summary": "Select billing currency",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/selectBillingCurrencyRequest"
-              }
-            }
-          },
-          "description": "Billing currency",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/statusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/errorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/billing/payment-methods": {
       "get": {
         "security": [
@@ -4255,6 +4189,16 @@
           },
           "401": {
             "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -19650,13 +19594,7 @@
           "balance": {
             "type": "integer"
           },
-          "currency": {
-            "type": "string"
-          },
           "fee_basis_points": {
-            "type": "integer"
-          },
-          "ngn_minor_per_usd": {
             "type": "integer"
           },
           "packs": {
@@ -19683,6 +19621,9 @@
             "type": "string"
           },
           "country_code": {
+            "type": "string"
+          },
+          "currency": {
             "type": "string"
           },
           "exp_month": {
@@ -20187,6 +20128,9 @@
       "createCreditPurchaseRequest": {
         "type": "object",
         "properties": {
+          "currency": {
+            "type": "string"
+          },
           "idempotency_key": {
             "type": "string"
           },
@@ -21782,9 +21726,6 @@
       "orgMemberDTO": {
         "type": "object",
         "properties": {
-          "billing_currency": {
-            "type": "string"
-          },
           "byok": {
             "type": "boolean"
           },
@@ -21836,9 +21777,6 @@
         "properties": {
           "active": {
             "type": "boolean"
-          },
-          "billing_currency": {
-            "type": "string"
           },
           "capacity_tier": {
             "type": "integer"
@@ -23121,14 +23059,6 @@
             "additionalProperties": {
               "type": "string"
             }
-          }
-        }
-      },
-      "selectBillingCurrencyRequest": {
-        "type": "object",
-        "properties": {
-          "currency": {
-            "type": "string"
           }
         }
       },

@@ -19,11 +19,13 @@ type PackQuote struct {
 }
 
 var creditPacks = []Pack{
+	{ID: "usd_5", Currency: billing.CurrencyUSD, SubtotalMinor: 500},
 	{ID: "usd_10", Currency: billing.CurrencyUSD, SubtotalMinor: 1_000},
 	{ID: "usd_25", Currency: billing.CurrencyUSD, SubtotalMinor: 2_500},
 	{ID: "usd_50", Currency: billing.CurrencyUSD, SubtotalMinor: 5_000},
 	{ID: "usd_100", Currency: billing.CurrencyUSD, SubtotalMinor: 10_000},
 	{ID: "ngn_5000", Currency: billing.CurrencyNGN, SubtotalMinor: 500_000},
+	{ID: "ngn_7250", Currency: billing.CurrencyNGN, SubtotalMinor: 5 * NGNMinorPerUSD},
 	{ID: "ngn_10000", Currency: billing.CurrencyNGN, SubtotalMinor: 1_000_000},
 	{ID: "ngn_25000", Currency: billing.CurrencyNGN, SubtotalMinor: 2_500_000},
 	{ID: "ngn_50000", Currency: billing.CurrencyNGN, SubtotalMinor: 5_000_000},
@@ -38,13 +40,10 @@ func findPack(id string, currency billing.Currency) (Pack, bool) {
 	return Pack{}, false
 }
 
-func (s *Service) Packs(currency billing.Currency) []PackQuote {
-	quotes := make([]PackQuote, 0, 4)
+func (s *Service) Packs() []PackQuote {
+	quotes := make([]PackQuote, 0, len(creditPacks))
 	for _, pack := range creditPacks {
-		if pack.Currency != currency {
-			continue
-		}
-		credits, _, err := s.creditsForSubtotal(currency, pack.SubtotalMinor)
+		credits, _, err := s.creditsForSubtotal(pack.Currency, pack.SubtotalMinor)
 		if err != nil {
 			continue
 		}
@@ -54,7 +53,7 @@ func (s *Service) Packs(currency billing.Currency) []PackQuote {
 		}
 		quotes = append(quotes, PackQuote{
 			ID:             pack.ID,
-			Currency:       currency,
+			Currency:       pack.Currency,
 			SubtotalMinor:  pack.SubtotalMinor,
 			FeeBasisPoints: DepositFeeBasisPoints,
 			FeeMinor:       fee,

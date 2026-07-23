@@ -15,6 +15,7 @@ type BillingPaymentMethod struct {
 	UserID                 uuid.UUID `gorm:"type:uuid;not null;index"`
 	Provider               string    `gorm:"not null;size:32"`
 	ProviderSignature      string    `gorm:"not null;size:128"`
+	Currency               string    `gorm:"not null;size:3"`
 	EncryptedAuthorization []byte    `gorm:"type:bytea;not null"`
 	WrappedDEK             []byte    `gorm:"type:bytea;not null"`
 	CardType               string    `gorm:"not null;default:'';size:32"`
