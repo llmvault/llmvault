@@ -717,6 +717,15 @@ definitions:
           $ref: '#/definitions/agentEnvironmentVariableResponse'
         type: array
     type: object
+  agentInboxResponse:
+    properties:
+      available:
+        type: boolean
+      email:
+        type: string
+      message_count:
+        type: integer
+    type: object
   agentListItem:
     properties:
       attached_skills:
@@ -6158,6 +6167,85 @@ paths:
       security:
       - BearerAuth: []
       summary: Enable or disable an inherited environment variable for an agent
+      tags:
+      - agents
+  /v1/agents/{id}/inbox:
+    get:
+      description: Returns whether the agent has an inbox, its address when available,
+        and the total number of received messages.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agentInboxResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get an agent inbox
+      tags:
+      - agents
+    post:
+      description: Creates a stable inbox address when the agent does not have one.
+        Repeated requests return the existing inbox.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agentInboxResponse'
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/agentInboxResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add an inbox to an agent
       tags:
       - agents
   /v1/agents/{id}/model:

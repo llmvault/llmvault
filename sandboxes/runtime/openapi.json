@@ -856,7 +856,7 @@
             "items": {
               "$ref": "#/components/schemas/AutoLoadSkill"
             },
-            "description": "Skills the runtime loads into the session automatically on the first\nturn (before the first model call), so the agent starts with the skill\ncontent already in context and its `.skills/` files materialized. Absent\nin old configs (serde default = empty), which deserialize unchanged."
+            "description": "Skills the runtime loads automatically before the first model request of\nevery turn. Skill content is turn-scoped; earlier payloads are pruned\nfrom model history while materialized `.skills/` files remain available.\nAbsent in old configs (serde default = empty), which deserialize unchanged."
           },
           "context": {
             "$ref": "#/components/schemas/ContextConfig"

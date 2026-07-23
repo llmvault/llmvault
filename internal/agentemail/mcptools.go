@@ -83,6 +83,9 @@ func registerSendEmail(server *mcp.Server, db *gorm.DB, enq enqueue.TaskEnqueuer
 		if err := db.WithContext(ctx).Where("id = ? AND org_id = ? AND status <> ?", agentID, token.OrgID, "archived").First(&agent).Error; err != nil {
 			return toolError("agent inbox is unavailable"), nil
 		}
+		if strings.TrimSpace(agent.EmailInboxLocalPart) == "" {
+			return toolError("agent inbox is unavailable"), nil
+		}
 		reply, err := emailReplyContextForSession(ctx, db, token.OrgID, agentID, args.HivySessionID)
 		if err != nil {
 			return toolError(err.Error()), nil

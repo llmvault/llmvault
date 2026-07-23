@@ -1,15 +1,10 @@
 package model
 
 import (
-	"crypto/rand"
-	"encoding/base32"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"gorm.io/gorm"
 )
 
 type Agent struct {
@@ -50,8 +45,8 @@ type Agent struct {
 	// DefaultReasoningEffort seeds new sessions (low|medium|high) when the caller
 	// does not pass an explicit reasoning_effort. Empty means unset.
 	DefaultReasoningEffort string `gorm:"column:default_reasoning_effort;type:text"`
-	// AutoLoadSkills lists skills the runtime preloads into new sessions before
-	// the first model call (normalized {name, files} object form).
+	// AutoLoadSkills lists skills the runtime preloads before the first model
+	// call of every turn (normalized {name, files} object form).
 	AutoLoadSkills   AutoLoadSkills `gorm:"column:auto_load_skills;type:jsonb;not null;default:'[]'"`
 	ImageModel       string         `gorm:"type:text;not null;default:''"`
 	VectorImageModel string         `gorm:"type:text;not null;default:''"`
@@ -89,48 +84,6 @@ type Agent struct {
 }
 
 func (Agent) TableName() string { return "agents" }
-
-// BeforeCreate gives every agent a stable inbound email address without making
-// address generation depend on the caller that creates the agent.
-func (a *Agent) BeforeCreate(_ *gorm.DB) error {
-	if strings.TrimSpace(a.EmailInboxLocalPart) != "" {
-		return nil
-	}
-	buf := make([]byte, 5) // 40 random bits -> 8 unpadded base32 characters.
-	if _, err := rand.Read(buf); err != nil {
-		return fmt.Errorf("generate agent inbox suffix: %w", err)
-	}
-	suffix := strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buf))
-	name := agentEmailSlug(a.Name)
-	// RFC 5321 caps an email local part at 64 octets. Keep room for '-' + suffix.
-	if len(name) > 55 {
-		name = name[:55]
-	}
-	a.EmailInboxLocalPart = name + "-" + suffix
-	return nil
-}
-
-func agentEmailSlug(value string) string {
-	value = strings.ToLower(strings.TrimSpace(value))
-	var b strings.Builder
-	lastDash := false
-	for _, r := range value {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-			lastDash = false
-			continue
-		}
-		if !lastDash && b.Len() > 0 {
-			b.WriteByte('-')
-			lastDash = true
-		}
-	}
-	result := strings.Trim(b.String(), "-")
-	if result == "" {
-		return "agent"
-	}
-	return result
-}
 
 const (
 	// AgentTypeAgent is a top-level agent (parent_agent_id IS NULL).

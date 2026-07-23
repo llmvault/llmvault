@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use domain::{McpSpec, ToolInputBinding, ToolInputBindingKind};
+use domain::{McpSpec, ToolFilter, ToolInputBinding, ToolInputBindingKind};
 use mcp::McpRegistry;
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -123,36 +123,74 @@ async fn streamable_http_auth_catalog_activation_and_calls_work_end_to_end() {
     assert!(names.contains(&"oauth_echo".to_string()));
     assert!(names.contains(&"machine_lookup_customer".to_string()));
 
-    let search = registry.search_tools_filtered("customer email", "summary", None, None);
-    assert!(search["total"].as_u64().expect("search total") >= 4);
-    assert!(search["servers"].as_array().expect("grouped servers").len() >= 5);
-    assert!(search.to_string().contains("lookup_customer"));
-
     assert!(registry
-        .activated_tools_filtered("session-a", None)
+        .activated_tools_filtered("session-a", "turn-a", None)
         .is_empty());
-    let details = registry
-        .activate_tool_filtered("session-a", "oauth_echo", None)
+    assert!(registry
+        .activate_tools_filtered("session-a", "turn-a", &[], None)
         .await
-        .expect("activate OAuth tool");
-    assert_eq!(registry.live_connection_names(), vec!["oauth"]);
-    assert_eq!(details["activated"], true);
-    assert_eq!(details["input_schema"]["required"][0], "message");
+        .expect_err("empty batch must fail")
+        .to_string()
+        .contains("at least one"));
+    let restricted = ToolFilter {
+        allow: Some(vec!["oauth_echo".to_string()]),
+        deny: None,
+    };
+    let invalid_batch = registry
+        .activate_tools_filtered(
+            "session-a",
+            "turn-a",
+            &["oauth_echo".to_string(), "static_echo".to_string()],
+            Some(&restricted),
+        )
+        .await
+        .expect_err("invalid batch must fail");
+    assert!(invalid_batch.to_string().contains("static_echo"));
+    assert!(
+        registry
+            .activated_tools_filtered("session-a", "turn-a", None)
+            .is_empty(),
+        "the complete batch must validate before any activation"
+    );
+
+    let activation = registry
+        .activate_tools_filtered(
+            "session-a",
+            "turn-a",
+            &["oauth_echo".to_string(), "static_echo".to_string()],
+            None,
+        )
+        .await
+        .expect("batch activate tools");
+    assert_eq!(activation["loaded"], json!(["oauth_echo", "static_echo"]));
+    assert_eq!(registry.live_connection_names(), vec!["oauth", "static"]);
     assert_eq!(
-        registry.activated_tools_filtered("session-a", None)[0].prefixed_name,
+        registry.activated_tools_filtered("session-a", "turn-a", None)[0].prefixed_name,
         "oauth_echo"
     );
     assert!(registry
-        .activated_tools_filtered("session-b", None)
+        .activated_tools_filtered("session-b", "turn-a", None)
         .is_empty());
-
-    registry
-        .activate_tool_filtered("session-a", "static_echo", None)
-        .await
-        .expect("activate static tool");
-    let activated = registry.activated_tools_filtered("session-a", None);
+    assert!(registry
+        .activated_tools_filtered("session-a", "turn-b", None)
+        .is_empty());
+    let activated = registry.activated_tools_filtered("session-a", "turn-a", None);
     assert_eq!(activated[0].prefixed_name, "oauth_echo");
     assert_eq!(activated[1].prefixed_name, "static_echo");
+
+    let repeat = registry
+        .activate_tools_filtered(
+            "session-a",
+            "turn-a",
+            &["static_echo".to_string(), "oauth_echo".to_string()],
+            None,
+        )
+        .await
+        .expect("repeat batch");
+    assert_eq!(
+        repeat["already_loaded"],
+        json!(["static_echo", "oauth_echo"])
+    );
 
     let oauth = registry
         .call_tool_for_session(
@@ -249,21 +287,20 @@ async fn workspace_text_file_binding_projects_schema_and_injects_file_contents()
     )
     .await;
 
-    let details = registry
-        .activate_tool_filtered("binding-session", "hivy_echo", None)
+    registry
+        .activate_tools_filtered(
+            "binding-session",
+            "binding-turn",
+            &["hivy_echo".to_string()],
+            None,
+        )
         .await
         .expect("activate bound tool");
-    assert_eq!(
-        details["input_schema"]["required"],
-        json!(["message_file_path"])
-    );
-    assert!(details["input_schema"]["properties"]
-        .get("message")
-        .is_none());
-    assert_eq!(
-        details["input_schema"]["properties"]["message_file_path"]["type"],
-        "string"
-    );
+    let activated = registry.activated_tools_filtered("binding-session", "binding-turn", None);
+    let details = &activated[0].parameters;
+    assert_eq!(details["required"], json!(["message_file_path"]));
+    assert!(details["properties"].get("message").is_none());
+    assert_eq!(details["properties"]["message_file_path"]["type"], "string");
 
     let result = registry
         .call_tool(
@@ -316,8 +353,23 @@ async fn config_reload_discovers_in_background_then_leaves_servers_dormant_until
     );
     assert!(registry.available_tool_names().is_empty());
     assert!(registry.live_connection_names().is_empty());
+    assert!(
+        tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            registry.wait_until_ready()
+        )
+        .await
+        .is_err(),
+        "a turn must wait instead of snapshotting the temporarily empty catalog"
+    );
 
     discovery.await.expect("background MCP discovery task");
+    tokio::time::timeout(
+        std::time::Duration::from_millis(100),
+        registry.wait_until_ready(),
+    )
+    .await
+    .expect("ready catalog should unblock turns");
     assert!(
         started.elapsed() < std::time::Duration::from_millis(1800),
         "two one-second discoveries should run in parallel"
@@ -334,16 +386,16 @@ async fn config_reload_discovers_in_background_then_leaves_servers_dormant_until
     );
 
     registry
-        .activate_tool_filtered("session-a", "slow-a_echo", None)
+        .activate_tools_filtered("session-a", "turn-a", &["slow-a_echo".to_string()], None)
         .await
         .expect("activate tool from first server");
     assert_eq!(registry.live_connection_names(), vec!["slow-a"]);
     assert!(registry
-        .activated_tools_filtered("session-a", None)
+        .activated_tools_filtered("session-a", "turn-a", None)
         .iter()
         .any(|tool| tool.prefixed_name == "slow-a_echo"));
     assert!(registry
-        .activated_tools_filtered("session-a", None)
+        .activated_tools_filtered("session-a", "turn-a", None)
         .iter()
         .all(|tool| tool.server_name != "slow-b"));
 
@@ -372,12 +424,18 @@ async fn explicit_tool_prefix_sets_the_model_facing_connection_name() {
     assert!(names.contains(&"postgres_primary_echo".to_string()));
     assert!(names.contains(&"postgres_primary_lookup_customer".to_string()));
 
-    let details = registry
-        .activate_tool_filtered("database-session", "postgres_primary_echo", None)
+    registry
+        .activate_tools_filtered(
+            "database-session",
+            "database-turn",
+            &["postgres_primary_echo".to_string()],
+            None,
+        )
         .await
         .expect("activate prefixed database tool");
-    assert_eq!(details["raw_name"], "echo");
-    assert_eq!(details["server"], "database-postgres");
+    let activated = registry.activated_tools_filtered("database-session", "database-turn", None);
+    assert_eq!(activated[0].raw_name, "echo");
+    assert_eq!(activated[0].server_name, "database-postgres");
 
     fixture.stop().await;
 }
@@ -416,16 +474,18 @@ async fn legacy_http_sse_connects_discovers_activates_and_calls_with_oauth_heade
         vec!["legacy_echo", "legacy_lookup_customer"]
     );
 
-    let search = registry.search_tools_filtered("echo payload", "summary", None, None);
-    assert_eq!(search["servers"][0]["server"], "legacy");
-    assert_eq!(search["servers"][0]["tools"][0]["name"], "legacy_echo");
-    let details = registry
-        .activate_tool_filtered("legacy-session", "legacy_echo", None)
+    let activation = registry
+        .activate_tools_filtered(
+            "legacy-session",
+            "legacy-turn",
+            &["legacy_echo".to_string()],
+            None,
+        )
         .await
         .expect("activate legacy SSE tool");
-    assert_eq!(details["activated"], true);
+    assert_eq!(activation["loaded"], json!(["legacy_echo"]));
     assert_eq!(
-        registry.activated_tools_filtered("legacy-session", None)[0].prefixed_name,
+        registry.activated_tools_filtered("legacy-session", "legacy-turn", None)[0].prefixed_name,
         "legacy_echo"
     );
 
@@ -479,6 +539,11 @@ async fn unsafe_and_long_mcp_names_get_exact_collision_safe_callable_names() {
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
     }));
 
+    registry
+        .activate_tools_filtered("interop-session", "interop-turn", &catalog, None)
+        .await
+        .expect("load every sanitized callable name");
+    let activated = registry.activated_tools_filtered("interop-session", "interop-turn", None);
     let raw_names = [
         "records.list".to_string(),
         "records/list".to_string(),
@@ -486,26 +551,12 @@ async fn unsafe_and_long_mcp_names_get_exact_collision_safe_callable_names() {
         format!("read_{}", "x".repeat(100)),
     ];
     for raw_name in raw_names {
-        let search = registry.search_tools_filtered(&raw_name, "full", Some(10), None);
-        let result = search["servers"]
-            .as_array()
-            .expect("search servers")
+        let definition = activated
             .iter()
-            .flat_map(|server| server["tools"].as_array().expect("server tools"))
-            .find(|tool| tool["raw_name"] == raw_name)
-            .expect("raw MCP name remains searchable");
-        let callable = result["name"]
-            .as_str()
-            .expect("model-safe callable name")
-            .to_string();
+            .find(|tool| tool.raw_name == raw_name)
+            .expect("raw MCP name remains mapped to an activated callable");
+        let callable = definition.prefixed_name.clone();
         assert!(catalog.contains(&callable));
-
-        let details = registry
-            .activate_tool_filtered("interop-session", &callable, None)
-            .await
-            .expect("activate exact callable name");
-        assert_eq!(details["name"], callable);
-        assert_eq!(details["raw_name"], raw_name);
 
         let called = registry
             .call_tool(&callable, json!({}))

@@ -259,7 +259,7 @@ mod tests {
     }
 
     #[test]
-    fn preserves_tool_order_for_progressive_schema_appends() {
+    fn preserves_tool_order_for_loaded_schema_appends() {
         let req = ModelRequest {
             model: "test".into(),
             messages: vec![AgentMessage::user("hi")],

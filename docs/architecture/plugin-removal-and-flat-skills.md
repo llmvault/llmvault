@@ -124,10 +124,15 @@ Runtime config push publishes the new authorization snapshot without waiting
 for MCP startup. It immediately revokes the previous live/activated registry,
 then connects to every configured MCP server concurrently in the background,
 discovers and caches its tool catalog, and closes every discovery transport.
-The dynamic system prompt lists the discovered tool names without their full
-schemas. An MCP server remains dormant until the agent activates one of its
-tools with `get_tool_details`; the runtime then reconnects that server and keeps
-the transport live for subsequent calls. Other servers remain dormant.
+Every model request begins with a cacheable `<system-tool-usage>` block that
+lists all native tools and every permitted MCP tool by exact name without full
+MCP schemas. Native tools are always callable. At the beginning of each turn,
+the agent loads every MCP tool it needs in one native `load_tools` call using
+exact names from that complete catalog; there is no tool search or details
+lookup. The runtime reconnects the relevant servers and keeps their transports
+live for subsequent calls in that turn. Activations exist only in memory. Since
+sandboxes sleep only while idle, waking starts a new turn without prior MCP
+schemas and the agent must load its own tools. Other servers remain dormant.
 
 Per-agent connection removal is not part of the initial model. Team grants stay
 the permission boundary. If the product later needs agent exceptions, add them

@@ -1,5 +1,6 @@
 use domain::{EventKind, SessionEvent, SessionId};
 use serde::{Deserialize, Serialize};
+use std::collections::{BTreeSet, HashSet};
 use storage::EventRepo;
 
 use crate::primitives::{AgentMessage, AgentMessageRole};
@@ -10,9 +11,14 @@ const MODEL_HISTORY_REDACTION_VERSION: u32 = 1;
 const SESSION_CONTEXT_PAYLOAD_VERSION: u32 = 1;
 const SESSION_CONTEXT_IDEMPOTENCY_KEY_PREFIX: &str = "session-context";
 const MODEL_HISTORY_CONTROL_REDACTION: &str = "redaction";
-const AUTO_LOAD_SKILLS_PAYLOAD_VERSION: u32 = 1;
-const AUTO_LOAD_SKILLS_CONTROL: &str = "auto_load_skills";
-const AUTO_LOAD_SKILLS_IDEMPOTENCY_KEY_PREFIX: &str = "auto-load-skills";
+const MODEL_TURN_PAYLOAD_VERSION: u32 = 1;
+const MODEL_HISTORY_CONTROL_TURN: &str = "turn";
+const MODEL_TURN_IDEMPOTENCY_KEY_PREFIX: &str = "model-turn";
+const AUTO_LOAD_SKILLS_TURN_PAYLOAD_VERSION: u32 = 1;
+const AUTO_LOAD_SKILLS_TURN_CONTROL: &str = "auto_load_skills_turn";
+const AUTO_LOAD_SKILLS_TURN_IDEMPOTENCY_KEY_PREFIX: &str = "auto-load-skills-turn";
+pub const SKILL_VIEW_TOOL_NAME: &str = "hivy_skill_view";
+pub const LOAD_TOOLS_TOOL_NAME: &str = "load_tools";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelHistoryPayload {
@@ -35,15 +41,32 @@ struct ModelHistoryRedactionPayload {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct AutoLoadSkillsPayload {
+struct ModelTurnPayload {
     model_history_control: String,
     version: u32,
+    turn_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct AutoLoadSkillsTurnPayload {
+    model_history_control: String,
+    version: u32,
+    turn_id: String,
 }
 
 pub async fn load_model_history(
     repo: Option<&dyn EventRepo>,
     session_id: &SessionId,
     limit: u32,
+) -> Result<Vec<AgentMessage>> {
+    load_model_history_for_turn(repo, session_id, limit, None).await
+}
+
+pub async fn load_model_history_for_turn(
+    repo: Option<&dyn EventRepo>,
+    session_id: &SessionId,
+    limit: u32,
+    current_turn_id: Option<&str>,
 ) -> Result<Vec<AgentMessage>> {
     let Some(repo) = repo else {
         return Ok(Vec::new());
@@ -52,17 +75,44 @@ pub async fn load_model_history(
         .list_chronological(session_id, limit)
         .await
         .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
+    let current_turn_start = current_turn_id.and_then(|turn_id| {
+        events.iter().rposition(|event| {
+            model_turn_from_event(event).is_some_and(|payload| payload.turn_id == turn_id)
+        })
+    });
     let mut messages = Vec::new();
-    for event in events {
+    let mut current_turn_skill_call_ids = HashSet::new();
+    let mut current_turn_tool_load_call_ids = HashSet::new();
+    for (event_index, event) in events.into_iter().enumerate() {
         if let Some(redaction) = redaction_from_event(&event) {
             apply_redaction(&mut messages, &redaction.start_tool_call_id);
             continue;
         }
         if let Some(message) = message_from_event(&event) {
+            if current_turn_start.is_some_and(|start| event_index > start) {
+                current_turn_skill_call_ids.extend(
+                    message
+                        .tool_calls
+                        .iter()
+                        .filter(|call| call.name == SKILL_VIEW_TOOL_NAME)
+                        .map(|call| call.id.clone()),
+                );
+                current_turn_tool_load_call_ids.extend(
+                    message
+                        .tool_calls
+                        .iter()
+                        .filter(|call| call.name == LOAD_TOOLS_TOOL_NAME)
+                        .map(|call| call.id.clone()),
+                );
+            }
             messages.push(message);
         }
     }
-    Ok(messages)
+    let messages = prune_prior_skill_loads(messages, &current_turn_skill_call_ids);
+    Ok(prune_prior_tool_loads(
+        messages,
+        &current_turn_tool_load_call_ids,
+    ))
 }
 
 pub async fn append_model_message(
@@ -157,12 +207,35 @@ pub async fn load_session_context(
         .unwrap_or_default())
 }
 
-/// True once the skill auto-load bootstrap has run for this session. Guards
-/// against re-injecting the synthetic skill_view transcript on resume or any
-/// subsequent turn.
-pub async fn auto_load_skills_completed(
+pub async fn record_model_turn_started(
     repo: Option<&dyn EventRepo>,
     session_id: &SessionId,
+    turn_id: &str,
+) -> Result<()> {
+    let Some(repo) = repo else {
+        return Ok(());
+    };
+    let payload = serde_json::to_value(ModelTurnPayload {
+        model_history_control: MODEL_HISTORY_CONTROL_TURN.to_string(),
+        version: MODEL_TURN_PAYLOAD_VERSION,
+        turn_id: turn_id.to_string(),
+    })
+    .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
+    repo.append_idempotent(
+        session_id,
+        EventKind::RunEvent,
+        payload,
+        &turn_scoped_idempotency_key(MODEL_TURN_IDEMPOTENCY_KEY_PREFIX, session_id, turn_id),
+    )
+    .await
+    .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
+    Ok(())
+}
+
+pub async fn auto_load_skills_completed_for_turn(
+    repo: Option<&dyn EventRepo>,
+    session_id: &SessionId,
+    turn_id: &str,
 ) -> Result<bool> {
     let Some(repo) = repo else {
         return Ok(false);
@@ -171,52 +244,38 @@ pub async fn auto_load_skills_completed(
         .list_chronological(session_id, 1000)
         .await
         .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
-    Ok(events.iter().any(is_auto_load_skills_marker))
+    Ok(events.iter().any(|event| {
+        auto_load_skills_turn_from_event(event).is_some_and(|payload| payload.turn_id == turn_id)
+    }))
 }
 
-/// Persist the idempotence marker recording that the skill auto-load bootstrap
-/// has completed for this session. Idempotent per session.
-pub async fn record_auto_load_skills_completed(
+pub async fn record_auto_load_skills_completed_for_turn(
     repo: Option<&dyn EventRepo>,
     session_id: &SessionId,
+    turn_id: &str,
 ) -> Result<()> {
     let Some(repo) = repo else {
         return Ok(());
     };
-    let payload = serde_json::to_value(AutoLoadSkillsPayload {
-        model_history_control: AUTO_LOAD_SKILLS_CONTROL.to_string(),
-        version: AUTO_LOAD_SKILLS_PAYLOAD_VERSION,
+    let payload = serde_json::to_value(AutoLoadSkillsTurnPayload {
+        model_history_control: AUTO_LOAD_SKILLS_TURN_CONTROL.to_string(),
+        version: AUTO_LOAD_SKILLS_TURN_PAYLOAD_VERSION,
+        turn_id: turn_id.to_string(),
     })
     .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
     repo.append_idempotent(
         session_id,
         EventKind::RunEvent,
         payload,
-        &auto_load_skills_idempotency_key(session_id),
+        &turn_scoped_idempotency_key(
+            AUTO_LOAD_SKILLS_TURN_IDEMPOTENCY_KEY_PREFIX,
+            session_id,
+            turn_id,
+        ),
     )
     .await
     .map_err(|e| crate::AgentError::Other(anyhow::anyhow!(e)))?;
     Ok(())
-}
-
-fn is_auto_load_skills_marker(event: &SessionEvent) -> bool {
-    if event.kind != EventKind::RunEvent {
-        return false;
-    }
-    match serde_json::from_value::<AutoLoadSkillsPayload>(event.payload.clone()) {
-        Ok(payload) => {
-            payload.model_history_control == AUTO_LOAD_SKILLS_CONTROL
-                && payload.version == AUTO_LOAD_SKILLS_PAYLOAD_VERSION
-        }
-        Err(_) => false,
-    }
-}
-
-fn auto_load_skills_idempotency_key(session_id: &SessionId) -> String {
-    format!(
-        "{AUTO_LOAD_SKILLS_IDEMPOTENCY_KEY_PREFIX}:{}",
-        session_id.as_str()
-    )
 }
 
 fn session_context_idempotency_key(session_id: &SessionId) -> String {
@@ -224,6 +283,206 @@ fn session_context_idempotency_key(session_id: &SessionId) -> String {
         "{SESSION_CONTEXT_IDEMPOTENCY_KEY_PREFIX}:{}",
         session_id.as_str()
     )
+}
+
+/// Skill bodies are intentionally turn-scoped. Persisted tool messages remain
+/// available for audit and debugging, but earlier `skill_view` calls are
+/// projected into one compact reminder before a later model turn.
+fn prune_prior_skill_loads(
+    messages: Vec<AgentMessage>,
+    current_turn_skill_call_ids: &HashSet<String>,
+) -> Vec<AgentMessage> {
+    let mut skill_call_ids = HashSet::new();
+    let mut skill_names = BTreeSet::new();
+
+    for message in &messages {
+        for call in &message.tool_calls {
+            if call.name != SKILL_VIEW_TOOL_NAME || current_turn_skill_call_ids.contains(&call.id) {
+                continue;
+            }
+            skill_call_ids.insert(call.id.clone());
+            if let Some(name) = safe_skill_name(
+                call.arguments
+                    .get("name")
+                    .and_then(serde_json::Value::as_str),
+            ) {
+                skill_names.insert(name);
+            }
+        }
+    }
+    if skill_call_ids.is_empty() {
+        return messages;
+    }
+
+    let mut projected = Vec::with_capacity(messages.len());
+    for mut message in messages {
+        if message.role == AgentMessageRole::Assistant {
+            message
+                .tool_calls
+                .retain(|call| !skill_call_ids.contains(&call.id));
+            if message.tool_calls.is_empty() && message.parts.is_empty() {
+                continue;
+            }
+        }
+        if message.role == AgentMessageRole::Tool
+            && message
+                .tool_call_id
+                .as_ref()
+                .is_some_and(|id| skill_call_ids.contains(id))
+        {
+            continue;
+        }
+        projected.push(message);
+    }
+
+    let loaded = if skill_names.is_empty() {
+        "one or more skills".to_string()
+    } else {
+        skill_names
+            .into_iter()
+            .map(|name| format!("`{name}`"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let reminder = AgentMessage::system(format!(
+        "[system instruction] You loaded {loaded} in an earlier turn. Their skill content was pruned because skill loads are turn-scoped. If any skill is needed for the current task, load it again with `{SKILL_VIEW_TOOL_NAME}` before relying on it."
+    ));
+    let reminder_index = projected
+        .iter()
+        .position(|message| {
+            message
+                .tool_calls
+                .iter()
+                .any(|call| current_turn_skill_call_ids.contains(&call.id))
+        })
+        .unwrap_or(projected.len());
+    projected.insert(reminder_index, reminder);
+    projected
+}
+
+/// MCP tool schemas expire at the turn boundary. Keep raw loader events for
+/// audit, but remove earlier `load_tools` calls/results from model-visible
+/// history so their success payload cannot be mistaken for current state.
+fn prune_prior_tool_loads(
+    messages: Vec<AgentMessage>,
+    current_turn_tool_load_call_ids: &HashSet<String>,
+) -> Vec<AgentMessage> {
+    let mut prior_call_ids = HashSet::new();
+    let mut tool_names = BTreeSet::new();
+    for message in &messages {
+        for call in &message.tool_calls {
+            if call.name != LOAD_TOOLS_TOOL_NAME
+                || current_turn_tool_load_call_ids.contains(&call.id)
+            {
+                continue;
+            }
+            prior_call_ids.insert(call.id.clone());
+            if let Some(names) = call
+                .arguments
+                .get("tool_names")
+                .and_then(serde_json::Value::as_array)
+            {
+                for name in names {
+                    if let Some(name) = safe_skill_name(name.as_str()) {
+                        tool_names.insert(name);
+                    }
+                }
+            }
+        }
+    }
+    if prior_call_ids.is_empty() {
+        return messages;
+    }
+
+    let mut projected = Vec::with_capacity(messages.len());
+    for mut message in messages {
+        if message.role == AgentMessageRole::Assistant {
+            message
+                .tool_calls
+                .retain(|call| !prior_call_ids.contains(&call.id));
+            if message.tool_calls.is_empty() && message.parts.is_empty() {
+                continue;
+            }
+        }
+        if message.role == AgentMessageRole::Tool
+            && message
+                .tool_call_id
+                .as_ref()
+                .is_some_and(|id| prior_call_ids.contains(id))
+        {
+            continue;
+        }
+        projected.push(message);
+    }
+
+    let loaded = if tool_names.is_empty() {
+        "MCP tools".to_string()
+    } else {
+        tool_names
+            .into_iter()
+            .map(|name| format!("`{name}`"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let reminder = AgentMessage::system(format!(
+        "[system instruction] You loaded {loaded} in an earlier turn. Those MCP tool schemas expired at the turn boundary. If they are needed now, call `{LOAD_TOOLS_TOOL_NAME}` again for this turn."
+    ));
+    let reminder_index = projected
+        .iter()
+        .position(|message| {
+            message
+                .tool_calls
+                .iter()
+                .any(|call| current_turn_tool_load_call_ids.contains(&call.id))
+        })
+        .unwrap_or(projected.len());
+    projected.insert(reminder_index, reminder);
+    projected
+}
+
+fn safe_skill_name(name: Option<&str>) -> Option<String> {
+    let name = name?.trim();
+    if name.is_empty()
+        || name.len() > 128
+        || !name
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || "._/-".contains(character))
+    {
+        return None;
+    }
+    Some(name.to_string())
+}
+
+fn model_turn_from_event(event: &SessionEvent) -> Option<ModelTurnPayload> {
+    if event.kind != EventKind::RunEvent {
+        return None;
+    }
+    let payload: ModelTurnPayload = serde_json::from_value(event.payload.clone()).ok()?;
+    if payload.version != MODEL_TURN_PAYLOAD_VERSION
+        || payload.model_history_control != MODEL_HISTORY_CONTROL_TURN
+        || payload.turn_id.trim().is_empty()
+    {
+        return None;
+    }
+    Some(payload)
+}
+
+fn auto_load_skills_turn_from_event(event: &SessionEvent) -> Option<AutoLoadSkillsTurnPayload> {
+    if event.kind != EventKind::RunEvent {
+        return None;
+    }
+    let payload: AutoLoadSkillsTurnPayload = serde_json::from_value(event.payload.clone()).ok()?;
+    if payload.version != AUTO_LOAD_SKILLS_TURN_PAYLOAD_VERSION
+        || payload.model_history_control != AUTO_LOAD_SKILLS_TURN_CONTROL
+        || payload.turn_id.trim().is_empty()
+    {
+        return None;
+    }
+    Some(payload)
+}
+
+fn turn_scoped_idempotency_key(prefix: &str, session_id: &SessionId, turn_id: &str) -> String {
+    format!("{prefix}:{}:{turn_id}", session_id.as_str())
 }
 
 pub async fn seed_model_history_from_session_history(
@@ -655,53 +914,184 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn auto_load_marker_records_once_and_is_scoped_by_session() {
+    async fn prior_skill_load_content_is_replaced_with_one_reload_reminder() {
         let repo = Arc::new(MemoryEventRepo::default());
-        let first = SessionId::from("s-autoload-one");
-        let second = SessionId::from("s-autoload-two");
+        let session_id = SessionId::from("s-skill-pruning");
+        let first_user = AgentMessage::user("use the browser skill");
+        let root_call = AgentMessage::assistant_tool_calls(vec![ToolCall {
+            id: "skill-root".into(),
+            name: SKILL_VIEW_TOOL_NAME.into(),
+            arguments: serde_json::json!({"name":"browser"}),
+        }]);
+        let root_result =
+            AgentMessage::tool_result("skill-root", "TURN_ONE_ROOT_SKILL_BODY_SENTINEL");
+        let file_call = AgentMessage::assistant_tool_calls(vec![ToolCall {
+            id: "skill-file".into(),
+            name: SKILL_VIEW_TOOL_NAME.into(),
+            arguments: serde_json::json!({
+                "name":"browser",
+                "file_path":"references/commands.md"
+            }),
+        }]);
+        let file_result =
+            AgentMessage::tool_result("skill-file", "TURN_ONE_FILE_SKILL_BODY_SENTINEL");
+        let reply = AgentMessage::assistant("Finished the browser task.");
 
-        assert!(!auto_load_skills_completed(Some(repo.as_ref()), &first)
-            .await
-            .unwrap());
+        for message in [
+            &first_user,
+            &root_call,
+            &root_result,
+            &file_call,
+            &file_result,
+            &reply,
+        ] {
+            append_model_message(Some(repo.as_ref()), &session_id, message)
+                .await
+                .unwrap();
+        }
 
-        record_auto_load_skills_completed(Some(repo.as_ref()), &first)
+        let projected = load_model_history(Some(repo.as_ref()), &session_id, 100)
             .await
             .unwrap();
-        // Idempotent: a second record must not add a duplicate marker.
-        record_auto_load_skills_completed(Some(repo.as_ref()), &first)
-            .await
-            .unwrap();
+        let projected_json = serde_json::to_string(&projected).unwrap();
+        assert!(!projected_json.contains("TURN_ONE_ROOT_SKILL_BODY_SENTINEL"));
+        assert!(!projected_json.contains("TURN_ONE_FILE_SKILL_BODY_SENTINEL"));
+        assert!(!projected_json.contains("skill-root"));
+        assert!(!projected_json.contains("skill-file"));
+        assert_eq!(
+            projected
+                .iter()
+                .filter(|message| {
+                    serde_json::to_string(message)
+                        .unwrap()
+                        .contains("skill loads are turn-scoped")
+                })
+                .count(),
+            1
+        );
+        assert!(projected_json.contains("`browser`"));
+        assert!(projected_json.contains("load it again"));
+        assert!(projected_json.contains("Finished the browser task."));
 
-        assert!(auto_load_skills_completed(Some(repo.as_ref()), &first)
-            .await
-            .unwrap());
-        // Another session is unaffected.
-        assert!(!auto_load_skills_completed(Some(repo.as_ref()), &second)
-            .await
-            .unwrap());
-
-        // The marker is a RunEvent, not model history, so it never pollutes the
-        // transcript projection.
-        assert!(load_model_history(Some(repo.as_ref()), &first, 100)
-            .await
-            .unwrap()
-            .is_empty());
+        // Projection is non-destructive: the raw event log retains the original
+        // result for audit/debugging even though the model no longer receives it.
+        let raw_events = repo.events.lock().await;
+        let raw_json = serde_json::to_string(&*raw_events).unwrap();
+        assert!(raw_json.contains("TURN_ONE_ROOT_SKILL_BODY_SENTINEL"));
+        assert!(raw_json.contains("TURN_ONE_FILE_SKILL_BODY_SENTINEL"));
     }
 
     #[tokio::test]
-    async fn auto_load_marker_not_confused_with_redaction_events() {
+    async fn prior_turn_tool_load_is_pruned_while_current_turn_reload_is_retained() {
         let repo = Arc::new(MemoryEventRepo::default());
-        let session_id = SessionId::from("s-autoload-redaction");
-        // A redaction event shares the `model_history_control`/`version` shape
-        // but a different control value; it must not read as an auto-load marker.
-        append_model_history_redaction(Some(repo.as_ref()), &session_id, "call_1", "repeat")
+        let session_id = SessionId::from("s-tool-load-pruning");
+        record_model_turn_started(Some(repo.as_ref()), &session_id, "turn-one")
             .await
             .unwrap();
-        assert!(
-            !auto_load_skills_completed(Some(repo.as_ref()), &session_id)
+        let prior_calls = AgentMessage::assistant_tool_calls(vec![
+            ToolCall {
+                id: "load-prior".into(),
+                name: LOAD_TOOLS_TOOL_NAME.into(),
+                arguments: serde_json::json!({
+                    "tool_names": ["github_list_issues", "slack_post_message"]
+                }),
+            },
+            ToolCall {
+                id: "bash-prior".into(),
+                name: "bash".into(),
+                arguments: serde_json::json!({"command":"pwd"}),
+            },
+        ]);
+        let prior_load_result =
+            AgentMessage::tool_result("load-prior", "PRIOR_LOAD_RESULT_SENTINEL");
+        let prior_bash_result =
+            AgentMessage::tool_result("bash-prior", "PRIOR_BASH_RESULT_SENTINEL");
+        for message in [&prior_calls, &prior_load_result, &prior_bash_result] {
+            append_model_message(Some(repo.as_ref()), &session_id, message)
                 .await
-                .unwrap()
-        );
+                .unwrap();
+        }
+
+        record_model_turn_started(Some(repo.as_ref()), &session_id, "turn-two")
+            .await
+            .unwrap();
+        let current_call = AgentMessage::assistant_tool_calls(vec![ToolCall {
+            id: "load-current".into(),
+            name: LOAD_TOOLS_TOOL_NAME.into(),
+            arguments: serde_json::json!({"tool_names":["github_list_issues"]}),
+        }]);
+        let current_result =
+            AgentMessage::tool_result("load-current", "CURRENT_LOAD_RESULT_SENTINEL");
+        for message in [&current_call, &current_result] {
+            append_model_message(Some(repo.as_ref()), &session_id, message)
+                .await
+                .unwrap();
+        }
+
+        let projected =
+            load_model_history_for_turn(Some(repo.as_ref()), &session_id, 100, Some("turn-two"))
+                .await
+                .unwrap();
+        let projected_json = serde_json::to_string(&projected).unwrap();
+        assert!(!projected_json.contains("load-prior"));
+        assert!(!projected_json.contains("PRIOR_LOAD_RESULT_SENTINEL"));
+        assert!(projected_json.contains("bash-prior"));
+        assert!(projected_json.contains("PRIOR_BASH_RESULT_SENTINEL"));
+        assert!(projected_json.contains("load-current"));
+        assert!(projected_json.contains("CURRENT_LOAD_RESULT_SENTINEL"));
+        assert!(projected_json.contains("expired at the turn boundary"));
+        assert!(projected_json.contains("`github_list_issues`"));
+        assert!(projected_json.contains("`slack_post_message`"));
+
+        let raw_json = serde_json::to_string(&*repo.events.lock().await).unwrap();
+        assert!(raw_json.contains("PRIOR_LOAD_RESULT_SENTINEL"));
+    }
+
+    #[tokio::test]
+    async fn skill_pruning_preserves_parallel_non_skill_calls_and_results() {
+        let repo = Arc::new(MemoryEventRepo::default());
+        let session_id = SessionId::from("s-skill-parallel");
+        let calls = AgentMessage::assistant_tool_calls(vec![
+            ToolCall {
+                id: "skill-1".into(),
+                name: SKILL_VIEW_TOOL_NAME.into(),
+                arguments: serde_json::json!({"name":"browser"}),
+            },
+            ToolCall {
+                id: "bash-1".into(),
+                name: "bash".into(),
+                arguments: serde_json::json!({"command":"pwd"}),
+            },
+        ]);
+        let skill_result = AgentMessage::tool_result("skill-1", "SKILL_BODY_SENTINEL");
+        let bash_result = AgentMessage::tool_result("bash-1", r#"{"output":"/workspace"}"#);
+
+        for message in [&calls, &skill_result, &bash_result] {
+            append_model_message(Some(repo.as_ref()), &session_id, message)
+                .await
+                .unwrap();
+        }
+
+        let projected = load_model_history(Some(repo.as_ref()), &session_id, 100)
+            .await
+            .unwrap();
+        let bash_call = projected
+            .iter()
+            .find(|message| message.tool_calls.iter().any(|call| call.id == "bash-1"))
+            .expect("parallel bash call remains");
+        assert_eq!(bash_call.tool_calls.len(), 1);
+        assert_eq!(bash_call.tool_calls[0].id, "bash-1");
+        assert!(projected.iter().any(|message| {
+            message.role == AgentMessageRole::Tool
+                && message.tool_call_id.as_deref() == Some("bash-1")
+        }));
+        assert!(!projected.iter().any(|message| {
+            message.tool_call_id.as_deref() == Some("skill-1")
+                || message.tool_calls.iter().any(|call| call.id == "skill-1")
+        }));
+        assert!(!serde_json::to_string(&projected)
+            .unwrap()
+            .contains("SKILL_BODY_SENTINEL"));
     }
 
     #[test]

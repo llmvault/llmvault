@@ -63,6 +63,9 @@ fn is_scheduled_run_inbound(inbound: &InboundEvent) -> bool {
 
 fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> InboundEvent {
     let mut merged = current.clone();
+    let queued_turn_context = queued
+        .iter()
+        .find_map(|event| Some((trace_id(event)?, turn_id(event)?)));
     let mut text =
         String::from("[Additional request(s) received while working on the previous task]\n");
     let mut attachments = Vec::new();
@@ -121,16 +124,15 @@ fn merge_queued_inbound(current: &InboundEvent, queued: Vec<InboundEvent>) -> In
         "source": "queued_batch",
         "events": raw_events,
     });
-    // Preserve the running session stream id. Follow-up requests in the same
-    // session use this same stable stream, so no terminal bridging is needed.
+    // Preserve the stable session stream, but never inherit the completed
+    // turn's identity. If the queued request already has its own complete turn
+    // context, retain that; otherwise the runner generates a fresh turn id.
     if let Some(map) = raw.as_object_mut() {
         if let Some(id) = session_stream_id(current) {
             map.insert("session_stream_id".to_string(), Value::String(id));
         }
-        if let Some(trace_id) = trace_id(current) {
+        if let Some((trace_id, turn_id)) = queued_turn_context {
             map.insert("trace_id".to_string(), Value::String(trace_id));
-        }
-        if let Some(turn_id) = turn_id(current) {
             map.insert("turn_id".to_string(), Value::String(turn_id));
         }
     }
@@ -214,7 +216,7 @@ mod tests {
     }
 
     #[test]
-    fn merged_turn_preserves_stable_session_stream_and_turn_context() {
+    fn merged_turn_preserves_stable_stream_without_inheriting_previous_turn() {
         let current = inbound(
             "C123-T1",
             "E1",
@@ -253,8 +255,8 @@ mod tests {
             session_stream_id(&merged).as_deref(),
             Some("stream-session")
         );
-        assert_eq!(trace_id(&merged).as_deref(), Some("trace-1"));
-        assert_eq!(turn_id(&merged).as_deref(), Some("turn-1"));
+        assert!(trace_id(&merged).is_none());
+        assert!(turn_id(&merged).is_none());
         assert!(merged.raw.get("bridged_stream_ids").is_none());
     }
 
@@ -294,9 +296,40 @@ mod tests {
             session_stream_id(&second).as_deref(),
             Some("stream-session")
         );
-        assert_eq!(trace_id(&second).as_deref(), Some("trace-1"));
-        assert_eq!(turn_id(&second).as_deref(), Some("turn-1"));
+        assert!(trace_id(&second).is_none());
+        assert!(turn_id(&second).is_none());
         assert!(second.raw.get("bridged_stream_ids").is_none());
+    }
+
+    #[test]
+    fn merged_turn_preserves_queued_requests_own_turn_context() {
+        let current = inbound(
+            "C123-T1",
+            "E1",
+            "working",
+            serde_json::json!({
+                "source": "session",
+                "session_stream_id": "stream-session",
+                "trace_id": "trace-old",
+                "turn_id": "turn-old"
+            }),
+        );
+        let queued = vec![inbound(
+            "C123-T1",
+            "E2",
+            "follow-up",
+            serde_json::json!({
+                "source": "session",
+                "session_stream_id": "stream-session",
+                "trace_id": "trace-new",
+                "turn_id": "turn-new"
+            }),
+        )];
+
+        let merged = merge_queued_inbound(&current, queued);
+
+        assert_eq!(trace_id(&merged).as_deref(), Some("trace-new"));
+        assert_eq!(turn_id(&merged).as_deref(), Some("turn-new"));
     }
 
     #[test]

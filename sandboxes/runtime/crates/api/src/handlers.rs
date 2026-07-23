@@ -512,6 +512,11 @@ async fn apply_config_snapshot(
     if let Some(registry) = state.mcp_registry.as_ref() {
         drop(registry.reload_from_specs_in_background(&definition.mcp_servers, &runtime_env));
     }
+    // Publish the definition and registry generation back-to-back, before the
+    // next await. A turn must never combine an old permission filter with the
+    // newly authorized MCP catalog while outbound reload is in progress.
+    state.config_store.set_runtime_env(runtime_env.clone());
+    state.config_store.replace(definition.clone());
     phase_started =
         log_config_apply_phase("queue mcp discovery", phase_started, total_started, stats);
     if let Some(reloader) = state.outbound_reloader.as_ref() {
@@ -526,8 +531,6 @@ async fn apply_config_snapshot(
         total_started,
         stats,
     );
-    state.config_store.set_runtime_env(runtime_env);
-    state.config_store.replace(definition);
     state.mark_config_loaded();
     phase_started = log_config_apply_phase("publish config", phase_started, total_started, stats);
     let _ = log_config_apply_phase("complete", phase_started, total_started, stats);

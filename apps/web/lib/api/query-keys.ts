@@ -49,6 +49,8 @@ export const queryKeys = {
   trigger: () => ["get", "/v1/triggers/{id}"] as const,
   agents: () => ["get", "/v1/agents"] as const,
   agent: () => ["get", "/v1/agents/{id}"] as const,
+  agentInbox: (id: string) =>
+    ["get", "/v1/agents/{id}/inbox", { params: { path: { id } } }] as const,
   agentEnvironmentVariables: (id: string) =>
     [
       "get",

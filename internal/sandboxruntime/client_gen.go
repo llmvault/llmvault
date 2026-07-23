@@ -454,10 +454,10 @@ func (e ToolSpec8Type) Valid() bool {
 type AgentDefinition struct {
 	Agent AgentMeta `json:"agent"`
 
-	// AutoLoadSkills Skills the runtime loads into the session automatically on the first
-	// turn (before the first model call), so the agent starts with the skill
-	// content already in context and its `.skills/` files materialized. Absent
-	// in old configs (serde default = empty), which deserialize unchanged.
+	// AutoLoadSkills Skills the runtime loads automatically before the first model request of
+	// every turn. Skill content is turn-scoped; earlier payloads are pruned
+	// from model history while materialized `.skills/` files remain available.
+	// Absent in old configs (serde default = empty), which deserialize unchanged.
 	AutoLoadSkills   *[]AutoLoadSkill            `json:"auto_load_skills,omitempty"`
 	Context          *ContextConfig              `json:"context,omitempty"`
 	Limits           *Limits                     `json:"limits,omitempty"`

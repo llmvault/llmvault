@@ -3,7 +3,7 @@ mod legacy_sse;
 mod materialize;
 mod ssrf;
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
@@ -38,11 +38,24 @@ use legacy_sse::LegacySseClientTransport;
 use ssrf::{prepare_http_target, OutboundNetworkPolicy};
 
 const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
-const DEFAULT_SEARCH_LIMIT: usize = 12;
-const MAX_SEARCH_LIMIT: usize = 50;
 const MAX_MODEL_TOOL_NAME_BYTES: usize = 64;
 const MODEL_TOOL_HASH_CHARS: usize = 43;
 const TRUSTED_PRIVATE_MCP_HOSTS_ENV: &str = "HIVY_TRUSTED_PRIVATE_MCP_HOSTS";
+const RESERVED_RUNTIME_TOOL_NAMES: &[&str] = &[
+    "bash",
+    "read_file",
+    "write_file",
+    "edit_file",
+    "apply_patch",
+    "lsp",
+    "subagent_task",
+    "search_sessions",
+    "request_user_input",
+    "update_plan",
+    "drive_upload",
+    "drive_download",
+    "load_tools",
+];
 
 struct McpServerState {
     server_name: String,
@@ -195,18 +208,20 @@ pub struct McpConnectionStatus {
 
 /// Registry of connected MCP servers and their cached tool catalogs.
 ///
-/// Full schemas are kept host-side. Each agent session starts with only the
-/// lightweight discovery meta-tools and activates exact tool definitions on
-/// demand. Activation order is retained so newly discovered definitions append
-/// to the model-visible array instead of invalidating earlier prompt prefixes.
+/// Full schemas are kept host-side. Each model turn starts with the compact
+/// catalog of exact tool names in its system prompt and activates exact tool
+/// definitions on demand. Activation order is retained per session turn so
+/// newly loaded definitions append to the model-visible array without leaking
+/// into later turns.
 pub struct McpRegistry {
     servers: ArcSwap<Vec<McpServerConfig>>,
     live_entries: DashMap<String, Arc<McpEntry>>,
     connect_locks: DashMap<String, Arc<tokio::sync::Mutex<()>>>,
     runtime_env: RwLock<HashMap<String, String>>,
     statuses: ArcSwap<Vec<McpConnectionStatus>>,
-    activated_by_session: DashMap<String, Vec<McpToolDefinition>>,
+    activated_by_turn: DashMap<(String, String), Vec<McpToolDefinition>>,
     discovery_generation: AtomicU64,
+    discovery_ready: tokio::sync::watch::Sender<u64>,
     workspace_root: PathBuf,
     network_policy: OutboundNetworkPolicy,
 }
@@ -265,17 +280,51 @@ impl McpRegistry {
         network_policy: OutboundNetworkPolicy,
     ) -> Self {
         let (servers, statuses) = discover_specs(specs, runtime_env, network_policy.clone()).await;
+        let (discovery_ready, _) = tokio::sync::watch::channel(0);
         Self {
             servers: ArcSwap::from_pointee(servers),
             live_entries: DashMap::new(),
             connect_locks: DashMap::new(),
             runtime_env: RwLock::new(runtime_env.clone()),
             statuses: ArcSwap::from_pointee(statuses),
-            activated_by_session: DashMap::new(),
+            activated_by_turn: DashMap::new(),
             discovery_generation: AtomicU64::new(0),
+            discovery_ready,
             workspace_root,
             network_policy,
         }
+    }
+
+    fn replace_activations(&self, activations: Vec<(String, String, String)>) {
+        let available = self
+            .all_tools_filtered(None)
+            .into_iter()
+            .map(|tool| (tool.prefixed_name.clone(), tool))
+            .collect::<HashMap<_, _>>();
+        self.activated_by_turn.clear();
+        for (session_id, turn_id, tool_name) in activations {
+            let Some(tool) = available.get(&tool_name) else {
+                continue;
+            };
+            self.activated_by_turn
+                .entry((session_id, turn_id))
+                .or_default()
+                .push(tool.clone());
+        }
+    }
+
+    /// Start an in-memory turn and evict older turn activations for the same
+    /// serialized session. Sandboxes sleep only while idle, so waking always
+    /// starts a new turn with no MCP schemas loaded.
+    pub fn begin_turn(&self, session_id: &str, turn_id: &str) -> anyhow::Result<()> {
+        if session_id.trim().is_empty() || turn_id.trim().is_empty() {
+            anyhow::bail!("session_id and turn_id are required for MCP tool loading");
+        }
+        self.activated_by_turn
+            .retain(|(stored_session, stored_turn), _| {
+                stored_session != session_id || stored_turn == turn_id
+            });
+        Ok(())
     }
 
     /// Immediately revokes the previous MCP snapshot, then discovers every
@@ -288,6 +337,23 @@ impl McpRegistry {
         runtime_env: &HashMap<String, String>,
     ) -> tokio::task::JoinHandle<()> {
         let generation = self.discovery_generation.fetch_add(1, Ordering::SeqCst) + 1;
+        let active_activations = self
+            .activated_by_turn
+            .iter()
+            .flat_map(|entry| {
+                let ((session_id, turn_id), tools) = entry.pair();
+                tools
+                    .iter()
+                    .map(|tool| {
+                        (
+                            session_id.clone(),
+                            turn_id.clone(),
+                            tool.prefixed_name.clone(),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
         for entry in self.live_entries.iter() {
             entry.value().cancel();
         }
@@ -296,9 +362,10 @@ impl McpRegistry {
         if let Ok(mut current_env) = self.runtime_env.write() {
             *current_env = runtime_env.clone();
         }
-        // A reload can represent revoked org/team/agent access. Never retain
-        // activated definitions from the previous authorization snapshot.
-        self.activated_by_session.clear();
+        // Immediately revoke model visibility while the authorized catalog is
+        // being rebuilt. Current in-memory turn names are re-resolved only
+        // against the new catalog after discovery completes.
+        self.activated_by_turn.clear();
 
         let pending_servers = specs
             .iter()
@@ -336,7 +403,29 @@ impl McpRegistry {
             }
             registry.servers.store(Arc::new(servers));
             registry.statuses.store(Arc::new(statuses));
+            registry.replace_activations(active_activations);
+            registry.discovery_ready.send_replace(generation);
         })
+    }
+
+    /// Wait until the latest authorized MCP snapshot has finished discovery.
+    ///
+    /// Turns call this before constructing their permanent tool catalog. This
+    /// prevents a config reload's fail-closed, temporarily empty catalog from
+    /// becoming the only catalog an agent sees for the entire turn.
+    pub async fn wait_until_ready(&self) {
+        let mut ready = self.discovery_ready.subscribe();
+        loop {
+            let target = self.discovery_generation.load(Ordering::SeqCst);
+            while *ready.borrow() < target {
+                if ready.changed().await.is_err() {
+                    return;
+                }
+            }
+            if self.discovery_generation.load(Ordering::SeqCst) == target {
+                return;
+            }
+        }
     }
 
     pub fn connection_statuses(&self) -> Vec<McpConnectionStatus> {
@@ -372,8 +461,9 @@ impl McpRegistry {
         names
     }
 
-    /// Legacy full-catalog accessor. Runtime model requests should use
-    /// `activated_tools_filtered` instead so schemas are progressively loaded.
+    /// Full-catalog accessor for administrative and integration-test callers.
+    /// Runtime model requests expose only per-turn activated schemas through
+    /// `activated_tools_filtered`.
     pub fn loaded_tools(&self) -> Vec<McpToolDefinition> {
         self.loaded_tools_filtered(None)
     }
@@ -388,6 +478,7 @@ impl McpRegistry {
     pub fn activated_tools_filtered(
         &self,
         session_id: &str,
+        turn_id: &str,
         tool_filter: Option<&ToolFilter>,
     ) -> Vec<McpToolDefinition> {
         let allowed: HashSet<String> = self
@@ -395,8 +486,8 @@ impl McpRegistry {
             .into_iter()
             .map(|tool| tool.prefixed_name)
             .collect();
-        self.activated_by_session
-            .get(session_id)
+        self.activated_by_turn
+            .get(&(session_id.to_string(), turn_id.to_string()))
             .map(|tools| {
                 tools
                     .iter()
@@ -407,91 +498,81 @@ impl McpRegistry {
             .unwrap_or_default()
     }
 
-    pub fn search_tools_filtered(
-        &self,
-        query: &str,
-        detail_level: &str,
-        limit: Option<usize>,
-        tool_filter: Option<&ToolFilter>,
-    ) -> Value {
-        let query = query.trim();
-        let limit = limit
-            .unwrap_or(DEFAULT_SEARCH_LIMIT)
-            .clamp(1, MAX_SEARCH_LIMIT);
-        let mut matches: Vec<(i64, McpToolDefinition)> = self
-            .all_tools_filtered(tool_filter)
-            .into_iter()
-            .filter_map(|tool| search_score(&tool, query).map(|score| (score, tool)))
-            .collect();
-        matches.sort_by(|(left_score, left), (right_score, right)| {
-            right_score
-                .cmp(left_score)
-                .then_with(|| left.prefixed_name.cmp(&right.prefixed_name))
-        });
-        matches.truncate(limit);
-
-        let mut grouped: BTreeMap<String, Vec<Value>> = BTreeMap::new();
-        for (_, tool) in matches {
-            grouped
-                .entry(tool.server_name.clone())
-                .or_default()
-                .push(tool_json(&tool, detail_level));
-        }
-        let servers: Vec<Value> = grouped
-            .into_iter()
-            .map(|(server, tools)| json!({ "server": server, "tools": tools }))
-            .collect();
-        let total = servers
-            .iter()
-            .filter_map(|server| server.get("tools").and_then(Value::as_array))
-            .map(Vec::len)
-            .sum::<usize>();
-        json!({
-            "query": query,
-            "detail_level": normalize_detail_level(detail_level),
-            "total": total,
-            "servers": servers,
-            "next": "Call get_tool_details with an exact tool name to inspect its full schema and activate it for the next model request."
-        })
-    }
-
-    pub async fn activate_tool_filtered(
+    /// Validate and activate an exact batch of model-callable MCP tool names.
+    ///
+    /// All names are resolved before any activation is persisted, preventing an
+    /// invalid or unauthorized name from leaving a partially loaded batch.
+    /// Duplicate names are ignored while preserving first-seen activation order.
+    pub async fn activate_tools_filtered(
         &self,
         session_id: &str,
-        name: &str,
+        turn_id: &str,
+        names: &[String],
         tool_filter: Option<&ToolFilter>,
     ) -> anyhow::Result<Value> {
-        let name = name.trim();
-        let tool = self
+        if session_id.trim().is_empty() || turn_id.trim().is_empty() {
+            anyhow::bail!("session_id and turn_id are required for MCP tool loading");
+        }
+        let available = self
             .all_tools_filtered(tool_filter)
             .into_iter()
-            .find(|tool| tool.prefixed_name == name)
-            .ok_or_else(|| anyhow::anyhow!("MCP tool '{name}' not found or not permitted"))?;
-
-        self.ensure_connected(&tool.server_name).await?;
-
-        let mut active = self
-            .activated_by_session
-            .entry(session_id.to_string())
-            .or_default();
-        let already_active = active
-            .iter()
-            .any(|existing| existing.prefixed_name == tool.prefixed_name);
-        if !already_active {
-            active.push(tool.clone());
+            .map(|tool| (tool.prefixed_name.clone(), tool))
+            .collect::<HashMap<_, _>>();
+        let mut seen = HashSet::new();
+        let mut tools = Vec::new();
+        let mut missing = Vec::new();
+        for raw_name in names {
+            let name = raw_name.trim();
+            if name.is_empty() || !seen.insert(name.to_string()) {
+                continue;
+            }
+            match available.get(name) {
+                Some(tool) => tools.push(tool.clone()),
+                None => missing.push(name.to_string()),
+            }
         }
-        let mut details = tool_json(&tool, "full");
-        if let Some(object) = details.as_object_mut() {
-            object.insert("activated".to_string(), Value::Bool(true));
-            object.insert("already_active".to_string(), Value::Bool(already_active));
-            object.insert(
-                "next".to_string(),
-                Value::String(format!(
-                    "The full '{name}' definition will be available on the next model request."
-                )),
+        if tools.is_empty() && missing.is_empty() {
+            anyhow::bail!("tool_names must contain at least one exact MCP tool name");
+        }
+        if !missing.is_empty() {
+            anyhow::bail!(
+                "MCP tools not found or not permitted: {}",
+                missing.join(", ")
             );
         }
-        Ok(details)
+
+        let mut connected_servers = HashSet::new();
+        for tool in &tools {
+            if connected_servers.insert(tool.server_name.clone()) {
+                self.ensure_connected(&tool.server_name).await?;
+            }
+        }
+
+        let mut loaded = Vec::new();
+        let mut already_loaded = Vec::new();
+        for tool in tools {
+            let mut active = self
+                .activated_by_turn
+                .entry((session_id.to_string(), turn_id.to_string()))
+                .or_default();
+            let already_in_memory = active
+                .iter()
+                .any(|existing| existing.prefixed_name == tool.prefixed_name);
+            if !already_in_memory {
+                active.push(tool.clone());
+            }
+            if already_in_memory {
+                already_loaded.push(tool.prefixed_name);
+            } else {
+                loaded.push(tool.prefixed_name);
+            }
+        }
+
+        Ok(json!({
+            "loaded": loaded,
+            "already_loaded": already_loaded,
+            "next": "The loaded tool definitions will be directly callable on the next model request."
+        }))
     }
 
     pub async fn call_tool(&self, prefixed_name: &str, args: Value) -> anyhow::Result<Value> {
@@ -986,7 +1067,11 @@ fn model_safe_tool_name_with_namespace(
         && (namespace_is_explicit || !namespace.contains('_'))
         // Reserve the hashed-name suffix namespace so a deliberately named
         // MCP tool cannot collide with a rewritten name.
-        && !has_model_tool_hash_suffix(&source);
+        && !has_model_tool_hash_suffix(&source)
+        // Runtime-owned tools are always model-visible and win de-duplication.
+        // Rewrite colliding MCP names so loading one cannot report success
+        // while leaving its schema unreachable.
+        && !RESERVED_RUNTIME_TOOL_NAMES.contains(&source.as_str());
     if already_safe {
         return source;
     }
@@ -1067,92 +1152,12 @@ fn expand_env_placeholders(
     Ok(output)
 }
 
-fn normalize_detail_level(detail_level: &str) -> &'static str {
-    match detail_level {
-        "name" | "names" | "name_only" => "name",
-        "full" | "schema" => "full",
-        _ => "summary",
-    }
-}
-
-fn tool_json(tool: &McpToolDefinition, detail_level: &str) -> Value {
-    match normalize_detail_level(detail_level) {
-        "name" => json!({ "name": tool.prefixed_name }),
-        "full" => json!({
-            "server": tool.server_name,
-            "name": tool.prefixed_name,
-            "raw_name": tool.raw_name,
-            "title": tool.title,
-            "description": tool.description,
-            "input_schema": tool.parameters,
-            "output_schema": tool.output_schema,
-            "annotations": tool.annotations,
-        }),
-        _ => json!({
-            "name": tool.prefixed_name,
-            "description": one_line(&tool.description),
-        }),
-    }
-}
-
-fn one_line(value: &str) -> String {
-    value
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .chars()
-        .take(240)
-        .collect()
-}
-
-fn search_score(tool: &McpToolDefinition, query: &str) -> Option<i64> {
-    if query.is_empty() || query == "*" {
-        return Some(1);
-    }
-    let query = query.to_ascii_lowercase();
-    let prefixed = tool.prefixed_name.to_ascii_lowercase();
-    let raw = tool.raw_name.to_ascii_lowercase();
-    let source_prefixed = format!("{}_{}", tool.server_name, tool.raw_name).to_ascii_lowercase();
-    let description = tool.description.to_ascii_lowercase();
-    if query == prefixed || query == raw || query == source_prefixed {
-        return Some(10_000);
-    }
-
-    let query_terms: Vec<&str> = query
-        .split(|character: char| !character.is_ascii_alphanumeric())
-        .filter(|term| !term.is_empty())
-        .collect();
-    let mut score = 0i64;
-    if prefixed.starts_with(&query)
-        || raw.starts_with(&query)
-        || source_prefixed.starts_with(&query)
-    {
-        score += 1_000;
-    } else if prefixed.contains(&query) || raw.contains(&query) || source_prefixed.contains(&query)
-    {
-        score += 600;
-    }
-    if description.contains(&query) {
-        score += 300;
-    }
-    for term in query_terms {
-        if prefixed.contains(term) || raw.contains(term) || source_prefixed.contains(term) {
-            score += 120;
-        }
-        if description.contains(term) {
-            score += 30;
-        }
-    }
-    (score > 0).then_some(score)
-}
-
 #[cfg(test)]
 mod tests {
     use super::{
         agent_mcp_tool_allowed, discover_tools, expand_env_placeholders, mcp_tool_allowed,
-        model_safe_explicit_tool_name, model_safe_tool_name, normalize_detail_level, search_score,
-        McpServerState, McpToolDefinition, RuntimeMcpClient, MAX_MODEL_TOOL_NAME_BYTES,
-        MODEL_TOOL_HASH_CHARS,
+        model_safe_explicit_tool_name, model_safe_tool_name, McpServerState, RuntimeMcpClient,
+        MAX_MODEL_TOOL_NAME_BYTES, MODEL_TOOL_HASH_CHARS,
     };
     use domain::ToolFilter;
     use rmcp::{
@@ -1161,7 +1166,6 @@ mod tests {
         service::NotificationContext,
         RoleServer, ServerHandler, ServiceExt,
     };
-    use serde_json::json;
     use std::collections::HashMap;
     use std::sync::Arc;
     use tokio::sync::RwLock;
@@ -1298,6 +1302,8 @@ mod tests {
             reserved, reserved_source,
             "hashed suffix namespace is reserved"
         );
+        let runtime_collision = model_safe_tool_name("load", "tools");
+        assert_ne!(runtime_collision, "load_tools");
 
         for name in [
             dotted,
@@ -1307,24 +1313,13 @@ mod tests {
             long_b,
             ambiguous_left,
             reserved,
+            runtime_collision,
         ] {
             assert!(name.len() <= MAX_MODEL_TOOL_NAME_BYTES);
             assert!(name
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')));
         }
-    }
-
-    #[test]
-    fn exact_names_rank_above_description_keyword_matches() {
-        let exact = tool("salesforce_update_record", "Update an account");
-        let descriptive = tool("salesforce_help", "Use update record workflows");
-        assert!(
-            search_score(&exact, "salesforce_update_record")
-                > search_score(&descriptive, "salesforce_update_record")
-        );
-        assert_eq!(normalize_detail_level("schema"), "full");
-        assert_eq!(normalize_detail_level("unexpected"), "summary");
     }
 
     #[derive(Clone)]
@@ -1421,19 +1416,5 @@ mod tests {
 
         client_service.cancel().await.expect("cancel client");
         server_task.abort();
-    }
-
-    fn tool(name: &str, description: &str) -> McpToolDefinition {
-        McpToolDefinition {
-            server_name: "salesforce".to_string(),
-            prefixed_name: name.to_string(),
-            raw_name: name.trim_start_matches("salesforce_").to_string(),
-            title: None,
-            description: description.to_string(),
-            parameters: json!({ "type": "object" }),
-            output_schema: None,
-            annotations: None,
-            input_bindings: Vec::new(),
-        }
     }
 }

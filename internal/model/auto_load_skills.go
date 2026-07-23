@@ -8,11 +8,11 @@ import (
 	"strings"
 )
 
-// AutoLoadSkill is one skill the runtime preloads into a session before the
-// first model call: it invokes skill_view for the skill root and once per
+// AutoLoadSkill is one skill the runtime preloads before the first model call
+// of every turn: it invokes skill_view for the skill root and once per
 // Files entry (skill-relative linked paths like "references/commands.md") so
-// the model starts with the content already in context. An empty Files loads
-// just the skill root.
+// the model starts each turn with fresh content in context. An empty Files
+// loads just the skill root.
 type AutoLoadSkill struct {
 	Name  string   `json:"name"`
 	Files []string `json:"files"`

@@ -24,5 +24,4 @@ internal/handler/billing.go
 internal/tasks/agent_email_receive.go
 internal/config/config.go
 internal/agentemail/mcptools.go
-internal/model/agent.go
 internal/billing/purchase/service.go

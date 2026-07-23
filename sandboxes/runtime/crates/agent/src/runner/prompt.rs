@@ -1,11 +1,12 @@
 use domain::{AgentDefinition, SessionId, SystemPromptSegment, ToolFilter};
 use mcp::McpRegistry;
+use std::hash::{Hash, Hasher};
 use tracing::warn;
 
 use crate::history::{
-    append_model_message, auto_load_skills_completed, load_model_history, load_session_context,
-    persist_session_context, record_auto_load_skills_completed,
-    seed_model_history_from_session_history,
+    append_model_message, auto_load_skills_completed_for_turn, load_model_history_for_turn,
+    load_session_context, persist_session_context, record_auto_load_skills_completed_for_turn,
+    record_model_turn_started, seed_model_history_from_session_history, SKILL_VIEW_TOOL_NAME,
 };
 use crate::primitives::{AgentMessage, ToolCall};
 use crate::{Result, TurnInput};
@@ -14,13 +15,11 @@ use crate::{Result, TurnInput};
 /// `hivy` prefix, so `skill_view` is reachable as `hivy_skill_view`. Calling it
 /// through the registry triggers the same `materialize` side effect a
 /// model-initiated call would (see `mcp::McpRegistry::call_tool_for_session`).
-const SKILL_VIEW_TOOL: &str = "hivy_skill_view";
-
-/// Seam over the single `skill_view` invocation used by the auto-load
-/// bootstrap. Production is backed by the real MCP registry (below), so the
-/// call takes the exact same path — including the trusted-server `materialize`
-/// side effect — as a model-initiated call. Tests supply a fake to exercise the
-/// bootstrap without standing up an MCP server.
+/// Seam over the `skill_view` invocations used by the auto-load bootstrap.
+/// Production is backed by the real MCP registry (below), so each call takes
+/// the exact same path — including the trusted-server `materialize` side effect
+/// — as a model-initiated call. Tests supply a fake to exercise the bootstrap
+/// without standing up an MCP server.
 #[async_trait::async_trait]
 pub(super) trait SkillViewCaller: Send + Sync {
     async fn skill_view(
@@ -39,7 +38,7 @@ impl SkillViewCaller for McpRegistry {
         actor_user_id: Option<&str>,
         args: serde_json::Value,
     ) -> anyhow::Result<serde_json::Value> {
-        self.call_tool_for_session(session_id, actor_user_id, SKILL_VIEW_TOOL, args)
+        self.call_tool_for_session(session_id, actor_user_id, SKILL_VIEW_TOOL_NAME, args)
             .await
     }
 }
@@ -49,12 +48,18 @@ use super::capture_preloaded_context_error;
 pub(super) struct InitialMessagePromptSources<'a> {
     pub(super) mcp_registry: Option<&'a McpRegistry>,
     pub(super) mcp_tool_filter: Option<&'a ToolFilter>,
+    /// Exact names of every native tool definition exposed to the model for
+    /// this turn. This includes `load_tools`; MCP tools belong in the registry
+    /// catalog below and must not be included here.
+    pub(super) native_tool_names: &'a [String],
+    pub(super) skill_view_caller: Option<&'a dyn SkillViewCaller>,
 }
 
 pub(super) async fn build_initial_messages(
     snapshot: &AgentDefinition,
     session_id: &SessionId,
     input: TurnInput,
+    turn_id: &str,
     event_repo: Option<&dyn storage::EventRepo>,
     prompt_sources: InitialMessagePromptSources<'_>,
 ) -> Result<Vec<AgentMessage>> {
@@ -74,63 +79,53 @@ pub(super) async fn build_initial_messages(
         }
         input.session_context.clone()
     };
+    let loadable_mcp_tool_names = prompt_sources
+        .mcp_registry
+        .map(|registry| registry.available_tool_names_filtered(prompt_sources.mcp_tool_filter))
+        .unwrap_or_default();
     let mut messages = vec![
-        AgentMessage::system(render_cacheable_system_prompt(snapshot)),
-        AgentMessage::system(
-            render_dynamic_system_prompt(
-                snapshot,
-                prompt_sources.mcp_registry,
-                prompt_sources.mcp_tool_filter,
-                &session_context,
-            )
-            .await,
-        ),
+        AgentMessage::system(render_cacheable_system_prompt(
+            snapshot,
+            prompt_sources.native_tool_names,
+            &loadable_mcp_tool_names,
+        )),
+        AgentMessage::system(render_dynamic_system_prompt(snapshot, &session_context)),
     ];
-    let mut history = load_model_history(event_repo, session_id, 1000).await?;
-    // "First turn" == no prior model history existed for this session before
-    // this turn. Captured before any prior-history seeding so a freshly seeded
-    // sub-agent (which had no model history yet) still bootstraps its skills.
-    let is_first_turn = history.is_empty();
+    record_model_turn_started(event_repo, session_id, turn_id).await?;
+    let mut history =
+        load_model_history_for_turn(event_repo, session_id, 1000, Some(turn_id)).await?;
     if history.is_empty() && !input.prior_history.is_empty() {
         history =
             seed_model_history_from_session_history(event_repo, session_id, &input.prior_history)
                 .await?;
     }
     messages.extend(history);
-    // Skill auto-load bootstrap: on the first turn only, ahead of the first user
-    // message, inject the resolved definition's declared skills so the agent
-    // starts with them in context and their files materialized. Runs on the same
-    // shared path for main sessions and sub-agent child sessions (both flow
-    // through `build_initial_messages`), and always uses `snapshot` — the turn's
-    // resolved definition — so a sub-agent auto-loads its own skills.
-    if is_first_turn {
-        let caller = prompt_sources
-            .mcp_registry
-            .map(|registry| registry as &dyn SkillViewCaller);
-        let synthetic = inject_auto_load_skills(
-            snapshot,
-            session_id,
-            event_repo,
-            caller,
-            input.actor_user_id.as_deref(),
-        )
-        .await;
-        messages.extend(synthetic);
-    }
+    // Auto-loaded skill bodies are turn-scoped. Reload them before every model
+    // turn; the history projection replaces earlier skill payloads with a
+    // compact reminder so only the current turn's content remains in context.
+    let synthetic = inject_auto_load_skills(
+        snapshot,
+        session_id,
+        turn_id,
+        event_repo,
+        prompt_sources.skill_view_caller,
+        input.actor_user_id.as_deref(),
+    )
+    .await;
+    messages.extend(synthetic);
     let user = AgentMessage::user(input.text);
     append_model_message(event_repo, session_id, &user).await?;
     messages.push(user);
     Ok(messages)
 }
 
-/// On the first turn, load the definition's `auto_load_skills` by invoking
+/// On every turn, load the definition's `auto_load_skills` by invoking
 /// `skill_view` through the MCP registry — the exact path a model-initiated call
 /// takes, so the `materialize` side effect writes `.skills/<slug>/…` identically
 /// — and return synthetic assistant-tool-call + tool-result messages mirroring
-/// what the model would have produced. Persists the messages and a one-shot
-/// idempotence marker so resume / later turns never re-inject. Any failure
-/// (already loaded, no registry, `skill_view` error) logs a warning and skips;
-/// the agent can still load the skill manually. Never returns an error.
+/// what the model would have produced. Persists the messages for audit and
+/// same-turn continuity. Any failure logs a warning and skips; the agent can
+/// still load the skill manually. Never returns an error.
 ///
 /// Mechanism note: every provider adapter here is OpenAI-compatible and
 /// serializes assistant `tool_calls` + `tool` results identically regardless of
@@ -141,6 +136,7 @@ pub(super) async fn build_initial_messages(
 async fn inject_auto_load_skills(
     snapshot: &AgentDefinition,
     session_id: &SessionId,
+    turn_id: &str,
     event_repo: Option<&dyn storage::EventRepo>,
     caller: Option<&dyn SkillViewCaller>,
     actor_user_id: Option<&str>,
@@ -148,15 +144,14 @@ async fn inject_auto_load_skills(
     if snapshot.auto_load_skills.is_empty() {
         return Vec::new();
     }
-    match auto_load_skills_completed(event_repo, session_id).await {
+    match auto_load_skills_completed_for_turn(event_repo, session_id, turn_id).await {
         Ok(true) => return Vec::new(),
         Ok(false) => {}
         Err(error) => {
-            // Can't confirm idempotence — skip rather than risk a duplicate
-            // injection. The agent can still load its skills manually.
             warn!(
                 session_id = session_id.as_str(),
-                %error, "skill auto-load skipped: idempotence check failed"
+                %error,
+                "skill auto-load skipped: per-turn idempotence check failed"
             );
             return Vec::new();
         }
@@ -184,11 +179,11 @@ async fn inject_auto_load_skills(
                 .await
             {
                 Ok(result) => {
-                    let tool_call_id = format!("autoload_{counter}");
+                    let tool_call_id = auto_load_tool_call_id(turn_id, counter);
                     counter += 1;
                     let assistant = AgentMessage::assistant_tool_calls(vec![ToolCall {
                         id: tool_call_id.clone(),
-                        name: SKILL_VIEW_TOOL.to_string(),
+                        name: SKILL_VIEW_TOOL_NAME.to_string(),
                         arguments: args,
                     }]);
                     let tool_result = AgentMessage::tool_result(tool_call_id, result.to_string());
@@ -224,50 +219,45 @@ async fn inject_auto_load_skills(
         }
     }
 
-    // One-shot: record the marker even if some/all entries failed so resume and
-    // subsequent turns never re-inject.
-    if let Err(error) = record_auto_load_skills_completed(event_repo, session_id).await {
+    if let Err(error) =
+        record_auto_load_skills_completed_for_turn(event_repo, session_id, turn_id).await
+    {
         warn!(
             session_id = session_id.as_str(),
-            %error, "skill auto-load: failed to persist idempotence marker"
+            %error,
+            "skill auto-load: failed to persist per-turn completion marker"
         );
     }
 
     synthetic
 }
 
-pub(super) fn render_cacheable_system_prompt(snapshot: &AgentDefinition) -> String {
-    let mut prompt = String::new();
+fn auto_load_tool_call_id(turn_id: &str, counter: usize) -> String {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    turn_id.hash(&mut hasher);
+    format!("autoload_{:016x}_{counter}", hasher.finish())
+}
+
+pub(super) fn render_cacheable_system_prompt(
+    snapshot: &AgentDefinition,
+    native_tool_names: &[String],
+    loadable_mcp_tool_names: &[String],
+) -> String {
+    // Tool usage is deliberately the first cacheable content the model sees on
+    // every turn. Keep this catalog stable and complete: the model has no
+    // search tool with which to discover omitted MCP names.
+    let mut prompt = render_system_tool_usage(native_tool_names, loadable_mcp_tool_names);
     for segment in &snapshot.system_prompt.cacheable_segments {
         append_rendered_segment(&mut prompt, render_static_segment(segment));
     }
     prompt
 }
 
-pub(super) async fn render_dynamic_system_prompt(
+pub(super) fn render_dynamic_system_prompt(
     snapshot: &AgentDefinition,
-    mcp_registry: Option<&McpRegistry>,
-    mcp_tool_filter: Option<&ToolFilter>,
     session_context: &[String],
 ) -> String {
     let mut prompt = String::new();
-    let has_mcp_tools = mcp_registry
-        .map(|registry| {
-            !registry
-                .available_tool_names_filtered(mcp_tool_filter)
-                .is_empty()
-        })
-        .unwrap_or(false);
-    let has_native_tools = snapshot
-        .tools
-        .as_ref()
-        .map(|tools| !tools.is_empty())
-        .unwrap_or(true);
-    // Names are intentionally cheap enough to expose in the prompt. Full
-    // schemas remain host-side until the agent activates an exact tool.
-    let mcp_tools = mcp_registry
-        .map(|registry| registry.available_tool_names_filtered(mcp_tool_filter))
-        .unwrap_or_default();
     let renders_legacy_context_segment = snapshot
         .system_prompt
         .dynamic_segments
@@ -276,49 +266,53 @@ pub(super) async fn render_dynamic_system_prompt(
     if !renders_legacy_context_segment {
         append_rendered_segment(&mut prompt, render_session_context(session_context));
     }
-    if has_mcp_tools || has_native_tools {
-        append_rendered_segment(
-            &mut prompt,
-            Some(
-                if has_mcp_tools {
-                "## Progressive tool discovery\nNative runtime and MCP capabilities use progressive discovery; full schemas are intentionally hidden to preserve context. Use `search_tools` to narrow the catalog, then call `get_tool_details` with an exact name to inspect and activate a tool. An activated tool becomes directly callable on the next model request; MCP activation also starts its dormant server."
-            } else {
-                "## Progressive tool discovery\nNative runtime capabilities use progressive discovery; full schemas are intentionally hidden to preserve context. Use `search_tools` to narrow the catalog, then call `get_tool_details` with an exact name to inspect and activate a tool. The activated tool becomes directly callable on the next model request."
-            }
-                .to_string(),
-            ),
-        );
-    }
-    let has_mcp_tool_segment = snapshot
-        .system_prompt
-        .dynamic_segments
-        .iter()
-        .any(|segment| matches!(segment, SystemPromptSegment::McpTools(_)));
     for segment in &snapshot.system_prompt.dynamic_segments {
         let rendered = match segment {
             SystemPromptSegment::StaticText(_) => render_static_segment(segment),
             SystemPromptSegment::DynamicContext(config) => {
                 render_dynamic_context_segment(config, session_context)
             }
-            SystemPromptSegment::McpTools(config) => render_tool_list_segment(config, &mcp_tools),
+            // The complete, permission-filtered MCP catalog is permanently
+            // rendered in the leading cacheable <system-tool-usage> block.
+            // Rendering this legacy segment would duplicate it in a dynamic
+            // (and therefore non-cacheable) system message.
+            SystemPromptSegment::McpTools(_) => None,
         };
         append_rendered_segment(&mut prompt, rendered);
     }
-    if !has_mcp_tool_segment && !mcp_tools.is_empty() {
-        append_rendered_segment(
-            &mut prompt,
-            render_tool_list_segment(
-                &domain::ListPromptSegment {
-                    title: "Available MCP tool names".to_string(),
-                    preamble: "Complete exact-name catalog:".to_string(),
-                    item_template: "- {name}".to_string(),
-                },
-                &mcp_tools,
-            ),
-        );
-    }
 
     prompt
+}
+
+fn render_system_tool_usage(
+    native_tool_names: &[String],
+    loadable_mcp_tool_names: &[String],
+) -> String {
+    fn stable_exact_names(names: &[String]) -> Vec<&str> {
+        let mut names = names.iter().map(String::as_str).collect::<Vec<_>>();
+        names.sort_unstable();
+        names.dedup();
+        names
+    }
+
+    let native_tool_names = stable_exact_names(native_tool_names);
+    let loadable_mcp_tool_names = stable_exact_names(loadable_mcp_tool_names);
+    let native_json =
+        serde_json::to_string(&native_tool_names).expect("tool names must serialize as JSON");
+    let mcp_json =
+        serde_json::to_string(&loadable_mcp_tool_names).expect("tool names must serialize as JSON");
+
+    format!(
+        "<system-tool-usage>\n\
+The following catalogs are the complete set of tools available to you for this turn.\n\
+Native tools are already available. Call them directly; never pass native tool names to `load_tools`.\n\
+Native tool exact names: {native_json}\n\
+Loadable MCP tool exact names: {mcp_json}\n\
+MCP tool schemas are not available until loaded. At the beginning of each turn, identify every MCP tool needed for the current task and call the native `load_tools` tool once with all required exact names in one batch.\n\
+Loaded MCP tool schemas are available only for the current turn and expire before the next turn. Load them again on every later turn that needs them.\n\
+There is no tool search or tool-details lookup. The catalog above is complete; select exact MCP tool names from it.\n\
+</system-tool-usage>"
+    )
 }
 
 fn render_session_context(session_context: &[String]) -> Option<String> {
@@ -380,17 +374,6 @@ fn render_dynamic_context_segment(
     render_item_section(&config.title, &config.preamble, &[], &items, &[])
 }
 
-fn render_tool_list_segment(
-    config: &domain::ListPromptSegment,
-    tools: &[String],
-) -> Option<String> {
-    let items = tools
-        .iter()
-        .map(|name| apply_template(&config.item_template, &[("name", name.as_str())]))
-        .collect::<Vec<_>>();
-    render_item_section(&config.title, &config.preamble, &[], &items, &[])
-}
-
 fn render_item_section(
     title: &str,
     preamble: &str,
@@ -445,10 +428,124 @@ fn apply_template(template: &str, replacements: &[(&str, &str)]) -> String {
 }
 
 #[cfg(test)]
+mod system_tool_usage_tests {
+    use super::{
+        build_initial_messages, render_cacheable_system_prompt, render_dynamic_system_prompt,
+        InitialMessagePromptSources,
+    };
+    use crate::primitives::{AgentMessageRole, MessagePart};
+    use crate::TurnInput;
+    use domain::{
+        AgentDefinition, ListPromptSegment, SessionId, StaticPromptSegment, SystemPromptSegment,
+    };
+
+    fn definition() -> AgentDefinition {
+        serde_json::from_str(
+            r#"{"agent":{"name":"prompt-test"},"model":{"provider":"openai_compatible","base_url":"http://x","model_id":"m","api_key_env":"K"}}"#,
+        )
+        .expect("definition should deserialize")
+    }
+
+    #[test]
+    fn system_tool_usage_is_first_cacheable_content_and_contains_complete_exact_catalogs() {
+        let mut definition = definition();
+        definition
+            .system_prompt
+            .cacheable_segments
+            .push(SystemPromptSegment::StaticText(StaticPromptSegment {
+                title: "Identity".to_string(),
+                content: "You are the test agent.".to_string(),
+            }));
+
+        let prompt = render_cacheable_system_prompt(
+            &definition,
+            &[
+                "read_file".to_string(),
+                "bash".to_string(),
+                "load_tools".to_string(),
+            ],
+            &[
+                "slack_post_message".to_string(),
+                "github_list_issues".to_string(),
+            ],
+        );
+
+        assert!(prompt.starts_with("<system-tool-usage>"));
+        assert!(prompt.contains(r#"Native tool exact names: ["bash","load_tools","read_file"]"#));
+        assert!(prompt.contains(
+            r#"Loadable MCP tool exact names: ["github_list_issues","slack_post_message"]"#
+        ));
+        assert!(prompt.contains("call the native `load_tools` tool once"));
+        assert!(prompt.contains("all required exact names in one batch"));
+        assert!(prompt.contains("available only for the current turn"));
+        assert!(prompt.contains("expire before the next turn"));
+        assert!(prompt.contains("There is no tool search or tool-details lookup"));
+        assert!(
+            prompt.find("</system-tool-usage>").unwrap() < prompt.find("## Identity").unwrap(),
+            "tool instructions must precede configured cacheable prompt segments"
+        );
+    }
+
+    #[test]
+    fn legacy_dynamic_mcp_catalog_is_not_rendered() {
+        let mut definition = definition();
+        definition
+            .system_prompt
+            .dynamic_segments
+            .push(SystemPromptSegment::McpTools(ListPromptSegment {
+                title: "Legacy MCP catalog".to_string(),
+                preamble: "This must not render.".to_string(),
+                item_template: "- {name}".to_string(),
+            }));
+
+        let prompt = render_dynamic_system_prompt(
+            &definition,
+            &["## Current context\nKeep this context.".to_string()],
+        );
+
+        assert!(prompt.contains("Keep this context."));
+        assert!(!prompt.contains("Legacy MCP catalog"));
+        assert!(!prompt.contains("This must not render."));
+        assert!(!prompt.contains("Loading MCP tools"));
+    }
+
+    #[tokio::test]
+    async fn first_system_message_carries_tool_usage_on_every_turn() {
+        let definition = definition();
+        let native_tool_names = vec!["bash".to_string(), "load_tools".to_string()];
+        let messages = build_initial_messages(
+            &definition,
+            &SessionId::from("prompt-tools-turn"),
+            TurnInput::text("do the task"),
+            "turn-one",
+            None,
+            InitialMessagePromptSources {
+                mcp_registry: None,
+                mcp_tool_filter: None,
+                native_tool_names: &native_tool_names,
+                skill_view_caller: None,
+            },
+        )
+        .await
+        .expect("initial messages");
+
+        assert_eq!(messages[0].role, AgentMessageRole::System);
+        let MessagePart::Text { text } = &messages[0].parts[0];
+        assert!(text.starts_with("<system-tool-usage>"));
+        assert!(text.contains(r#"Native tool exact names: ["bash","load_tools"]"#));
+        assert!(text.contains("Loadable MCP tool exact names: []"));
+    }
+}
+
+#[cfg(test)]
 mod auto_load_tests {
-    use super::{inject_auto_load_skills, SkillViewCaller};
-    use crate::history::{auto_load_skills_completed, load_model_history};
-    use crate::primitives::{AgentMessage, AgentMessageRole, MessagePart};
+    use super::{
+        build_initial_messages, inject_auto_load_skills, InitialMessagePromptSources,
+        SkillViewCaller,
+    };
+    use crate::history::load_model_history;
+    use crate::primitives::AgentMessageRole;
+    use crate::TurnInput;
     use domain::{AgentDefinition, EventKind, SessionEvent, SessionId};
     use serde_json::{json, Value};
     use std::sync::Arc;
@@ -575,13 +672,20 @@ mod auto_load_tests {
             _actor_user_id: Option<&str>,
             args: Value,
         ) -> anyhow::Result<Value> {
-            self.calls.lock().await.push(args.clone());
+            let call_number = {
+                let mut calls = self.calls.lock().await;
+                calls.push(args.clone());
+                calls.len()
+            };
             if self.fail {
                 anyhow::bail!("skill_view boom");
             }
             let name = args.get("name").and_then(Value::as_str).unwrap_or_default();
             Ok(json!({
-                "content": [{ "type": "text", "text": format!("loaded {name}") }],
+                "content": [{
+                    "type": "text",
+                    "text": format!("loaded {name} call {call_number}")
+                }],
                 "structuredContent": { "materialized": { "ok": true } }
             }))
         }
@@ -594,83 +698,179 @@ mod auto_load_tests {
         serde_json::from_str(&json).expect("definition should deserialize")
     }
 
-    fn message_text(message: &AgentMessage) -> &str {
-        match message.parts.first() {
-            Some(MessagePart::Text { text }) => text.as_str(),
-            None => "",
-        }
-    }
-
     #[tokio::test]
-    async fn first_turn_injects_synthetic_pairs_then_second_turn_does_not() {
+    async fn auto_loaded_skill_content_is_fresh_and_turn_scoped() {
         let repo = Arc::new(MemoryEventRepo::default());
         let caller = FakeSkillViewCaller::ok();
         let session_id = SessionId::from("s-autoload-first");
         let definition =
             definition_with_auto_load(r#"[{"name":"browser","files":["references/commands.md"]}]"#);
 
-        let synthetic = inject_auto_load_skills(
+        let first = build_initial_messages(
             &definition,
             &session_id,
+            TurnInput::text("first task"),
+            "turn-one",
             Some(repo.as_ref()),
-            Some(&caller),
-            None,
+            InitialMessagePromptSources {
+                mcp_registry: None,
+                mcp_tool_filter: None,
+                native_tool_names: &[],
+                skill_view_caller: Some(&caller),
+            },
         )
         .await;
+        let first = first.unwrap();
+        let first_json = serde_json::to_string(&first).unwrap();
 
         // Skill root + one linked file = two skill_view calls => two pairs.
-        assert_eq!(synthetic.len(), 4, "expected two assistant/tool pairs");
+        let first_skill_messages: Vec<_> = first
+            .iter()
+            .filter(|message| {
+                message
+                    .tool_calls
+                    .iter()
+                    .any(|call| call.name == "hivy_skill_view")
+                    || message
+                        .tool_call_id
+                        .as_deref()
+                        .is_some_and(|id| id.starts_with("autoload_"))
+            })
+            .collect();
+        assert_eq!(
+            first_skill_messages.len(),
+            4,
+            "expected two assistant/tool pairs"
+        );
+        assert!(first_json.contains("loaded browser call 1"));
+        assert!(first_json.contains("loaded browser call 2"));
+        let first_ids: Vec<_> = first_skill_messages
+            .iter()
+            .flat_map(|message| &message.tool_calls)
+            .map(|call| call.id.clone())
+            .collect();
 
         // First call: the skill root, with clean model-visible arguments (no
         // hidden _hivy_ fields — those are injected inside the registry only).
-        assert_eq!(synthetic[0].role, AgentMessageRole::Assistant);
-        assert_eq!(synthetic[0].tool_calls.len(), 1);
-        assert_eq!(synthetic[0].tool_calls[0].name, "hivy_skill_view");
-        assert_eq!(synthetic[0].tool_calls[0].id, "autoload_0");
+        let first_call = first_skill_messages[0];
+        assert_eq!(first_call.role, AgentMessageRole::Assistant);
+        assert_eq!(first_call.tool_calls.len(), 1);
+        assert_eq!(first_call.tool_calls[0].name, "hivy_skill_view");
+        assert!(first_call.tool_calls[0].id.starts_with("autoload_"));
         assert_eq!(
-            synthetic[0].tool_calls[0].arguments,
+            first_call.tool_calls[0].arguments,
             json!({ "name": "browser" })
         );
-        assert_eq!(synthetic[1].role, AgentMessageRole::Tool);
-        assert_eq!(synthetic[1].tool_call_id.as_deref(), Some("autoload_0"));
-        assert!(message_text(&synthetic[1]).contains("loaded browser"));
-
-        // Second call: the linked file.
-        assert_eq!(
-            synthetic[2].tool_calls[0].arguments,
-            json!({ "name": "browser", "file_path": "references/commands.md" })
-        );
-        assert_eq!(synthetic[2].tool_calls[0].id, "autoload_1");
-
-        // The caller received exactly the two expected requests.
         assert_eq!(caller.calls.lock().await.len(), 2);
 
-        // Marker recorded; the synthetic pairs are persisted as model history.
-        assert!(auto_load_skills_completed(Some(repo.as_ref()), &session_id)
-            .await
-            .unwrap());
-        assert_eq!(
-            load_model_history(Some(repo.as_ref()), &session_id, 100)
-                .await
-                .unwrap()
-                .len(),
-            4
-        );
-
-        // Second turn: marker present => no re-injection, no further calls.
-        let second = inject_auto_load_skills(
+        let retry = build_initial_messages(
             &definition,
             &session_id,
+            TurnInput::text("retry same turn"),
+            "turn-one",
             Some(repo.as_ref()),
-            Some(&caller),
-            None,
+            InitialMessagePromptSources {
+                mcp_registry: None,
+                mcp_tool_filter: None,
+                native_tool_names: &[],
+                skill_view_caller: Some(&caller),
+            },
         )
-        .await;
-        assert!(second.is_empty());
+        .await
+        .unwrap();
+        let retry_json = serde_json::to_string(&retry).unwrap();
         assert_eq!(
             caller.calls.lock().await.len(),
             2,
-            "must not re-call skill_view"
+            "the same turn_id must not reload auto-loaded skills"
+        );
+        assert!(retry_json.contains("loaded browser call 1"));
+        assert!(retry_json.contains("loaded browser call 2"));
+        assert!(!retry_json.contains("skill loads are turn-scoped"));
+
+        let second = build_initial_messages(
+            &definition,
+            &session_id,
+            TurnInput::text("second task"),
+            "turn-two",
+            Some(repo.as_ref()),
+            InitialMessagePromptSources {
+                mcp_registry: None,
+                mcp_tool_filter: None,
+                native_tool_names: &[],
+                skill_view_caller: Some(&caller),
+            },
+        )
+        .await
+        .unwrap();
+        let second_json = serde_json::to_string(&second).unwrap();
+        assert_eq!(caller.calls.lock().await.len(), 4);
+        assert!(!second_json.contains("loaded browser call 1"));
+        assert!(!second_json.contains("loaded browser call 2"));
+        assert!(second_json.contains("loaded browser call 3"));
+        assert!(second_json.contains("loaded browser call 4"));
+        assert!(second_json.contains("skill loads are turn-scoped"));
+        assert!(second_json.contains("load it again"));
+        assert!(second_json.contains("first task"));
+        assert!(second_json.contains("second task"));
+
+        let second_ids: Vec<_> = second
+            .iter()
+            .flat_map(|message| &message.tool_calls)
+            .filter(|call| call.name == "hivy_skill_view")
+            .map(|call| call.id.clone())
+            .collect();
+        assert_eq!(second_ids.len(), 2);
+        assert!(
+            second_ids.iter().all(|id| !first_ids.contains(id)),
+            "auto-load tool-call ids must be unique across turns"
+        );
+
+        let second_retry = build_initial_messages(
+            &definition,
+            &session_id,
+            TurnInput::text("retry second turn"),
+            "turn-two",
+            Some(repo.as_ref()),
+            InitialMessagePromptSources {
+                mcp_registry: None,
+                mcp_tool_filter: None,
+                native_tool_names: &[],
+                skill_view_caller: Some(&caller),
+            },
+        )
+        .await
+        .unwrap();
+        let second_retry_json = serde_json::to_string(&second_retry).unwrap();
+        assert_eq!(
+            caller.calls.lock().await.len(),
+            4,
+            "retrying turn-two must reuse its current skill payload"
+        );
+        assert!(!second_retry_json.contains("loaded browser call 1"));
+        assert!(!second_retry_json.contains("loaded browser call 2"));
+        assert!(second_retry_json.contains("loaded browser call 3"));
+        assert!(second_retry_json.contains("loaded browser call 4"));
+        let reminder_index = second_retry
+            .iter()
+            .position(|message| {
+                serde_json::to_string(message)
+                    .unwrap()
+                    .contains("skill loads are turn-scoped")
+            })
+            .expect("prior-turn reload reminder");
+        let current_skill_index = second_retry
+            .iter()
+            .position(|message| {
+                message
+                    .tool_calls
+                    .iter()
+                    .any(|call| second_ids.contains(&call.id))
+            })
+            .expect("turn-two skill call");
+        assert!(
+            reminder_index < current_skill_index,
+            "the prior-turn reminder must precede the retained current-turn skill content"
         );
     }
 
@@ -687,6 +887,7 @@ mod auto_load_tests {
         let synthetic = inject_auto_load_skills(
             &definition,
             &session_id,
+            "subagent-turn",
             Some(repo.as_ref()),
             Some(&caller),
             None,
@@ -713,19 +914,17 @@ mod auto_load_tests {
         let synthetic = inject_auto_load_skills(
             &definition,
             &session_id,
+            "failing-turn",
             Some(repo.as_ref()),
             Some(&caller),
             None,
         )
         .await;
 
-        // Failure => no synthetic messages, but the turn is not failed and the
-        // marker is recorded so we never retry-loop on resume.
+        // Failure => no synthetic messages and the turn is not failed. A later
+        // turn may retry because auto-loaded skills are turn-scoped.
         assert!(synthetic.is_empty());
         assert_eq!(caller.calls.lock().await.len(), 1);
-        assert!(auto_load_skills_completed(Some(repo.as_ref()), &session_id)
-            .await
-            .unwrap());
         assert!(load_model_history(Some(repo.as_ref()), &session_id, 100)
             .await
             .unwrap()
@@ -733,23 +932,22 @@ mod auto_load_tests {
     }
 
     #[tokio::test]
-    async fn no_registry_skips_without_marking_done() {
+    async fn no_registry_skips_the_current_turn() {
         let repo = Arc::new(MemoryEventRepo::default());
         let session_id = SessionId::from("s-autoload-noreg");
         let definition = definition_with_auto_load(r#"[{"name":"browser"}]"#);
 
-        let synthetic =
-            inject_auto_load_skills(&definition, &session_id, Some(repo.as_ref()), None, None)
-                .await;
+        let synthetic = inject_auto_load_skills(
+            &definition,
+            &session_id,
+            "no-registry-turn",
+            Some(repo.as_ref()),
+            None,
+            None,
+        )
+        .await;
 
         assert!(synthetic.is_empty());
-        // No registry is environmental; leave the marker unset so a later,
-        // correctly-provisioned turn can still bootstrap.
-        assert!(
-            !auto_load_skills_completed(Some(repo.as_ref()), &session_id)
-                .await
-                .unwrap()
-        );
     }
 
     #[tokio::test]
@@ -762,6 +960,7 @@ mod auto_load_tests {
         let synthetic = inject_auto_load_skills(
             &definition,
             &session_id,
+            "empty-turn",
             Some(repo.as_ref()),
             Some(&caller),
             None,
@@ -770,10 +969,5 @@ mod auto_load_tests {
 
         assert!(synthetic.is_empty());
         assert_eq!(caller.calls.lock().await.len(), 0);
-        assert!(
-            !auto_load_skills_completed(Some(repo.as_ref()), &session_id)
-                .await
-                .unwrap()
-        );
     }
 }

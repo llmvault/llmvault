@@ -31,17 +31,20 @@ import {
 import { AgentTeamsSection } from "./_agent-teams-section"
 import { AgentMemoriesSection } from "./_agent-memories-section"
 import { AgentEnvironmentVariables } from "./_agent-environment-variables"
+import { AgentInboxSection } from "./_agent-inbox-section"
 import { AgentConnectionsField } from "../new/_connections-field"
 
 type AgentDetailTab =
   | "overview"
   | "connections"
+  | "inbox"
   | "environment-variables"
   | "memories"
 
 const AGENT_DETAIL_TABS: AgentDetailTab[] = [
   "overview",
   "connections",
+  "inbox",
   "environment-variables",
   "memories",
 ]
@@ -139,6 +142,9 @@ export default function AgentDetailPage({
             >
               Connections
             </DetailTab>
+            <DetailTab id="inbox" activeTab={activeTab} onSelect={setActiveTab}>
+              Inbox
+            </DetailTab>
             <DetailTab
               id="environment-variables"
               activeTab={activeTab}
@@ -235,6 +241,14 @@ export default function AgentDetailPage({
                   )
                 }
               />
+            </div>
+          ) : activeTab === "inbox" ? (
+            <div
+              id="agent-inbox-panel"
+              role="tabpanel"
+              aria-labelledby="agent-inbox-tab"
+            >
+              <AgentInboxSection agentId={installedID} />
             </div>
           ) : activeTab === "environment-variables" ? (
             <div

@@ -178,6 +178,7 @@ dependencies = [
  "domain",
  "futures",
  "mcp",
+ "nanoid",
  "outbound",
  "reqwest 0.13.3",
  "rig-core",

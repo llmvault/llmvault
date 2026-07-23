@@ -66,6 +66,9 @@ func (h *AgentEmailSendHandler) Handle(ctx context.Context, task *asynq.Task) er
 	if err := h.db.WithContext(ctx).Where("id = ? AND org_id = ? AND status <> ?", message.AgentID, message.OrgID, "archived").First(&agent).Error; err != nil {
 		return fmt.Errorf("load sending agent: %w", err)
 	}
+	if strings.TrimSpace(agent.EmailInboxLocalPart) == "" {
+		return fmt.Errorf("sending agent inbox is not provisioned")
+	}
 	var thread model.AgentEmailThread
 	if err := h.db.WithContext(ctx).Where("id = ? AND agent_id = ? AND org_id = ?", message.ThreadID, agent.ID, message.OrgID).First(&thread).Error; err != nil {
 		return fmt.Errorf("load outgoing email thread: %w", err)

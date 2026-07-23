@@ -220,6 +220,7 @@ func setupV1Routes(
 					r.Get("/agents/catalog/{slug}", agentHandler.GetCatalog)
 					r.Get("/agents/models", agentHandler.ListModels)
 					r.Get("/agents/{id}", agentHandler.Get)
+					r.Get("/agents/{id}/inbox", agentHandler.GetInbox)
 					r.Get("/triggers", triggerHandler.List)
 					r.Get("/triggers/{id}", triggerHandler.Get)
 					r.Get("/schedules", scheduleHandler.List)
@@ -231,6 +232,7 @@ func setupV1Routes(
 					// (resolveAndAuthorizeAgentTeam / authorizeAgentMutation), so these
 					// routes are intentionally NOT admin-gated.
 					r.Post("/agents", agentHandler.Create)
+					r.Post("/agents/{id}/inbox", agentHandler.ProvisionInbox)
 					r.Patch("/agents/{id}", agentHandler.Update)
 					r.Delete("/agents/{id}", agentHandler.Archive)
 					r.Get("/agents/{id}/environment-variables", agentHandler.ListEnvironmentVariables)

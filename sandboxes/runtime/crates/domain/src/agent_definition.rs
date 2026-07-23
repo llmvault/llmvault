@@ -34,10 +34,10 @@ pub struct AgentDefinition {
     pub sub_agents: HashMap<String, AgentDefinition>,
     #[serde(default)]
     pub safety: SafetyConfig,
-    /// Skills the runtime loads into the session automatically on the first
-    /// turn (before the first model call), so the agent starts with the skill
-    /// content already in context and its `.skills/` files materialized. Absent
-    /// in old configs (serde default = empty), which deserialize unchanged.
+    /// Skills the runtime loads automatically before the first model request of
+    /// every turn. Skill content is turn-scoped; earlier payloads are pruned
+    /// from model history while materialized `.skills/` files remain available.
+    /// Absent in old configs (serde default = empty), which deserialize unchanged.
     #[serde(default)]
     pub auto_load_skills: Vec<AutoLoadSkill>,
 }
