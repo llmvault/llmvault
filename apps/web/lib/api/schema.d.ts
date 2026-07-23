@@ -5167,6 +5167,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/catalog/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the complete model catalog
+         * @description Returns every canonical Hivy model with its ordered provider routes, provider-specific pricing and limits, and current system availability.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["modelCatalogResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/catalog/triggers": {
         parameters: {
             query?: never;
@@ -17822,6 +17870,50 @@ export interface components {
             token?: string;
             url?: string;
         };
+        catalogModelProviderResponse: {
+            api?: string;
+            available?: boolean;
+            cost?: components["schemas"]["Cost"];
+            default?: boolean;
+            documentation_url?: string;
+            fallback_canonical_id?: string;
+            id?: string;
+            limit?: components["schemas"]["Limit"];
+            modalities?: components["schemas"]["Modalities"];
+            model_name?: string;
+            name?: string;
+            pricing_unit?: string;
+            priority?: number;
+            reasoning?: boolean;
+            status?: string;
+            structured_output?: boolean;
+            tool_call?: boolean;
+            upstream_model_id?: string;
+        };
+        catalogModelResponse: {
+            cost?: components["schemas"]["Cost"];
+            description?: string;
+            family?: string;
+            id?: string;
+            knowledge?: string;
+            limit?: components["schemas"]["Limit"];
+            modalities?: components["schemas"]["Modalities"];
+            name?: string;
+            /** Format: date-time */
+            new_from?: string;
+            /** Format: date-time */
+            new_to?: string;
+            open_weights?: boolean;
+            pricing_unit?: string;
+            providers?: components["schemas"]["catalogModelProviderResponse"][];
+            reasoning?: boolean;
+            release_date?: string;
+            speed?: string;
+            status?: string;
+            structured_output?: boolean;
+            tier?: string;
+            tool_call?: boolean;
+        };
         changePasswordRequest: {
             current_password?: string;
             new_password?: string;
@@ -18426,6 +18518,10 @@ export interface components {
             mcp_endpoint?: string;
             token?: string;
         };
+        modelCatalogResponse: {
+            models?: components["schemas"]["catalogModelResponse"][];
+            total?: number;
+        };
         modelSummary: {
             cost?: components["schemas"]["Cost"];
             description?: string;
@@ -18435,6 +18531,10 @@ export interface components {
             limit?: components["schemas"]["Limit"];
             modalities?: components["schemas"]["Modalities"];
             name?: string;
+            /** Format: date-time */
+            new_from?: string;
+            /** Format: date-time */
+            new_to?: string;
             open_weights?: boolean;
             provider_id?: string;
             provider_ids?: string[];

@@ -17,6 +17,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/dustin/go-humanize"
 )
@@ -41,6 +42,8 @@ type Model struct {
 	OpenWeights      bool        `json:"open_weights,omitempty"`
 	Knowledge        string      `json:"knowledge,omitempty"`
 	ReleaseDate      string      `json:"release_date,omitempty"`
+	NewFrom          *time.Time  `json:"new_from,omitempty" format:"date-time"`
+	NewTo            *time.Time  `json:"new_to,omitempty" format:"date-time"`
 	Modalities       *Modalities `json:"modalities,omitempty"`
 	Cost             *Cost       `json:"cost,omitempty"`
 	Limit            *Limit      `json:"limit,omitempty"`

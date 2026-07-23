@@ -172,6 +172,8 @@ func (h *AgentHandler) agentModelSummaries(ctx context.Context, orgID uuid.UUID)
 			OpenWeights:      mdl.OpenWeights,
 			Knowledge:        mdl.Knowledge,
 			ReleaseDate:      mdl.ReleaseDate,
+			NewFrom:          mdl.NewFrom,
+			NewTo:            mdl.NewTo,
 			Modalities:       mdl.Modalities,
 			Cost:             mdl.Cost,
 			Limit:            mdl.Limit,

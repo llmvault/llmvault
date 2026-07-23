@@ -121,6 +121,7 @@ export function PickerButton({
   selected,
   onPress,
   description,
+  badge,
   children,
 }: {
   icon?: string
@@ -129,6 +130,7 @@ export function PickerButton({
   selected?: boolean
   onPress: () => void
   description?: string
+  badge?: ReactNode
   children: ReactNode
 }) {
   return (
@@ -145,7 +147,10 @@ export function PickerButton({
         <AppIcon icon={icon} className="h-4 w-4 text-muted" />
       ) : null}
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate">{children}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate">{children}</span>
+          {badge}
+        </span>
         {description ? (
           <span className="truncate text-xs text-muted">{description}</span>
         ) : null}

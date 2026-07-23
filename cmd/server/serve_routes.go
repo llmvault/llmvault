@@ -49,6 +49,7 @@ func setupPublicRoutes(
 	r.Get("/v1/providers/{id}", providerHandler.Get)
 	r.Get("/v1/providers/{id}/models", providerHandler.Models)
 	r.Get("/v1/models", providerHandler.AllModels)
+	r.Get("/v1/catalog/models", providerHandler.CatalogModels)
 
 	// Integration discovery (no auth)
 	r.Get("/v1/integrations/available", integrationHandler.ListAvailable)

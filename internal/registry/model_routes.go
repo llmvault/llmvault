@@ -40,6 +40,7 @@ func (r *Registry) ResolveModel(providerID, canonicalID string) (ResolvedModelRo
 		}
 		mdl.ID = canonicalID
 		mdl.Hidden = false
+		mdl = r.modelWithNewWindow(mdl, hivyModel)
 		return ResolvedModelRoute{
 			CanonicalID: canonicalID,
 			ProviderID:  route.ProviderID,
@@ -62,6 +63,7 @@ func (r *Registry) CanonicalModel(canonicalID string) (RoutedModel, bool) {
 		}
 		mdl.ID = canonicalID
 		mdl.Hidden = false
+		mdl = r.modelWithNewWindow(mdl, hivyModel)
 		return RoutedModel{Model: mdl, ProviderIDs: providerIDsForRoutes(hivyModel.Routes)}, true
 	}
 	return RoutedModel{}, false

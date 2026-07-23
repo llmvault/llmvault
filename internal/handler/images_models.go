@@ -45,6 +45,8 @@ func (h *ImageDescribeHandler) ListGenerationModels(w http.ResponseWriter, r *ht
 			OpenWeights:      mdl.OpenWeights,
 			Knowledge:        mdl.Knowledge,
 			ReleaseDate:      mdl.ReleaseDate,
+			NewFrom:          mdl.NewFrom,
+			NewTo:            mdl.NewTo,
 			Modalities:       mdl.Modalities,
 			Cost:             mdl.Cost,
 			Limit:            mdl.Limit,

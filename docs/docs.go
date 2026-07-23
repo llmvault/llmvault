@@ -4152,6 +4152,32 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/catalog/models": {
+            "get": {
+                "description": "Returns every canonical Hivy model with its ordered provider routes, provider-specific pricing and limits, and current system availability.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "providers"
+                ],
+                "summary": "List the complete model catalog",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modelCatalogResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/catalog/triggers": {
             "get": {
                 "description": "Returns enabled one-click installable trigger templates from the file-backed global catalog.",
@@ -16573,6 +16599,135 @@ const docTemplate = `{
                 }
             }
         },
+        "catalogModelProviderResponse": {
+            "type": "object",
+            "properties": {
+                "api": {
+                    "type": "string"
+                },
+                "available": {
+                    "type": "boolean"
+                },
+                "cost": {
+                    "$ref": "#/definitions/Cost"
+                },
+                "default": {
+                    "type": "boolean"
+                },
+                "documentation_url": {
+                    "type": "string"
+                },
+                "fallback_canonical_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "limit": {
+                    "$ref": "#/definitions/Limit"
+                },
+                "modalities": {
+                    "$ref": "#/definitions/Modalities"
+                },
+                "model_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pricing_unit": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "reasoning": {
+                    "type": "boolean"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "structured_output": {
+                    "type": "boolean"
+                },
+                "tool_call": {
+                    "type": "boolean"
+                },
+                "upstream_model_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "catalogModelResponse": {
+            "type": "object",
+            "properties": {
+                "cost": {
+                    "$ref": "#/definitions/Cost"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "family": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "knowledge": {
+                    "type": "string"
+                },
+                "limit": {
+                    "$ref": "#/definitions/Limit"
+                },
+                "modalities": {
+                    "$ref": "#/definitions/Modalities"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "new_from": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "new_to": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "open_weights": {
+                    "type": "boolean"
+                },
+                "pricing_unit": {
+                    "type": "string"
+                },
+                "providers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/catalogModelProviderResponse"
+                    }
+                },
+                "reasoning": {
+                    "type": "boolean"
+                },
+                "release_date": {
+                    "type": "string"
+                },
+                "speed": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "structured_output": {
+                    "type": "boolean"
+                },
+                "tier": {
+                    "type": "string"
+                },
+                "tool_call": {
+                    "type": "boolean"
+                }
+            }
+        },
         "changePasswordRequest": {
             "type": "object",
             "properties": {
@@ -18335,6 +18490,20 @@ const docTemplate = `{
                 }
             }
         },
+        "modelCatalogResponse": {
+            "type": "object",
+            "properties": {
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/catalogModelResponse"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "modelSummary": {
             "type": "object",
             "properties": {
@@ -18361,6 +18530,14 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "new_from": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "new_to": {
+                    "type": "string",
+                    "format": "date-time"
                 },
                 "open_weights": {
                     "type": "boolean"

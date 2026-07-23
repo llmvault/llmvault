@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -53,6 +54,8 @@ type modelSummary struct {
 	OpenWeights      bool                 `json:"open_weights,omitempty"`
 	Knowledge        string               `json:"knowledge,omitempty"`
 	ReleaseDate      string               `json:"release_date,omitempty"`
+	NewFrom          *time.Time           `json:"new_from,omitempty" format:"date-time"`
+	NewTo            *time.Time           `json:"new_to,omitempty" format:"date-time"`
 	Modalities       *registry.Modalities `json:"modalities,omitempty"`
 	Cost             *registry.Cost       `json:"cost,omitempty"`
 	Limit            *registry.Limit      `json:"limit,omitempty"`
@@ -156,6 +159,8 @@ func (h *ProviderHandler) AllModels(w http.ResponseWriter, r *http.Request) {
 			OpenWeights:      mdl.OpenWeights,
 			Knowledge:        mdl.Knowledge,
 			ReleaseDate:      mdl.ReleaseDate,
+			NewFrom:          mdl.NewFrom,
+			NewTo:            mdl.NewTo,
 			Modalities:       mdl.Modalities,
 			Cost:             mdl.Cost,
 			Limit:            mdl.Limit,
@@ -204,6 +209,8 @@ func modelsFromMap(m map[string]registry.Model) []modelSummary {
 			OpenWeights:      mdl.OpenWeights,
 			Knowledge:        mdl.Knowledge,
 			ReleaseDate:      mdl.ReleaseDate,
+			NewFrom:          mdl.NewFrom,
+			NewTo:            mdl.NewTo,
 			Modalities:       mdl.Modalities,
 			Cost:             mdl.Cost,
 			Limit:            mdl.Limit,

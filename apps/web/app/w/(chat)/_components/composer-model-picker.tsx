@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { useSessionWorkspaceStore } from "@/app/w/(chat)/_stores/session-workspace-store"
 import type { ModelSummary } from "@/app/w/(chat)/_lib/model-options"
+import { ModelNewBadge } from "@/components/model-new-badge"
 import { displayModel, type DisplayModel } from "./model-display"
 import { Picker, PickerButton } from "./chat-picker"
 import { PickerText } from "./chat-picker-text"
@@ -71,7 +72,7 @@ export function ComposerModelPicker({
         onChange={(event) => setModelQuery(event.target.value)}
         placeholder="Search models"
         aria-label="Search models"
-        className="mx-1 mt-0.5 mb-1 rounded-lg border border-border bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted focus:border-primary"
+        className="focus:border-primary mx-1 mt-0.5 mb-1 rounded-lg border border-border bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted"
       />
       <div className="flex max-h-80 flex-col gap-0.5 overflow-y-auto">
         {modelsLoading && modelOptions.length === 0 ? (
@@ -85,6 +86,7 @@ export function ComposerModelPicker({
               model={entry}
               selected={entry.id === modelId}
               onPress={() => onModelChange?.(entry.id)}
+              badge={entry.isNew ? <ModelNewBadge /> : undefined}
             >
               {entry.label}
             </PickerButton>

@@ -2,12 +2,14 @@ import Image from "next/image"
 import { AppIcon } from "@/components/icon"
 import type { ModelSummary } from "@/app/w/(chat)/_lib/model-options"
 import { modelLogoURL } from "@/lib/model-logos"
+import { isModelNew } from "@/lib/model-new"
 import { cn } from "@/lib/utils"
 
 export type DisplayModel = {
   id: string
   label: string
   provider: string
+  isNew: boolean
 }
 
 export function displayModel(
@@ -21,17 +23,16 @@ export function displayModel(
     id,
     label: id,
     provider: "Agent model",
+    isNew: false,
   }
 }
 
-function displayModelSummary(
-  id: string,
-  summary: ModelSummary
-): DisplayModel {
+function displayModelSummary(id: string, summary: ModelSummary): DisplayModel {
   return {
     id,
     label: summary.name?.trim() || id,
     provider: modelProviderLabel(summary),
+    isNew: isModelNew(summary),
   }
 }
 

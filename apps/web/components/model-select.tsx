@@ -3,7 +3,9 @@
 import Image from "next/image"
 import { ListBox, Select } from "@heroui/react"
 import { modelLogoURL } from "@/lib/model-logos"
+import { isModelNew } from "@/lib/model-new"
 import type { components } from "@/lib/api/schema"
+import { ModelNewBadge } from "@/components/model-new-badge"
 
 type ModelSummary = components["schemas"]["modelSummary"]
 
@@ -47,6 +49,7 @@ export function ModelSelect({
         <span className="flex min-w-0 items-center gap-2">
           {value ? <ModelLogo model={value} /> : null}
           <span className="truncate">{label || <Select.Value />}</span>
+          {isModelNew(selectedModel) ? <ModelNewBadge /> : null}
         </span>
         <Select.Indicator />
       </Select.Trigger>
@@ -58,7 +61,7 @@ export function ModelSelect({
               id={INHERIT_KEY}
               textValue="Inherit from parent"
             >
-              <span className="text-sm text-muted-foreground">
+              <span className="text-muted-foreground text-sm">
                 Inherit from parent
               </span>
             </ListBox.Item>
@@ -66,14 +69,11 @@ export function ModelSelect({
           {models.map((model) => {
             const id = model.id || ""
             return (
-              <ListBox.Item
-                key={id}
-                id={id}
-                textValue={model.name || id}
-              >
+              <ListBox.Item key={id} id={id} textValue={model.name || id}>
                 <span className="flex min-w-0 items-center gap-2">
                   <ModelLogo model={id} />
                   <span className="truncate">{model.name || id}</span>
+                  {isModelNew(model) ? <ModelNewBadge /> : null}
                 </span>
               </ListBox.Item>
             )
@@ -88,7 +88,7 @@ function ModelLogo({ model }: { model: string }) {
   const logoURL = modelLogoURL(model)
   if (!logoURL) {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-default text-[9px] font-semibold text-muted-foreground">
+      <span className="text-muted-foreground flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-default text-[9px] font-semibold">
         AI
       </span>
     )
