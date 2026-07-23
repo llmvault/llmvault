@@ -232,12 +232,12 @@ func (h *SkillHandler) actor(w http.ResponseWriter, r *http.Request) (*model.Org
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing org context"})
 		return nil, nil, false
 	}
-	user, ok := middleware.UserFromContext(r.Context())
-	if !ok || user == nil {
+	userID := strings.TrimSpace(middleware.UserID(r.Context()))
+	if userID == "" {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing user context"})
 		return nil, nil, false
 	}
-	actor, err := access.Resolve(r.Context(), h.db, org.ID, user.ID.String())
+	actor, err := access.Resolve(r.Context(), h.db, org.ID, userID)
 	if err != nil {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "invalid actor"})
 		return nil, nil, false

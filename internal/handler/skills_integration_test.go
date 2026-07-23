@@ -10,10 +10,51 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/auth"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
 )
+
+func TestSkillListUsesJWTClaimsUserContext(t *testing.T) {
+	db := connectTestDB(t)
+	org := model.Org{ID: uuid.New(), Name: "skill-claims-" + uuid.NewString()[:8], Active: true}
+	user := model.User{ID: uuid.New(), Email: "skill-claims-" + uuid.NewString() + "@example.test"}
+	rows := []any{
+		&org,
+		&user,
+		&model.OrgMembership{ID: uuid.New(), OrgID: org.ID, UserID: user.ID, Role: "admin"},
+		&model.Skill{
+			ID:         uuid.New(),
+			OrgID:      &org.ID,
+			Slug:       "claims-" + uuid.NewString()[:8],
+			Name:       "Claims skill",
+			SourceType: model.SkillSourceInline,
+			Bundle:     model.RawJSON(`{}`),
+			Status:     model.SkillStatusPublished,
+		},
+	}
+	for _, row := range rows {
+		if err := db.Create(row).Error; err != nil {
+			t.Fatalf("seed %T: %v", row, err)
+		}
+	}
+
+	router := chi.NewRouter()
+	handler.NewSkillHandler(db).Mount(router)
+	req := httptest.NewRequest(http.MethodGet, "/skills", nil)
+	req = middleware.WithOrg(req, &org)
+	req = middleware.WithAuthClaims(req, &auth.AuthClaims{
+		UserID: user.ID.String(),
+		OrgID:  org.ID.String(),
+	})
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("JWT claims list status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
 
 // TestSkillHTTPCRUDAndTeamIsolation exercises the real handler, access
 // resolver, and Postgres constraints for member-owned team skills and
