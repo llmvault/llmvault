@@ -53,7 +53,7 @@ export function ChatRow({
         onFocus={onIntent}
         onPointerDown={onIntent}
         onClick={onSelect}
-        className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-9 text-left"
+        className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-6 text-left"
       >
         <span className="flex min-w-0 flex-1 items-center gap-1">
           <SessionAgentAvatar agent={agent} />

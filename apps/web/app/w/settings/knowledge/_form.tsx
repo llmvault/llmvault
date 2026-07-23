@@ -73,7 +73,7 @@ export function SourceCards({
             </div>
             {!connected ? (
               <Link
-                href="/w/settings"
+                href="/w/connections"
                 onClick={(e) => e.stopPropagation()}
                 className="shrink-0 text-xs font-medium text-primary transition-colors hover:text-primary/80"
               >

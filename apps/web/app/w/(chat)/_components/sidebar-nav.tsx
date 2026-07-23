@@ -1,19 +1,5 @@
-import type { ReactNode } from "react"
-import { Typography } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { cn } from "@/lib/utils"
-
-function SectionLabel({ children }: { children: ReactNode }) {
-  return (
-    <Typography.Paragraph
-      size="xs"
-      color="muted"
-      className="px-3 pt-2 pb-1 select-none"
-    >
-      {children}
-    </Typography.Paragraph>
-  )
-}
 
 export function NavRow({
   icon,

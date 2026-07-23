@@ -17,7 +17,7 @@ describe("ConnectTools", () => {
     expect(html).toContain("Image placeholder")
     expect(html).not.toContain("/docs/captures/")
     expect(html).toContain("/w/connections")
-    expect(html).toContain("/w/settings/teams")
+    expect(html).toContain("/w/teams")
     expect(html).not.toContain("<img")
     expect(html).not.toContain("conversation")
     expect(html).not.toContain("—")

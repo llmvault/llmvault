@@ -1,6 +1,6 @@
 export type PurchaseCurrency = "USD" | "NGN"
 
-export type CustomPurchaseQuote = {
+type CustomPurchaseQuote = {
   subtotalMinor: number
   feeMinor: number
   totalMinor: number

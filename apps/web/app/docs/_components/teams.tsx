@@ -86,7 +86,7 @@ export function Teams() {
             Hivy adds the default Hivy agent and puts the creator on the team.
             There&apos;s nothing else to prepare before the first session.
           </p>
-          <DocLink href="/w/settings/teams">Open team settings</DocLink>
+          <DocLink href="/w/teams">Open team settings</DocLink>
         </DocSection>
 
         <DocSection title="Add the people who own the work">

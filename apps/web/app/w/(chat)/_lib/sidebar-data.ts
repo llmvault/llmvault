@@ -4,14 +4,6 @@ export type SidebarSessionResponse = components["schemas"]["sessionResponse"]
 export type SidebarAgentResponse = components["schemas"]["agentListItem"]
 type SidebarTeamResponse = components["schemas"]["teamResponse"]
 
-function slugify(value: string): string {
-  const slug = value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-  return slug || "item"
-}
-
 interface SidebarTeamGroup {
   key: string
   teamId: string
@@ -37,7 +29,9 @@ export function buildSidebarTeamGroups(
       name: team.name?.trim() || teamGroupFallbackLabel(teamId),
       sessions: sessions
         .filter((session) => sessionTeamID(session) === teamId)
-        .sort((left, right) => sessionTimestamp(right) - sessionTimestamp(left)),
+        .sort(
+          (left, right) => sessionTimestamp(right) - sessionTimestamp(left)
+        ),
     })
   }
   return groups
@@ -111,17 +105,6 @@ function sessionTimestamp(session: SidebarSessionResponse): number {
       session.last_activity_at ?? session.updated_at ?? session.created_at
     ) ?? 0
   )
-}
-
-export function dedupeSessions(sessions: SidebarSessionResponse[]) {
-  const seen = new Set<string>()
-  const result: SidebarSessionResponse[] = []
-  for (const session of sessions) {
-    if (!session.id || seen.has(session.id)) continue
-    seen.add(session.id)
-    result.push(session)
-  }
-  return result
 }
 
 export function sessionRouteFromPathname(

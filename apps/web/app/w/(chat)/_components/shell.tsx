@@ -5,10 +5,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type KeyboardEvent,
+  type RefObject,
 } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
@@ -74,6 +76,7 @@ import {
   useSessionWorkspaceStore,
   type WorkspacePanelViewID,
 } from "@/app/w/(chat)/_stores/session-workspace-store"
+import { resizePanelIfMounted } from "@/app/w/(chat)/_components/panel-animation"
 
 const RIGHT_SIZE = 42 // percent
 const RIGHT_MAX_SIZE = 70 // percent
@@ -368,12 +371,13 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
 
   const animatePanel = useCallback(
     (
-      handle: PanelImperativeHandle | null,
-      anim: React.RefObject<AnimationPlaybackControls | null>,
+      panelRef: RefObject<PanelImperativeHandle | null>,
+      anim: RefObject<AnimationPlaybackControls | null>,
       to: number,
       unit: "px" | "%",
       onComplete?: () => void
     ) => {
+      const handle = panelRef.current
       if (!handle) {
         onComplete?.()
         return
@@ -384,7 +388,13 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       anim.current = animate(from, to, {
         duration: 0.3,
         ease: PANEL_EASE,
-        onUpdate: (value) => handle.resize(unit === "px" ? value : `${value}%`),
+        onUpdate: (value) => {
+          resizePanelIfMounted(
+            panelRef,
+            handle,
+            unit === "px" ? value : `${value}%`
+          )
+        },
         onComplete,
       })
     },
@@ -394,7 +404,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const resizeSidebar = useCallback(
     (width: number, options: { persist: boolean }) => {
       const applyResize = () =>
-        animatePanel(sidebarPanelRef.current, sidebarAnim, width, "px", () => {
+        animatePanel(sidebarPanelRef, sidebarAnim, width, "px", () => {
           sidebarResizeWidthCaptureDisabledRef.current = false
           if (!options.persist) {
             sidebarResizePersistDisabledRef.current = false
@@ -446,9 +456,19 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
 
   const setRightSize = useCallback(
     (percent: number) => {
-      animatePanel(rightPanelRef.current, rightAnim, percent, "%")
+      animatePanel(rightPanelRef, rightAnim, percent, "%")
     },
     [animatePanel, rightPanelRef]
+  )
+
+  useLayoutEffect(
+    () => () => {
+      sidebarAnim.current?.stop()
+      rightAnim.current?.stop()
+      sidebarAnim.current = null
+      rightAnim.current = null
+    },
+    []
   )
 
   const beginRightManualResize = useCallback(() => {
@@ -762,7 +782,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
       archiveSessionMutate(
         { params: { path: { id: sessionID } } },
         {
-          onSuccess: (response) => {
+          onSuccess: () => {
             invalidateSessionListQueries(queryClient)
             toast.success("Chat archived")
             if (routeSessionID === sessionID) {

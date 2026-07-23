@@ -28,8 +28,6 @@ export interface AutomationItem {
   trigger?: InstalledTrigger
 }
 
-const AUTOMATION_TABS: AutomationTab[] = ["Triggers", "Schedules"]
-
 type ProviderMeta = {
   label: string
   icon: string
@@ -93,7 +91,8 @@ export function automationFromInstalledTrigger(
   const provider = trigger.provider || "slack"
   const providerMeta = PROVIDER_META[provider]
   const triggerKey = trigger.trigger_key || ""
-  const isSlackReaction = provider === "slack" && triggerKey === "reaction_added"
+  const isSlackReaction =
+    provider === "slack" && triggerKey === "reaction_added"
   const isGithubCodeReview =
     provider === githubCodeReviewsProvider && isGithubMentionKey(triggerKey)
   const isGithubMention =
@@ -131,12 +130,11 @@ export function automationFromInstalledTrigger(
         : isGithubMention
           ? `${statusPrefix}${agent} runs when ${mentionBot} is @mentioned${repo ? ` in ${repo}` : ""}.`
           : trigger.instructions || "Installed trigger.",
-    category:
-      isSlackReaction
-        ? "Communication"
-        : isGithubMention || isGithubPrOpened
-          ? "Development"
-          : "Other",
+    category: isSlackReaction
+      ? "Communication"
+      : isGithubMention || isGithubPrOpened
+        ? "Development"
+        : "Other",
     icon: providerMeta?.icon ?? "workflow",
     iconColor: providerMeta?.color ?? "#64748B",
     provider,

@@ -1,6 +1,5 @@
 import type { components } from "@/lib/api/schema"
 
-type Connection = components["schemas"]["connectionResponse"]
 export type AvailableResource = components["schemas"]["AvailableResource"]
 
 export const slackReactionKey = "reaction_added"

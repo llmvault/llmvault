@@ -88,34 +88,6 @@ export function useCanvasProjects(
 }
 
 /**
- * Canvas artifacts for the org, optionally filtered by project/session, mapped
- * to the domain shape. `data` is always a normalized array.
- */
-function useCanvasArtifacts(
-  input: { projectId?: string | null; sessionId?: string | null } = {},
-  options?: { enabled?: boolean }
-) {
-  const query = $api.useQuery(
-    "get",
-    "/v1/canvas/artifacts",
-    {
-      params: {
-        query: {
-          ...(input.projectId ? { project_id: input.projectId } : {}),
-          ...(input.sessionId ? { session_id: input.sessionId } : {}),
-        },
-      },
-    },
-    { enabled: options?.enabled ?? true, retry: false }
-  )
-  const artifacts = useMemo(
-    () => normalizeCanvasArtifactList(query.data),
-    [query.data]
-  )
-  return { ...query, data: artifacts }
-}
-
-/**
  * A single Canvas artifact, mapped to the domain shape. `data` is null until the
  * artifact loads; the query is disabled until an `artifactId` is provided.
  */
@@ -228,9 +200,7 @@ export function normalizeCanvasArtifactList(value: unknown): CanvasArtifact[] {
   return list.map(normalizeCanvasArtifact).filter(isPresent)
 }
 
-function normalizeCanvasProject(
-  value: unknown
-): CanvasArtifactProject | null {
+function normalizeCanvasProject(value: unknown): CanvasArtifactProject | null {
   const record = recordValue(value)
   if (!record) return null
 

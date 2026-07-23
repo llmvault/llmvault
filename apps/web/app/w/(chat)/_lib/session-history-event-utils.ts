@@ -80,16 +80,6 @@ export function parseTimestamp(value: string): number | undefined {
   return Number.isNaN(time) ? undefined : time
 }
 
-function durationBetween(startedAt: string, endedAt: string) {
-  if (!startedAt || !endedAt) return undefined
-  const started = Date.parse(startedAt)
-  const ended = Date.parse(endedAt)
-  if (Number.isNaN(started) || Number.isNaN(ended) || ended < started) {
-    return undefined
-  }
-  return ended - started
-}
-
 export function formatDuration(durationMs: number): string {
   if (durationMs < 1000) {
     return `${Math.max(0.1, Math.round(durationMs / 100) / 10)} seconds`

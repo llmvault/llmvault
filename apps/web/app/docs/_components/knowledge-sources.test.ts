@@ -11,7 +11,7 @@ describe("KnowledgeSources", () => {
     expect(html).toContain("Add a source in four steps")
     expect(html).toContain("Select a focused source scope")
     expect(html).toContain("Add your first knowledge source")
-    expect(html).toContain("/w/settings/knowledge/new")
+    expect(html).toContain("/w/knowledge/new")
     expect(html).toContain("/docs/agents/sessions")
     expect(html).not.toContain(".jpg")
     expect(html).not.toContain("conversation")

@@ -96,12 +96,6 @@ export function attachmentMetadataFromDescription(
   }
 }
 
-function imageAttachmentMediaURL(
-  attachment: Pick<ImageAttachmentMetadata, "asset_url">
-) {
-  return attachment.asset_url
-}
-
 export function imageAttachmentIDs(
   attachments: Pick<ImageAttachmentMetadata, "drive_asset_id">[]
 ) {

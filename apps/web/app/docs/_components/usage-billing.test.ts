@@ -20,7 +20,7 @@ describe("UsageBilling", () => {
     expect(html).toContain("Video placeholder")
     expect(html).toContain("Image placeholder")
     expect(html).not.toContain("/docs/captures/")
-    expect(html).toContain("/w/settings/billing")
+    expect(html).toContain("/w/billing")
     expect(html).not.toContain("<img")
     expect(html).not.toContain("conversation")
     expect(html).not.toContain("Gumloop")

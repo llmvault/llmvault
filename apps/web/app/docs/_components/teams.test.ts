@@ -11,7 +11,7 @@ describe("Teams", () => {
     expect(html).toContain("Create a team for durable ownership")
     expect(html).toContain("Team details and resource access")
     expect(html).toContain("Create a team and set its access")
-    expect(html).toContain("/w/settings/teams")
+    expect(html).toContain("/w/teams")
     expect(html).toContain("/docs/agents/configure-an-agent")
     expect(html).not.toContain(".jpg")
   })

@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import ScrollToBottom from "react-scroll-to-bottom"
 import { $api } from "@/lib/api/hooks"
 import { extractErrorMessage } from "@/lib/api/error"
+import { useAuth } from "@/lib/auth/auth-context"
 import { Composer } from "@/app/w/(chat)/_components/composer"
 import { Conversation } from "@/app/w/(chat)/_components/conversation"
 import { ExternalSessionNotice } from "@/app/w/(chat)/_components/external-session-notice"
@@ -33,6 +34,7 @@ import {
 import { subagentOpenTarget } from "@/app/w/(chat)/_lib/session-subagent-open"
 import {
   eventTurnIDs,
+  normalizedTurnID,
   replayModeForLoadedSession,
   suppressBackendEventsForLiveTurn,
   suppressBackendEventsForLiveTurns,
@@ -80,6 +82,8 @@ export function SessionThreadView({
   sessionId?: string
 }) {
   const queryClient = useQueryClient()
+  const { activeOrg } = useAuth()
+  const activeOrgId = activeOrg?.id
   const liveEvents = useSessionLiveEvents(sessionId)
   const liveSubagentRuns = useSessionSubagentRuns(sessionId)
   const openBrowserURL = useSessionWorkspaceStore(
@@ -295,11 +299,13 @@ export function SessionThreadView({
     if (turnActive && !activeBackendTurnID) return
     ensureSessionStream(sessionId, {
       queryClient,
+      orgId: activeOrgId,
       replay: replayModeForLoadedSession(activeBackendTurnID),
     })
-    ensureSessionNotices(sessionId, { queryClient })
+    ensureSessionNotices(sessionId, { queryClient, orgId: activeOrgId })
   }, [
     activeBackendTurnID,
+    activeOrgId,
     historyLoadedForStream,
     temporarySession,
     queryClient,
@@ -368,6 +374,7 @@ export function SessionThreadView({
         hydrateSessionRuntimeFromResponse(response.session, queryClient)
         ensureSessionStream(sessionId, {
           queryClient,
+          orgId: activeOrgId,
           replay: replayModeForLoadedSession(
             normalizedTurnID(response.session.agent_turn_id)
           ),
@@ -512,10 +519,6 @@ export function SessionThreadView({
       </div>
     </div>
   )
-}
-
-function normalizedTurnID(value: unknown) {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined
 }
 
 function appendLiveSessionEvent(

@@ -64,25 +64,6 @@ export function codeLineCommentReferenceFromPayload(
   }
 }
 
-function codeLineCommentReferenceToPayload(
-  comment: CodeLineCommentReference
-): CodeLineCommentPayload {
-  return {
-    id: comment.id,
-    source_key: comment.sourceKey,
-    source_kind: comment.sourceKind,
-    path: comment.path,
-    display_path: comment.displayPath,
-    repo_id: comment.repoId,
-    repo_name: comment.repoName,
-    repo_path: comment.repoPath,
-    line_number: comment.lineNumber,
-    side: comment.side,
-    body: comment.body,
-    created_at: comment.createdAt,
-  }
-}
-
 export function formatCodeLineCommentLocation(
   comment: Pick<
     CodeLineCommentReference,

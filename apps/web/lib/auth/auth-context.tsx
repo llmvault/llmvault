@@ -10,7 +10,7 @@ import {
   useRef,
 } from "react"
 import { useRouter } from "next/navigation"
-import { useQueryClient, type QueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
 import type { components } from "@/lib/api/schema"
@@ -20,47 +20,27 @@ import {
   stopAllSessionStreams,
 } from "@/app/w/(chat)/_stores/session-stream-manager"
 import { clearPersistedSessionWorkspaces } from "@/app/w/(chat)/_stores/session-workspace-store"
+import {
+  getActiveOrgIdFromCookie,
+  setActiveOrgCookie,
+  switchActiveOrg,
+} from "@/lib/auth/workspace-switch"
+
+export { switchActiveOrg } from "@/lib/auth/workspace-switch"
 
 type User = components["schemas"]["userResponse"]
 type Org = components["schemas"]["orgMemberDTO"]
 
-const ACTIVE_ORG_COOKIE = "hivy_active_org"
-
-function getOrgIdFromCookie(): string | null {
-  if (typeof document === "undefined") return null
-  const match = document.cookie.match(
-    new RegExp(`(?:^|; )${ACTIVE_ORG_COOKIE}=([^;]+)`)
-  )
-  return match ? decodeURIComponent(match[1]) : null
-}
-
-function setOrgIdCookie(orgId: string) {
-  document.cookie = `${ACTIVE_ORG_COOKIE}=${encodeURIComponent(orgId)}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
-}
-
 /**
- * Single writer for the active-org switch. auth-context owns the org cookie —
- * nothing else should ever write `hivy_active_org` directly. Writes the cookie
- * and does a FULL cache invalidation so no query from the previous org survives
- * (query keys are not org-scoped). Callers that live outside AuthProvider
- * (e.g. the invite-accept page) use this helper; callers inside use
- * `setActiveOrg` from `useAuth`, which delegates here.
+ * auth-context remains the UI owner of active-org state. The transition helper
+ * owns the cookie, query isolation, and resumable live-session handoff.
  */
-export async function switchActiveOrg(
-  queryClient: QueryClient,
-  orgId: string | undefined | null
-): Promise<void> {
-  if (!orgId) return
-  setOrgIdCookie(orgId)
-  await queryClient.invalidateQueries()
-}
-
 interface AuthContextValue {
   user: User | null
   orgs: Org[]
   activeOrg: Org | null
-  setActiveOrg: (org: Org) => void
-  addOrg: (org: Org) => void
+  setActiveOrg: (org: Org) => Promise<void>
+  addOrg: (org: Org) => Promise<void>
   logout: () => Promise<void>
   isLoading: boolean
 }
@@ -88,7 +68,7 @@ export function AuthProvider({
   const orgs = (data?.orgs as Org[]) ?? []
 
   const [activeOrgId, setActiveOrgId] = useState<string | null>(() =>
-    getOrgIdFromCookie()
+    getActiveOrgIdFromCookie()
   )
 
   const activeOrg =
@@ -111,29 +91,33 @@ export function AuthProvider({
     const nextOrgId = activeOrg?.id
     if (nextOrgId && nextOrgId !== activeOrgId) {
       queueMicrotask(() => setActiveOrgId(nextOrgId))
-      setOrgIdCookie(nextOrgId)
+      setActiveOrgCookie(nextOrgId)
     }
   }, [activeOrg?.id, activeOrgId])
 
   const setActiveOrg = useCallback(
-    (org: Org) => {
-      if (org.id) {
-        setActiveOrgId(org.id)
-        void switchActiveOrg(queryClient, org.id)
-      }
+    async (org: Org) => {
+      if (!org.id || org.id === activeOrg?.id) return
+      router.replace("/w")
+      await switchActiveOrg(queryClient, org.id, {
+        previousOrgId: activeOrg?.id,
+        activate: () => setActiveOrgId(org.id ?? null),
+      })
     },
-    [queryClient]
+    [activeOrg?.id, queryClient, router]
   )
 
   const addOrg = useCallback(
-    (org: Org) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.authMe() })
-      if (org.id) {
-        setActiveOrgId(org.id)
-        setOrgIdCookie(org.id)
-      }
+    async (org: Org) => {
+      if (!org.id) return
+      await queryClient.invalidateQueries({ queryKey: queryKeys.authMe() })
+      router.replace("/w")
+      await switchActiveOrg(queryClient, org.id, {
+        previousOrgId: activeOrg?.id,
+        activate: () => setActiveOrgId(org.id ?? null),
+      })
     },
-    [queryClient]
+    [activeOrg?.id, queryClient, router]
   )
 
   const logout = useCallback(async () => {

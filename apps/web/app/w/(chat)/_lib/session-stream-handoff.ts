@@ -37,6 +37,10 @@ export function replayModeForLoadedSession(activeTurnID?: string) {
     : ({ mode: "none" } satisfies GoSessionStreamReplayMode)
 }
 
+export function normalizedTurnID(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined
+}
+
 export function suppressBackendEventsForLiveTurn(
   events: SessionEventResponse[],
   activeTurnID?: string

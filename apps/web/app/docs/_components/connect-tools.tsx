@@ -161,7 +161,7 @@ export function ConnectTools() {
             off an optional connection for that agent. Required catalog
             connections remain on until you uninstall the catalog agent.
           </p>
-          <DocLink href="/w/settings/teams">Open team settings</DocLink>
+          <DocLink href="/w/teams">Open team settings</DocLink>
         </DocSection>
 
         <DocsMediaPlaceholder

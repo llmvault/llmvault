@@ -117,7 +117,7 @@ export function KnowledgeAccessControl() {
             grants. The agent cannot switch teams behind the search or cross
             that boundary.
           </p>
-          <DocLink href="/w/settings/knowledge">
+          <DocLink href="/w/knowledge">
             Open Knowledge settings
           </DocLink>
         </DocSection>

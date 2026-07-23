@@ -53,7 +53,7 @@ describe("internal app links", () => {
   it("only cards curated agent-facing links, not every /w/ URL", () => {
     // A mix: the templated edit-agent link + non-templated app links.
     const targets = internalAppLinkTargets(
-      `${agentUrl} https://usehivy.test/w/connections https://usehivy.test/w/settings/general`
+      `${agentUrl} https://usehivy.test/w/connections https://usehivy.test/w/general`
     )
     expect(targets.map((t) => t.href)).toEqual([agentHref])
   })

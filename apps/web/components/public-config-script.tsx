@@ -1,5 +1,8 @@
 import { headers } from "next/headers"
-import { PUBLIC_CONFIG_KEY, serializePublicConfig } from "@/lib/config/public-config"
+import {
+  PUBLIC_CONFIG_KEY,
+  serializePublicConfig,
+} from "@/lib/config/public-config"
 
 // Injects the runtime public config into the initial HTML as
 // window.__HIVY_ENV__, read at REQUEST time (not build time) so a prebuilt image
@@ -11,8 +14,9 @@ export async function PublicConfigScript() {
   const json = serializePublicConfig()
   return (
     <script
-      // eslint-disable-next-line react/no-danger -- inline env bootstrap; value is JSON with < escaped
-      dangerouslySetInnerHTML={{ __html: `window.${PUBLIC_CONFIG_KEY} = ${json};` }}
+      dangerouslySetInnerHTML={{
+        __html: `window.${PUBLIC_CONFIG_KEY} = ${json};`,
+      }}
     />
   )
 }

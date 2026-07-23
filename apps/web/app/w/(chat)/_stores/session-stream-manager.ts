@@ -33,6 +33,8 @@ interface StreamControllerRecord {
   reconnect?: ReturnType<typeof setTimeout>
   queryClient: QueryClient
   stopped: boolean
+  orgId?: string
+  replay?: GoSessionStreamReplayMode
   forceAccessRefresh?: boolean
   authRefreshAttempts?: number
   replayKey?: string
@@ -40,19 +42,26 @@ interface StreamControllerRecord {
 
 interface EnsureStreamOptions {
   queryClient: QueryClient
+  orgId?: string
   replay?: GoSessionStreamReplayMode
   forceAccessRefresh?: boolean
   authRefreshAttempts?: number
 }
 
 const controllers = new Map<string, StreamControllerRecord>()
+const suspendedStreamsByOrg = new Map<
+  string,
+  Map<string, GoSessionStreamReplayMode | undefined>
+>()
 
 interface NoticeControllerRecord {
   abort: AbortController
   stopped: boolean
+  orgId?: string
 }
 
 const noticeControllers = new Map<string, NoticeControllerRecord>()
+const suspendedNoticesByOrg = new Map<string, Set<string>>()
 
 export function hydrateSessionRuntimeFromResponse(
   session: SessionResponse | undefined,
@@ -79,6 +88,7 @@ export function ensureSessionStream(
   const existing = controllers.get(sessionId)
   if (existing && !existing.stopped && !existing.reconnect) {
     existing.queryClient = options.queryClient
+    existing.orgId = options.orgId
     resetWatchdog(sessionId, existing)
     return
   }
@@ -91,6 +101,8 @@ export function ensureSessionStream(
     abort,
     queryClient: options.queryClient,
     stopped: false,
+    orgId: options.orgId,
+    replay: options.replay,
     forceAccessRefresh: options.forceAccessRefresh,
     authRefreshAttempts: options.authRefreshAttempts,
     replayKey: nextReplayKey,
@@ -122,17 +134,22 @@ export async function interruptSessionTurn(
 
 export function stopAllSessionStreams() {
   for (const sessionId of controllers.keys()) stopController(sessionId)
+  suspendedStreamsByOrg.clear()
 }
 
 export function ensureSessionNotices(
   sessionId: string,
-  options: { queryClient: QueryClient }
+  options: { queryClient: QueryClient; orgId?: string }
 ) {
   const existing = noticeControllers.get(sessionId)
-  if (existing && !existing.stopped) return
+  if (existing && !existing.stopped) {
+    existing.orgId = options.orgId
+    return
+  }
   const controller: NoticeControllerRecord = {
     abort: new AbortController(),
     stopped: false,
+    orgId: options.orgId,
   }
   noticeControllers.set(sessionId, controller)
   void runSessionNotices(sessionId, controller, options.queryClient)
@@ -141,6 +158,57 @@ export function ensureSessionNotices(
 export function stopAllSessionNotices() {
   for (const sessionId of noticeControllers.keys()) {
     stopNoticeController(sessionId)
+  }
+  suspendedNoticesByOrg.clear()
+}
+
+export function suspendSessionConnectionsForOrg(orgId: string) {
+  const suspendedStreams =
+    suspendedStreamsByOrg.get(orgId) ??
+    new Map<string, GoSessionStreamReplayMode | undefined>()
+  const suspendedNotices = suspendedNoticesByOrg.get(orgId) ?? new Set<string>()
+
+  for (const [sessionId, controller] of controllers) {
+    if (controller.orgId !== orgId) continue
+    if (sessionHasActiveTurn(sessionId)) {
+      const cursor =
+        useSessionRuntimeStore.getState().cursorBySessionId[sessionId]
+      suspendedStreams.set(sessionId, cursor ? undefined : controller.replay)
+    }
+    stopController(sessionId, { keepStatus: true })
+  }
+  for (const [sessionId, controller] of noticeControllers) {
+    if (controller.orgId !== orgId) continue
+    if (sessionHasActiveTurn(sessionId)) suspendedNotices.add(sessionId)
+    stopNoticeController(sessionId)
+  }
+
+  if (suspendedStreams.size > 0) {
+    suspendedStreamsByOrg.set(orgId, suspendedStreams)
+  } else {
+    suspendedStreamsByOrg.delete(orgId)
+  }
+  if (suspendedNotices.size > 0) {
+    suspendedNoticesByOrg.set(orgId, suspendedNotices)
+  } else {
+    suspendedNoticesByOrg.delete(orgId)
+  }
+}
+
+export function resumeSessionConnectionsForOrg(
+  orgId: string,
+  queryClient: QueryClient
+) {
+  const suspendedStreams = suspendedStreamsByOrg.get(orgId)
+  const suspendedNotices = suspendedNoticesByOrg.get(orgId)
+  suspendedStreamsByOrg.delete(orgId)
+  suspendedNoticesByOrg.delete(orgId)
+
+  for (const [sessionId, replay] of suspendedStreams ?? []) {
+    ensureSessionStream(sessionId, { queryClient, orgId, replay })
+  }
+  for (const sessionId of suspendedNotices ?? []) {
+    ensureSessionNotices(sessionId, { queryClient, orgId })
   }
 }
 
@@ -251,7 +319,8 @@ async function runSessionStream(
         controller.queryClient,
         attemptedReplay
           ? replayForStreamReconnect(sessionId, attemptedReplay)
-          : undefined
+          : undefined,
+        { orgId: controller.orgId }
       )
     }
   } catch (error) {
@@ -266,6 +335,7 @@ async function runSessionStream(
         controller.queryClient,
         replayOverride,
         {
+          orgId: controller.orgId,
           forceAccessRefresh: true,
           authRefreshAttempts: (controller.authRefreshAttempts ?? 0) + 1,
         }
@@ -278,7 +348,8 @@ async function runSessionStream(
         controller.queryClient,
         attemptedReplay
           ? replayForStreamReconnect(sessionId, attemptedReplay)
-          : undefined
+          : undefined,
+        { orgId: controller.orgId }
       )
       return
     }
@@ -298,9 +369,14 @@ function handleSessionStreamFrame(
   if (frame.event === "resync_required") {
     controller.abort.abort()
     void refreshSessionQueries(controller.queryClient, sessionId).finally(() =>
-      reconnectSessionStream(sessionId, controller.queryClient, {
-        mode: "all",
-      })
+      reconnectSessionStream(
+        sessionId,
+        controller.queryClient,
+        {
+          mode: "all",
+        },
+        { orgId: controller.orgId }
+      )
     )
     return
   }
@@ -334,6 +410,7 @@ function reconnectSessionStream(
   queryClient: QueryClient,
   replay?: GoSessionStreamReplayMode,
   options: {
+    orgId?: string
     forceAccessRefresh?: boolean
     authRefreshAttempts?: number
   } = {}
@@ -349,6 +426,7 @@ function reconnectSessionStream(
     controllers.delete(sessionId)
     ensureSessionStream(sessionId, {
       queryClient,
+      orgId: options.orgId,
       replay,
       forceAccessRefresh: options.forceAccessRefresh,
       authRefreshAttempts: options.authRefreshAttempts,
@@ -359,10 +437,22 @@ function reconnectSessionStream(
     queryClient,
     stopped: false,
     reconnect,
+    orgId: options.orgId,
+    replay,
     forceAccessRefresh: options.forceAccessRefresh,
     authRefreshAttempts: options.authRefreshAttempts,
     replayKey: replayKey(replay),
   })
+}
+
+function sessionHasActiveTurn(sessionId: string) {
+  const status =
+    useSessionRuntimeStore.getState().statusBySessionId[sessionId]?.status
+  return (
+    status === "queued" ||
+    status === "streaming" ||
+    status === "waiting_for_user"
+  )
 }
 
 function resetReconnect(sessionId: string) {

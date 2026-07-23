@@ -6,8 +6,6 @@ import { useAuth } from "./auth-context"
 // member` — an owner can do everything an admin can, an admin everything a
 // member can. These mirror the backend authorization tiers; the backend is
 // still the source of truth, the helpers here only gate the UI.
-type OrgRole = "owner" | "admin" | "member"
-
 // isOwnerRole reports whether the role owns the org. Owner-only mutations
 // (transfer ownership, delete org, granting/revoking the owner role) gate on
 // this.

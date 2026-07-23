@@ -18,7 +18,9 @@ vi.mock("@/app/w/(chat)/_lib/go-session-stream", async (importOriginal) => {
 
 import {
   ensureSessionStream,
+  resumeSessionConnectionsForOrg,
   stopAllSessionStreams,
+  suspendSessionConnectionsForOrg,
 } from "@/app/w/(chat)/_stores/session-stream-manager"
 import { useSessionRuntimeStore } from "@/app/w/(chat)/_stores/session-runtime-store"
 import { getSessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
@@ -134,6 +136,53 @@ describe("session stream manager", () => {
     expect(subscribeToGoSessionStreamMock).toHaveBeenCalledTimes(1)
     expect(subscribeToGoSessionStreamMock).toHaveBeenCalledWith(
       expect.objectContaining({ replay: { mode: "none" } })
+    )
+  })
+
+  it("suspends an active workspace stream and resumes from its cursor", async () => {
+    getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
+    const signals: AbortSignal[] = []
+    subscribeToGoSessionStreamMock.mockImplementation(({ signal }) => {
+      signals.push(signal)
+      return new Promise<void>((resolve) => {
+        signal.addEventListener("abort", () => resolve(), { once: true })
+      })
+    })
+    useSessionRuntimeStore.setState({
+      statusBySessionId: {
+        "session-1": {
+          status: "streaming",
+          updatedAt: Date.now(),
+        },
+      },
+      cursorBySessionId: {
+        "session-1": {
+          streamId: "stream-1",
+          sequence: 42,
+        },
+      },
+    })
+
+    const queryClient = testQueryClient()
+    ensureSessionStream("session-1", {
+      queryClient,
+      orgId: "org-a",
+      replay: { mode: "from_turn_id_follow", turnId: "turn-1" },
+    })
+    await flushAsync()
+
+    suspendSessionConnectionsForOrg("org-a")
+    expect(signals[0]?.aborted).toBe(true)
+
+    resumeSessionConnectionsForOrg("org-a", queryClient)
+    await flushAsync()
+
+    expect(subscribeToGoSessionStreamMock).toHaveBeenCalledTimes(2)
+    expect(subscribeToGoSessionStreamMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        replay: { mode: "after_seq", afterSeq: 42 },
+      })
     )
   })
 

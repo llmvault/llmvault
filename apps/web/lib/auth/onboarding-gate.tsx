@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { Fragment, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth/auth-context"
 
@@ -18,5 +18,5 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
   }, [isLoading, needsOnboarding, pathname, router])
 
   if (isLoading || needsOnboarding) return null
-  return children
+  return <Fragment key={activeOrg?.id}>{children}</Fragment>
 }

@@ -30,7 +30,6 @@ export {
 export type {
   WorkspaceRepoTreeCache,
   WorkspaceUploadItem,
-  
 } from "./session-workspace-types"
 
 type SessionWorkspaceStatus = "idle" | "hydrating" | "ready"
@@ -474,14 +473,6 @@ export function useSessionWorkspaceHydration(scope: WorkspaceScope) {
   useEffect(() => {
     setScope({ orgId, userId })
   }, [orgId, setScope, userId])
-}
-
-function sessionWorkspaceSnapshot(sessionId?: string) {
-  if (!sessionId) return DEFAULT_SESSION_WORKSPACE
-  return (
-    useSessionWorkspaceStore.getState().workspaces[sessionId] ??
-    DEFAULT_SESSION_WORKSPACE
-  )
 }
 
 export function selectSessionWorkspace(

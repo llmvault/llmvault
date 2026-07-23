@@ -1,15 +1,9 @@
 "use client"
 
-import {
-  createContext,
-  useContext,
-  useMemo,
-  type ReactNode,
-} from "react"
+import { createContext, useContext, useMemo, type ReactNode } from "react"
 import type { AnnotationSide } from "@pierre/diffs/react"
 import {
   formatCodeLineCommentLine as formatPersistedCodeLineCommentLine,
-  formatCodeLineCommentLocation as formatPersistedCodeLineCommentLocation,
   type CodeLineCommentPayload,
 } from "@/app/w/(chat)/_lib/code-line-comments"
 import {
@@ -155,22 +149,6 @@ export function createCodeLineCommentSource(
   }
 }
 
-function composeMessageWithLineComments(
-  text: string,
-  comments: CodeLineComment[]
-) {
-  const trimmed = text.trim()
-  if (!comments.length) return trimmed
-  const commentBlock = [
-    "Code comments to address:",
-    ...comments.map(
-      (comment, index) =>
-        `${index + 1}. ${formatCodeLineCommentLocation(comment)}\n${indentCommentBody(comment.body)}`
-    ),
-  ].join("\n\n")
-  return trimmed ? `${trimmed}\n\n${commentBlock}` : commentBlock
-}
-
 export function codeLineCommentPayloads(
   comments: CodeLineComment[]
 ): CodeLineCommentPayload[] {
@@ -188,15 +166,6 @@ export function codeLineCommentPayloads(
     body: comment.body,
     created_at: comment.createdAt,
   }))
-}
-
-function formatCodeLineCommentLocation(comment: CodeLineComment) {
-  return formatPersistedCodeLineCommentLocation({
-    displayPath: comment.displayPath,
-    path: comment.path,
-    lineNumber: comment.lineNumber,
-    side: comment.side,
-  })
 }
 
 export function formatCodeLineCommentLine(
@@ -226,14 +195,6 @@ function normalizePath(path?: string) {
       .replace(/^\/+|\/+$/g, "")
       .trim() ?? ""
   )
-}
-
-function indentCommentBody(body: string) {
-  return body
-    .trim()
-    .split("\n")
-    .map((line) => `   ${line}`)
-    .join("\n")
 }
 
 function createCommentId() {

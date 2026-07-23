@@ -152,7 +152,7 @@ function IndentedStatusRow({
 }) {
   return (
     <div
-      className={`flex items-center gap-2 rounded-lg py-1.5 pr-3 pl-9 text-sm ${
+      className={`flex items-center gap-2 rounded-lg py-1.5 pr-3 pl-6 text-sm ${
         muted ? "text-muted/60" : "text-muted"
       }`}
     >

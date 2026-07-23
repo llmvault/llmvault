@@ -144,7 +144,7 @@ export function KnowledgeSources() {
             </li>
           ))}
         </ol>
-        <DocLink href="/w/settings/knowledge/new">Add a source</DocLink>
+        <DocLink href="/w/knowledge/new">Add a source</DocLink>
       </section>
 
       <div className="mt-16 space-y-14 border-t border-border pt-14">
@@ -181,7 +181,7 @@ export function KnowledgeSources() {
             indexed titles and links. The list should match the scope you meant
             to add.
           </p>
-          <DocLink href="/w/settings/knowledge">
+          <DocLink href="/w/knowledge">
             Open Knowledge settings
           </DocLink>
         </DocSection>

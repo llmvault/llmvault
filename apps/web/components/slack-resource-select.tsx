@@ -4,7 +4,7 @@ import type { components } from "@/lib/api/schema"
 
 type AvailableResource = components["schemas"]["AvailableResource"]
 
-export type SlackConnectionOption = {
+type SlackConnectionOption = {
   id?: string
   name?: string
   display_name?: string

@@ -11,7 +11,7 @@ describe("KnowledgeAccessControl", () => {
     expect(html).toContain("Treat team grants as the access switch")
     expect(html).toContain("Source scope and team grants")
     expect(html).toContain("Change knowledge access safely")
-    expect(html).toContain("/w/settings/knowledge")
+    expect(html).toContain("/w/knowledge")
     expect(html).toContain("/docs/workspace-and-access/teams")
     expect(html).not.toContain(".jpg")
     expect(html).not.toContain("conversation")

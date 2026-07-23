@@ -161,6 +161,27 @@ func TestSkillHTTPCRUDAndTeamIsolation(t *testing.T) {
 	if orgCreated.Skill.TeamID != nil {
 		t.Fatalf("org skill unexpectedly team-scoped: %#v", orgCreated.Skill.TeamID)
 	}
+	adminList := do(&admin, http.MethodGet, "/skills", nil)
+	if adminList.Code != http.StatusOK {
+		t.Fatalf("admin list status=%d body=%s", adminList.Code, adminList.Body.String())
+	}
+	var adminListed struct {
+		Skills []struct {
+			ID string `json:"id"`
+		} `json:"skills"`
+	}
+	if err := json.NewDecoder(adminList.Body).Decode(&adminListed); err != nil {
+		t.Fatalf("decode admin list: %v", err)
+	}
+	adminSeen := map[string]bool{}
+	for _, skill := range adminListed.Skills {
+		adminSeen[skill.ID] = true
+	}
+	for _, want := range []string{created.Skill.ID, foreignTeamSkill.ID.String(), orgCreated.Skill.ID} {
+		if !adminSeen[want] {
+			t.Fatalf("admin list omitted org skill inventory item %s: %#v", want, adminSeen)
+		}
+	}
 	archiveOrg := do(&admin, http.MethodDelete, "/skills/"+orgCreated.Skill.ID, nil)
 	if archiveOrg.Code != http.StatusOK {
 		t.Fatalf("admin archive org skill status=%d body=%s", archiveOrg.Code, archiveOrg.Body.String())

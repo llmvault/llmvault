@@ -445,8 +445,6 @@ ci-test-cmd:
 
 ci-test-web:
 	cd apps/web && pnpm typecheck
-	node scripts/ci-web-plans-api.mjs & pid=$$!; \
-	trap 'kill $$pid' EXIT; \
 	HIVY_API_URL=http://127.0.0.1:18081 pnpm --dir apps/web build
 
 ci-test-web-unit:

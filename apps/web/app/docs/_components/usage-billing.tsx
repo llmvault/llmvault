@@ -82,7 +82,7 @@ export function UsageBilling() {
             before rolling an agent out more widely or assigning routine work to
             a pricier model.
           </p>
-          <DocLink href="/w/settings/billing">Open Usage &amp; billing</DocLink>
+          <DocLink href="/w/billing">Open Usage &amp; billing</DocLink>
         </DocSection>
 
         <DocSection title="Read a session price">

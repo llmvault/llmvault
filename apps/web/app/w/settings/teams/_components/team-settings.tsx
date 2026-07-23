@@ -1,18 +1,8 @@
 "use client"
 
-import { useMemo } from "react"
 import NextLink from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
-import {
-  Avatar,
-  Button,
-  Chip,
-  ListBox,
-  Select,
-  Skeleton,
-  Spinner,
-  toast,
-} from "@heroui/react"
+import { Avatar, Button, Chip, Skeleton, Spinner, toast } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
@@ -23,7 +13,7 @@ export { InviteMemberModal, TeamFormModal } from "./team-settings-modals"
 
 export type Team = components["schemas"]["teamResponse"]
 export type Member = components["schemas"]["orgMemberResponse"]
-export type Invite = components["schemas"]["orgInviteResponse"]
+type Invite = components["schemas"]["orgInviteResponse"]
 export type TeamMember = components["schemas"]["teamMemberResponse"]
 
 export const TEAMS_KEY = ["get", "/v1/orgs/current/teams"] as const
@@ -64,17 +54,17 @@ export function teamMap(teams: Team[]) {
 }
 
 export function TeamRow({ team, last }: { team: Team; last?: boolean }) {
-  const href = team.id ? `/w/settings/teams/${team.id}` : "/w/settings/teams"
+  const href = team.id ? `/w/teams/${team.id}` : "/w/teams"
 
   return (
     <NextLink
       href={href}
       className={cn(
-        "group hover:bg-default flex items-center gap-3 px-4 py-3.5 transition-colors",
+        "group flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-default",
         last ? "" : "border-b border-border"
       )}
     >
-      <span className="bg-default flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground">
+      <span className="text-muted-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-default">
         <AppIcon icon="users-round" className="h-4 w-4" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -93,39 +83,6 @@ export function TeamRow({ team, last }: { team: Team; last?: boolean }) {
         className="h-4 w-4 shrink-0 text-muted transition-colors group-hover:text-foreground"
       />
     </NextLink>
-  )
-}
-
-function MemberRow({
-  member,
-  isYou,
-  last,
-}: {
-  member: Member
-  isYou: boolean
-  last?: boolean
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-3 px-4 py-3.5",
-        last ? "" : "border-b border-border"
-      )}
-    >
-      <Avatar size="sm" className="shrink-0">
-        <Avatar.Fallback>{initials(member.name, member.email)}</Avatar.Fallback>
-      </Avatar>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-medium">
-          {memberLabel(member)}
-          {isYou ? <span className="text-muted"> (You)</span> : null}
-        </span>
-        <span className="truncate text-sm text-muted">{member.email}</span>
-      </div>
-      <Chip size="sm" color={member.role === "owner" ? "accent" : "default"}>
-        {roleLabel(member.role)}
-      </Chip>
-    </div>
   )
 }
 

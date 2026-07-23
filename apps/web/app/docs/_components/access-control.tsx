@@ -107,7 +107,7 @@ export function AccessControl() {
             Once the recipient accepts, Hivy adds them to those teams. They must
             sign in with the address that received the invitation.
           </p>
-          <DocLink href="/w/settings/teams">Open team settings</DocLink>
+          <DocLink href="/w/teams">Open team settings</DocLink>
         </DocSection>
 
         <DocSection title="Manage pending invitations">

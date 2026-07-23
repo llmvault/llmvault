@@ -1,4 +1,3 @@
-import { cookies } from "next/headers"
 import { log } from "@/lib/logger"
 
 const COOKIE_NAME = "__session"
@@ -31,7 +30,12 @@ async function getKey(): Promise<CryptoKey> {
   ])
 
   cachedKey = await crypto.subtle.deriveKey(
-    { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(32), info: new TextEncoder().encode("session") },
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: new Uint8Array(32),
+      info: new TextEncoder().encode("session"),
+    },
     base,
     { name: "AES-GCM", length: 256 },
     false,
@@ -87,13 +91,6 @@ async function decrypt(cookie: string): Promise<SessionData | null> {
 // Cookie helpers
 // ---------------------------------------------------------------------------
 
-async function getSession(): Promise<SessionData | null> {
-  const store = await cookies()
-  const cookie = store.get(COOKIE_NAME)
-  if (!cookie?.value) return null
-  return decrypt(cookie.value)
-}
-
 export async function createSessionCookie(data: SessionData): Promise<string> {
   const value = await encrypt(data)
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : ""
@@ -102,10 +99,6 @@ export async function createSessionCookie(data: SessionData): Promise<string> {
 
 export function clearSessionCookie(): string {
   return `${COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`
-}
-
-function getSessionCookieName(): string {
-  return COOKIE_NAME
 }
 
 /**
