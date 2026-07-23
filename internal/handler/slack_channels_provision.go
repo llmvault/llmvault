@@ -15,10 +15,7 @@ import (
 // "slack_channel" keyed by Slack's stable channel ID.
 func (h *SlackResourceRouteValidator) ValidateExternalResourceRoute(ctx context.Context, conn model.Connection, resourceType, resourceKey string) error {
 	if conn.Integration.Provider != slackapp.Provider {
-		// The route table intentionally accepts arbitrary providers and resource
-		// types. Provider adapters opt into validation as they are added; the
-		// Slack adapter validates only Slack resources.
-		return nil
+		return newExternalResourceRouteValidationError("external resource routing currently supports Slack connections only")
 	}
 	if strings.TrimSpace(resourceType) != "slack_channel" {
 		return newExternalResourceRouteValidationError("resource_type is not supported for Slack")

@@ -13,17 +13,11 @@ export function AgentSelect({
   selectedAgentID,
   isLoading,
   onChange,
-  variant = "inline",
 }: {
   agents: SidebarAgentResponse[]
   selectedAgentID: string
   isLoading: boolean
   onChange: (agentID: string) => void
-  /**
-   * "inline" is the compact composer pill (default). "field" renders a
-   * full-width bordered control that matches the other form selects.
-   */
-  variant?: "inline" | "field"
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -54,7 +48,7 @@ export function AgentSelect({
             : "Select agent"
       }
       width="w-96"
-      variant={variant}
+      showIndicator={false}
     >
       <input
         type="text"
@@ -62,7 +56,7 @@ export function AgentSelect({
         onChange={(event) => setQuery(event.target.value)}
         placeholder="Search agents"
         aria-label="Search agents"
-        className="mx-1 mt-0.5 mb-1 rounded-lg border border-border bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted focus:border-primary"
+        className="focus:border-primary mx-1 mt-0.5 mb-1 rounded-lg border border-border bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted"
       />
       <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
         {isLoading ? (

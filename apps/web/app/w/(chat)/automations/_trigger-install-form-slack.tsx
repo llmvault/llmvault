@@ -26,7 +26,7 @@ import {
   resourceName,
   SlackConnectionSelect,
   SlackResourceSelect,
-} from "@/app/w/(chat)/automations/_slack-resource-select"
+} from "@/components/slack-resource-select"
 import {
   FieldSkeleton,
   FormSection,
@@ -394,7 +394,6 @@ export function SlackReactionInstallForm({
               selectedAgentID={activeAgentID}
               isLoading={agentsQuery.isLoading}
               onChange={setAgentID}
-              variant="field"
             />
           )}
         </FormSection>

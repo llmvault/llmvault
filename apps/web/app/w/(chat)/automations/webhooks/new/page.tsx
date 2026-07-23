@@ -179,7 +179,6 @@ export default function NewWebhookTriggerPage() {
                   selectedAgentID={activeAgentID}
                   isLoading={agentsLoading}
                   onChange={setAgentID}
-                  variant="field"
                 />
               )}
             </FormSection>

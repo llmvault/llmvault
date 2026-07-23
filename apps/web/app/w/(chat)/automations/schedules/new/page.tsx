@@ -187,7 +187,6 @@ export default function NewSchedulePage() {
                   selectedAgentID={activeAgentID}
                   isLoading={agentsLoading}
                   onChange={setAgentID}
-                  variant="field"
                 />
               )}
             </FormSection>

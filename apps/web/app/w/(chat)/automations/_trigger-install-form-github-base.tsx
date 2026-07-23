@@ -163,14 +163,8 @@ export function GithubMentionInstallFormBase({
     [activeResourceID, resources]
   )
   const activeTeamID = teamID || teams[0]?.id || ""
-  const { agents, isLoading: agentsLoading } = useTeamAgents(
-    activeTeamID
-  )
-  const activeAgentID = resolveTeamAgentID(
-    agents,
-    agentID,
-    undefined
-  )
+  const { agents, isLoading: agentsLoading } = useTeamAgents(activeTeamID)
+  const activeAgentID = resolveTeamAgentID(agents, agentID, undefined)
   const selectedAgent = useMemo(
     () => agents.find((agent) => agent.id === activeAgentID),
     [activeAgentID, agents]
@@ -421,7 +415,6 @@ export function GithubMentionInstallFormBase({
               selectedAgentID={activeAgentID}
               isLoading={agentsLoading}
               onChange={setAgentID}
-              variant="field"
             />
           )}
         </FormSection>

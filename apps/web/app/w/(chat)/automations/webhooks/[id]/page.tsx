@@ -310,7 +310,6 @@ function WebhookEditForm({ trigger }: { trigger: InstalledTrigger }) {
               selectedAgentID={activeAgentID}
               isLoading={agentsLoading}
               onChange={setAgentID}
-              variant="field"
             />
           )}
         </FormSection>

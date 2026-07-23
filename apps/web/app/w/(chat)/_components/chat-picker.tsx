@@ -21,6 +21,7 @@ export function Picker({
   variant = "inline",
   disabled = false,
   avatarOnly = false,
+  showIndicator = true,
   children,
 }: {
   open: boolean
@@ -40,6 +41,7 @@ export function Picker({
   variant?: "inline" | "field"
   disabled?: boolean
   avatarOnly?: boolean
+  showIndicator?: boolean
   children: ReactNode
 }) {
   const isField = variant === "field"
@@ -79,9 +81,7 @@ export function Picker({
           aria-disabled={disabled || undefined}
           className={cn(
             "flex max-w-[240px] items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition-colors",
-            disabled
-              ? "cursor-not-allowed opacity-70"
-              : "hover:bg-default"
+            disabled ? "cursor-not-allowed opacity-70" : "hover:bg-default"
           )}
         >
           {leading}
@@ -93,7 +93,7 @@ export function Picker({
               ) : null}
             </>
           )}
-          {disabled || avatarOnly ? null : (
+          {disabled || avatarOnly || !showIndicator ? null : (
             <AppIcon
               icon="chevron-down"
               className="h-3.5 w-3.5 shrink-0 text-muted"
@@ -135,7 +135,7 @@ export function PickerButton({
     <button
       type="button"
       onClick={onPress}
-      className="hover:bg-default flex shrink-0 items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors"
+      className="flex shrink-0 items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-default"
     >
       {agent ? (
         <AgentLogo agent={agent} className="h-5 w-5 rounded-md" />

@@ -55,6 +55,7 @@ export function ComposerTeamPicker({
             : "Select team"
       }
       width="w-64"
+      showIndicator={false}
     >
       <input
         type="text"
@@ -62,7 +63,7 @@ export function ComposerTeamPicker({
         onChange={(event) => setTeamQuery(event.target.value)}
         placeholder="Search teams"
         aria-label="Search teams"
-        className="mx-1 mt-0.5 mb-1 rounded-lg border border-border bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted focus:border-primary"
+        className="focus:border-primary mx-1 mt-0.5 mb-1 rounded-lg border border-border bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted"
       />
       <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
         {teamsLoading ? (
