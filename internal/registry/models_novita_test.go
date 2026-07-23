@@ -255,7 +255,7 @@ func TestNovitaRoutesAreDeclaredExplicitly(t *testing.T) {
 		primary       string
 	}{
 		{"deepseek-v4-flash", "deepseek/deepseek-v4-flash", "atlascloud"},
-		{"deepseek-v4-pro", "deepseek/deepseek-v4-pro", "atlascloud"},
+		{"deepseek-v4-pro", "deepseek/deepseek-v4-pro", "novita"},
 		{"glm-4.7", "zai-org/glm-4.7", "atlascloud"},
 		{"glm-4.7-flash", "zai-org/glm-4.7-flash", "novita"},
 		{"glm-5", "zai-org/glm-5", "atlascloud"},
@@ -264,7 +264,7 @@ func TestNovitaRoutesAreDeclaredExplicitly(t *testing.T) {
 		{"glm-5.2", "zai-org/glm-5.2", "novita"},
 		{"hy3", "tencent/hy3", "novita"},
 		{"kimi-k2.5", "moonshotai/kimi-k2.5", "atlascloud"},
-		{"kimi-k2.6", "moonshotai/kimi-k2.6", "atlascloud"},
+		{"kimi-k2.6", "moonshotai/kimi-k2.6", "novita"},
 		{"kimi-k2.7-code", "moonshotai/kimi-k2.7-code", "atlascloud"},
 		{"kimi-k3", "moonshotai/kimi-k3", "novita"},
 		{"ling-2.6-1t", "inclusionai/ling-2.6-1t", "novita"},

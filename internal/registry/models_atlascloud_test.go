@@ -218,7 +218,7 @@ func TestAtlasCloudLongCatModel(t *testing.T) {
 	}
 }
 
-func TestAtlasCloudPrimaryRoutesAreDeclaredExplicitly(t *testing.T) {
+func TestAtlasCloudRoutesAreDeclaredExplicitly(t *testing.T) {
 	tests := []struct {
 		canonicalID  string
 		atlasModelID string
@@ -268,11 +268,11 @@ func TestAtlasCloudPrimaryRoutesAreDeclaredExplicitly(t *testing.T) {
 			continue
 		}
 		wantAtlas := ModelRoute{ProviderID: "atlascloud", ModelID: test.atlasModelID}
-		if len(hivyModel.Routes) == 0 || hivyModel.Routes[0] != wantAtlas {
-			t.Errorf("%s declared routes = %#v, want Atlas first", test.canonicalID, hivyModel.Routes)
+		if !slices.Contains(hivyModel.Routes, wantAtlas) {
+			t.Errorf("%s declared routes = %#v, want Atlas route %#v", test.canonicalID, hivyModel.Routes, wantAtlas)
 		}
-		if len(hivyModel.ProxyRoutes) == 0 || hivyModel.ProxyRoutes[0] != wantAtlas {
-			t.Errorf("%s declared proxy routes = %#v, want Atlas first", test.canonicalID, hivyModel.ProxyRoutes)
+		if !slices.Contains(hivyModel.ProxyRoutes, wantAtlas) {
+			t.Errorf("%s declared proxy routes = %#v, want Atlas route %#v", test.canonicalID, hivyModel.ProxyRoutes, wantAtlas)
 		}
 		if !slices.Equal(hivyModel.Routes, hivyModel.ProxyRoutes) {
 			t.Errorf("%s routes and proxy routes differ: %#v != %#v", test.canonicalID, hivyModel.Routes, hivyModel.ProxyRoutes)
@@ -283,23 +283,14 @@ func TestAtlasCloudPrimaryRoutesAreDeclaredExplicitly(t *testing.T) {
 			t.Errorf("%s routes = %#v", test.canonicalID, routes)
 			continue
 		}
-		if routes[0] != wantAtlas {
-			t.Errorf("%s primary route = %#v", test.canonicalID, routes[0])
+		if !slices.Contains(routes, wantAtlas) {
+			t.Errorf("%s proxy routes = %#v, want Atlas route %#v", test.canonicalID, routes, wantAtlas)
 		}
 		if _, ok := Global().ResolveModel("atlascloud", test.canonicalID); !ok {
 			t.Errorf("%s Atlas route does not resolve", test.canonicalID)
 		}
 	}
 
-	atlasPrimaryCount := 0
-	for _, hivyModel := range supportedHivyModels {
-		if len(hivyModel.ProxyRoutes) > 0 && hivyModel.ProxyRoutes[0].ProviderID == "atlascloud" {
-			atlasPrimaryCount++
-		}
-	}
-	if atlasPrimaryCount != len(tests) {
-		t.Fatalf("explicit Atlas primary route count = %d, want %d", atlasPrimaryCount, len(tests))
-	}
 }
 
 func TestAtlasCloudDoesNotReplaceDirectPrimaryRoutes(t *testing.T) {
