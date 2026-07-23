@@ -17418,6 +17418,7 @@ export interface components {
         billingAccountResponse: {
             balance?: number;
             fee_basis_points?: number;
+            fx_minor_per_usd?: number;
             packs?: components["schemas"]["creditPackResponse"][];
             supported_currencies?: string[];
         };
@@ -17589,6 +17590,7 @@ export interface components {
             pack_id?: string;
             payment_method_id?: string;
             save_payment_method?: boolean;
+            subtotal_minor?: number;
         };
         createFieldRequest: {
             mutation_id?: string;

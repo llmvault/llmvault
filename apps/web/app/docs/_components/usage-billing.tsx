@@ -65,7 +65,7 @@ export function UsageBilling() {
       <DocsMediaPlaceholder
         type="video"
         title="Buy credits through Paystack"
-        description="Use a demo owner account to open Settings > Usage & billing, choose a fixed credit pack, compare its 12% fee and total, then select a saved card or a new card. Keep payment details out of frame."
+        description="Use a demo owner account to open Settings > Usage & billing, choose a preset or enter a custom deposit amount, compare its 12% fee and total, then select a saved card or a new card. Keep payment details out of frame."
         className="mt-12"
       />
 

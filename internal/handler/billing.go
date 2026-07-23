@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -30,6 +31,7 @@ func NewBillingHandler(db *gorm.DB, purchases *purchase.Service, credits *billin
 type billingAccountResponse struct {
 	Balance             int64                `json:"balance"`
 	FeeBasisPoints      int64                `json:"fee_basis_points"`
+	FXMinorPerUSD       int64                `json:"fx_minor_per_usd"`
 	SupportedCurrencies []string             `json:"supported_currencies"`
 	Packs               []creditPackResponse `json:"packs"`
 }
@@ -77,6 +79,7 @@ func (h *BillingHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, billingAccountResponse{
 		Balance:             balance,
 		FeeBasisPoints:      purchase.DepositFeeBasisPoints,
+		FXMinorPerUSD:       purchase.NGNMinorPerUSD,
 		SupportedCurrencies: []string{string(billing.CurrencyUSD), string(billing.CurrencyNGN)},
 		Packs:               packResponses,
 	})
@@ -84,10 +87,24 @@ func (h *BillingHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 
 type createCreditPurchaseRequest struct {
 	Currency          string  `json:"currency"`
-	PackID            string  `json:"pack_id"`
+	PackID            string  `json:"pack_id,omitempty"`
+	SubtotalMinor     *int64  `json:"subtotal_minor,omitempty"`
 	IdempotencyKey    string  `json:"idempotency_key"`
 	PaymentMethodID   *string `json:"payment_method_id,omitempty"`
 	SavePaymentMethod bool    `json:"save_payment_method"`
+}
+
+func normalizeCreateCreditPurchaseForRequest(w http.ResponseWriter, body createCreditPurchaseRequest) (createCreditPurchaseRequest, bool) {
+	body.Currency = strings.ToUpper(strings.TrimSpace(body.Currency))
+	body.PackID = strings.TrimSpace(body.PackID)
+	body.IdempotencyKey = strings.TrimSpace(body.IdempotencyKey)
+	hasPack := body.PackID != ""
+	hasCustomAmount := body.SubtotalMinor != nil
+	if hasPack == hasCustomAmount || (hasCustomAmount && *body.SubtotalMinor <= 0) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "provide either a credit pack or a positive custom amount"})
+		return createCreditPurchaseRequest{}, false
+	}
+	return body, true
 }
 
 type creditPurchaseResponse struct {
@@ -134,6 +151,10 @@ func (h *BillingHandler) CreatePurchase(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
+	var valid bool
+	if body, valid = normalizeCreateCreditPurchaseForRequest(w, body); !valid {
+		return
+	}
 	userID, ok := currentRequestUserID(r.Context())
 	if !ok || userID == nil {
 		writeJSON(w, http.StatusUnauthorized, errorResponse{Error: "missing user context"})
@@ -160,6 +181,7 @@ func (h *BillingHandler) CreatePurchase(w http.ResponseWriter, r *http.Request) 
 		Email:             user.Email,
 		Currency:          billing.Currency(body.Currency),
 		PackID:            body.PackID,
+		SubtotalMinor:     body.SubtotalMinor,
 		IdempotencyKey:    body.IdempotencyKey,
 		PaymentMethodID:   paymentMethodID,
 		SavePaymentMethod: body.SavePaymentMethod,

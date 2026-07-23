@@ -2,6 +2,8 @@ package purchase
 
 import "github.com/usehivy/hivy/internal/billing"
 
+const CustomPackID = "custom"
+
 type Pack struct {
 	ID            string
 	Currency      billing.Currency
@@ -38,6 +40,20 @@ func findPack(id string, currency billing.Currency) (Pack, bool) {
 		}
 	}
 	return Pack{}, false
+}
+
+func resolvePurchaseAmount(packID string, customSubtotalMinor *int64, currency billing.Currency) (string, int64, error) {
+	if customSubtotalMinor != nil {
+		if packID != "" || *customSubtotalMinor <= 0 {
+			return "", 0, ErrInvalidAmount
+		}
+		return CustomPackID, *customSubtotalMinor, nil
+	}
+	pack, ok := findPack(packID, currency)
+	if !ok {
+		return "", 0, ErrInvalidPack
+	}
+	return pack.ID, pack.SubtotalMinor, nil
 }
 
 func (s *Service) Packs() []PackQuote {

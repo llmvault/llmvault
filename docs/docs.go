@@ -16023,6 +16023,9 @@ const docTemplate = `{
                 "fee_basis_points": {
                     "type": "integer"
                 },
+                "fx_minor_per_usd": {
+                    "type": "integer"
+                },
                 "packs": {
                     "type": "array",
                     "items": {
@@ -16568,6 +16571,9 @@ const docTemplate = `{
                 },
                 "save_payment_method": {
                     "type": "boolean"
+                },
+                "subtotal_minor": {
+                    "type": "integer"
                 }
             }
         },

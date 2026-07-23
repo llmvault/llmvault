@@ -56,6 +56,7 @@ type CreateInput struct {
 	Email             string
 	Currency          billing.Currency
 	PackID            string
+	SubtotalMinor     *int64
 	IdempotencyKey    string
 	PaymentMethodID   *uuid.UUID
 	SavePaymentMethod bool
@@ -82,9 +83,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 	if !currency.IsValid() {
 		return nil, ErrInvalidCurrency
 	}
-	pack, ok := findPack(in.PackID, currency)
-	if !ok {
-		return nil, ErrInvalidPack
+	packID, subtotalMinor, err := resolvePurchaseAmount(in.PackID, in.SubtotalMinor, currency)
+	if err != nil {
+		return nil, err
 	}
 	var existing model.CreditPurchase
 	if err := s.db.WithContext(ctx).Where("org_id = ? AND idempotency_key = ?", in.OrgID, requestKey.String()).First(&existing).Error; err == nil {
@@ -93,12 +94,12 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		return nil, fmt.Errorf("load idempotent purchase: %w", err)
 	}
 
-	credits, fxMinorPerUSD, err := s.creditsForSubtotal(currency, pack.SubtotalMinor)
+	credits, fxMinorPerUSD, err := s.creditsForSubtotal(currency, subtotalMinor)
 	if err != nil {
 		return nil, err
 	}
-	fee, err := percentageCeil(pack.SubtotalMinor, DepositFeeBasisPoints)
-	if err != nil || pack.SubtotalMinor > math.MaxInt64-fee {
+	fee, err := percentageCeil(subtotalMinor, DepositFeeBasisPoints)
+	if err != nil || subtotalMinor > math.MaxInt64-fee {
 		return nil, ErrInvalidAmount
 	}
 	purchaseID := uuid.New()
@@ -106,7 +107,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		ID:                purchaseID,
 		OrgID:             in.OrgID,
 		CreatedByUserID:   &in.UserID,
-		PackID:            pack.ID,
+		PackID:            packID,
 		IdempotencyKey:    requestKey.String(),
 		PaymentMethodID:   in.PaymentMethodID,
 		SavePaymentMethod: in.SavePaymentMethod,
@@ -114,10 +115,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		ProviderRef:       purchaseID.String(),
 		Status:            model.CreditPurchasePending,
 		Currency:          string(currency),
-		SubtotalMinor:     pack.SubtotalMinor,
+		SubtotalMinor:     subtotalMinor,
 		FeeBasisPoints:    DepositFeeBasisPoints,
 		FeeMinor:          fee,
-		TotalMinor:        pack.SubtotalMinor + fee,
+		TotalMinor:        subtotalMinor + fee,
 		Credits:           credits,
 		FXMinorPerUSD:     fxMinorPerUSD,
 	}
@@ -136,7 +137,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		s.markFailed(ctx, purchase.ID)
 		return nil, err
 	}
-	metadata := map[string]string{"org_id": in.OrgID.String(), "purchase_id": purchase.ID.String(), "pack_id": pack.ID}
+	metadata := map[string]string{"org_id": in.OrgID.String(), "purchase_id": purchase.ID.String(), "pack_id": packID}
 	var session *billing.DepositSession
 	if in.PaymentMethodID != nil {
 		_, secret, loadErr := s.loadPaymentMethodSecret(ctx, in.OrgID, in.UserID, *in.PaymentMethodID, currency)

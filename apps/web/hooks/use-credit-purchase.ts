@@ -68,12 +68,14 @@ export function useCreditPurchase() {
     ({
       currency,
       packID,
+      subtotalMinor,
       paymentMethodID,
       savePaymentMethod,
       onComplete,
     }: {
       currency: "USD" | "NGN"
-      packID: string
+      packID?: string
+      subtotalMinor?: number
       paymentMethodID?: string
       savePaymentMethod: boolean
       onComplete?: () => void
@@ -83,6 +85,7 @@ export function useCreditPurchase() {
           body: {
             currency,
             pack_id: packID,
+            subtotal_minor: subtotalMinor,
             idempotency_key: crypto.randomUUID(),
             payment_method_id: paymentMethodID,
             save_payment_method: savePaymentMethod,

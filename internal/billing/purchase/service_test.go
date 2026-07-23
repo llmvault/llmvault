@@ -105,4 +105,25 @@ func TestCreditPacksEnforceCurrencyMinimumsAndFee(t *testing.T) {
 	}
 }
 
+func TestResolvePurchaseAmountAcceptsCustomSubtotal(t *testing.T) {
+	customSubtotal := int64(1_234)
+	packID, subtotal, err := resolvePurchaseAmount("", &customSubtotal, billing.CurrencyUSD)
+	if err != nil {
+		t.Fatalf("resolve custom amount: %v", err)
+	}
+	if packID != CustomPackID || subtotal != customSubtotal {
+		t.Fatalf("custom purchase = (%q, %d), want (%q, %d)", packID, subtotal, CustomPackID, customSubtotal)
+	}
+}
+
+func TestResolvePurchaseAmountRequiresPackOrCustomAmount(t *testing.T) {
+	customSubtotal := int64(500)
+	if _, _, err := resolvePurchaseAmount("usd_5", &customSubtotal, billing.CurrencyUSD); !errors.Is(err, ErrInvalidAmount) {
+		t.Fatalf("pack plus custom amount error = %v, want ErrInvalidAmount", err)
+	}
+	if _, _, err := resolvePurchaseAmount("", nil, billing.CurrencyUSD); !errors.Is(err, ErrInvalidPack) {
+		t.Fatalf("missing amount error = %v, want ErrInvalidPack", err)
+	}
+}
+
 const maxInt64 = int64(^uint64(0) >> 1)

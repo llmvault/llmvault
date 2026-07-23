@@ -46,6 +46,28 @@ func TestIntegration_PurchaseStoresAndReusesPaystackAuthorization(t *testing.T) 
 	credits := billing.NewCreditsService(db)
 	service := purchase.NewService(db, registry, credits, kms)
 
+	customSubtotal := int64(1_234)
+	custom, err := service.Create(ctx, purchase.CreateInput{
+		OrgID: org.ID, UserID: user.ID, Email: user.Email, Currency: billing.CurrencyUSD,
+		SubtotalMinor: &customSubtotal, IdempotencyKey: uuid.NewString(),
+	})
+	if err != nil {
+		t.Fatalf("create custom purchase: %v", err)
+	}
+	if custom.Purchase.PackID != purchase.CustomPackID ||
+		custom.Purchase.SubtotalMinor != customSubtotal ||
+		custom.Purchase.FeeMinor != 149 ||
+		custom.Purchase.TotalMinor != 1_383 ||
+		custom.Purchase.Credits != 12_340 {
+		t.Fatalf("custom purchase = %#v", custom.Purchase)
+	}
+	deposits := provider.Deposits()
+	if len(deposits) != 1 ||
+		deposits[0].AmountMinor != custom.Purchase.TotalMinor ||
+		deposits[0].Metadata["pack_id"] != purchase.CustomPackID {
+		t.Fatalf("custom deposit intent = %#v", deposits)
+	}
+
 	first, err := service.Create(ctx, purchase.CreateInput{
 		OrgID: org.ID, UserID: user.ID, Email: user.Email, Currency: billing.CurrencyUSD, PackID: "usd_10",
 		IdempotencyKey: uuid.NewString(), SavePaymentMethod: true,

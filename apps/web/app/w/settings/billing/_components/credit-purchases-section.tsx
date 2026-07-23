@@ -1,7 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { Button, Modal, Skeleton, Spinner, Switch, toast } from "@heroui/react"
+import {
+  Button,
+  Input,
+  Modal,
+  Skeleton,
+  Spinner,
+  Switch,
+  toast,
+} from "@heroui/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
@@ -11,12 +19,14 @@ import { useCreditPurchase } from "@/hooks/use-credit-purchase"
 import type { components } from "@/lib/api/schema"
 import {
   filterByPurchaseCurrency,
+  quoteCustomPurchase,
   resolveCompatiblePaymentMethodID,
   type PurchaseCurrency,
 } from "./purchase-currency"
 
 type Currency = PurchaseCurrency
 type PaymentMethod = components["schemas"]["billingPaymentMethodResponse"]
+const CUSTOM_AMOUNT_ID = "custom"
 
 const CURRENCY_LABELS: Record<Currency, string> = {
   USD: "US dollars",
@@ -135,6 +145,7 @@ function BuyCreditsModal({
   const { purchase, isPending } = useCreditPurchase()
   const [currency, setCurrency] = useState<Currency>("USD")
   const [packID, setPackID] = useState<string | null>(null)
+  const [customAmount, setCustomAmount] = useState("")
   const [paymentMethodID, setPaymentMethodID] = useState<string | null>(null)
   const [saveCard, setSaveCard] = useState(true)
 
@@ -146,7 +157,30 @@ function BuyCreditsModal({
     methodsQuery.data?.payment_methods ?? [],
     currency
   )
-  const selectedPack = packs.find((pack) => pack.id === packID) ?? packs[0]
+  const isCustomAmount = packID === CUSTOM_AMOUNT_ID
+  const selectedPack = isCustomAmount
+    ? undefined
+    : (packs.find((pack) => pack.id === packID) ?? packs[0])
+  const customQuote = quoteCustomPurchase(
+    customAmount,
+    currency,
+    accountQuery.data?.fee_basis_points ?? 0,
+    accountQuery.data?.fx_minor_per_usd ?? 0
+  )
+  const selectedSubtotalMinor = isCustomAmount
+    ? customQuote?.subtotalMinor
+    : selectedPack?.subtotal_minor
+  const selectedFeeMinor = isCustomAmount
+    ? customQuote?.feeMinor
+    : selectedPack?.fee_minor
+  const selectedTotalMinor = isCustomAmount
+    ? customQuote?.totalMinor
+    : selectedPack?.total_minor
+  const selectedCredits = isCustomAmount
+    ? customQuote?.credits
+    : selectedPack?.credits
+  const selectedFeeBasisPoints =
+    selectedPack?.fee_basis_points ?? accountQuery.data?.fee_basis_points ?? 0
   const effectiveMethodID = resolveCompatiblePaymentMethodID(
     methods,
     paymentMethodID
@@ -155,6 +189,7 @@ function BuyCreditsModal({
   const chooseCurrency = (choice: Currency) => {
     setCurrency(choice)
     setPackID(null)
+    setCustomAmount("")
     setPaymentMethodID(null)
   }
 
@@ -176,8 +211,19 @@ function BuyCreditsModal({
   }
 
   const submit = () => {
-    if (!selectedPack?.id) return
     const useNewCard = effectiveMethodID === "new"
+    if (isCustomAmount) {
+      if (!customQuote) return
+      purchase({
+        currency,
+        subtotalMinor: customQuote.subtotalMinor,
+        paymentMethodID: useNewCard ? undefined : effectiveMethodID,
+        savePaymentMethod: useNewCard && saveCard,
+        onComplete: () => onOpenChange(false),
+      })
+      return
+    }
+    if (!selectedPack?.id) return
     purchase({
       currency,
       packID: selectedPack.id,
@@ -233,9 +279,7 @@ function BuyCreditsModal({
 
                   <div>
                     <div className="flex items-center justify-between gap-4">
-                      <p className="text-sm font-medium">
-                        Choose a credit pack
-                      </p>
+                      <p className="text-sm font-medium">Choose an amount</p>
                       <span className="text-xs text-muted">{currency}</span>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-3">
@@ -261,7 +305,46 @@ function BuyCreditsModal({
                           </button>
                         )
                       })}
+                      <button
+                        type="button"
+                        onClick={() => setPackID(CUSTOM_AMOUNT_ID)}
+                        className={`rounded-xl border p-3 text-left transition-colors ${
+                          isCustomAmount
+                            ? "border-foreground bg-default"
+                            : "border-border hover:bg-default"
+                        }`}
+                      >
+                        <span className="block text-sm font-medium">
+                          Custom amount
+                        </span>
+                        <span className="text-xs text-muted">
+                          Enter any deposit amount
+                        </span>
+                      </button>
                     </div>
+                    {isCustomAmount ? (
+                      <div className="mt-3">
+                        <Input
+                          aria-label={`Custom amount in ${currency}`}
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={customAmount}
+                          onChange={(event) =>
+                            setCustomAmount(event.target.value)
+                          }
+                          aria-invalid={
+                            customAmount.length > 0 && !customQuote
+                              ? true
+                              : undefined
+                          }
+                        />
+                        <p className="mt-2 text-xs text-muted">
+                          {customQuote
+                            ? `${customQuote.credits.toLocaleString()} credits will be added after payment.`
+                            : `Enter a positive ${currency} amount with up to two decimal places.`}
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div>
@@ -342,31 +425,29 @@ function BuyCreditsModal({
                     </div>
                   ) : null}
 
-                  {selectedPack ? (
+                  {selectedTotalMinor !== undefined ? (
                     <div className="flex flex-col gap-2 border-t border-border pt-4 text-sm">
                       <div className="flex justify-between gap-4 text-muted">
-                        <span>Credit pack</span>
+                        <span>Credit deposit</span>
                         <span>
-                          {formatMoney(
-                            selectedPack.subtotal_minor ?? 0,
-                            currency
-                          )}
+                          {formatMoney(selectedSubtotalMinor ?? 0, currency)}
                         </span>
                       </div>
                       <div className="flex justify-between gap-4 text-muted">
+                        <span>Credits</span>
+                        <span>{(selectedCredits ?? 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between gap-4 text-muted">
                         <span>
-                          Deposit fee (
-                          {(selectedPack.fee_basis_points ?? 0) / 100}%)
+                          Deposit fee ({selectedFeeBasisPoints / 100}%)
                         </span>
                         <span>
-                          {formatMoney(selectedPack.fee_minor ?? 0, currency)}
+                          {formatMoney(selectedFeeMinor ?? 0, currency)}
                         </span>
                       </div>
                       <div className="flex justify-between gap-4 font-medium">
                         <span>Total charged</span>
-                        <span>
-                          {formatMoney(selectedPack.total_minor ?? 0, currency)}
-                        </span>
+                        <span>{formatMoney(selectedTotalMinor, currency)}</span>
                       </div>
                     </div>
                   ) : null}
@@ -384,13 +465,13 @@ function BuyCreditsModal({
               </Button>
               <Button
                 variant="primary"
-                isDisabled={!selectedPack || isPending}
+                isDisabled={selectedTotalMinor === undefined || isPending}
                 onPress={submit}
               >
                 {isPending ? <Spinner size="sm" /> : null}
                 Pay{" "}
-                {selectedPack
-                  ? formatMoney(selectedPack.total_minor ?? 0, currency)
+                {selectedTotalMinor !== undefined
+                  ? formatMoney(selectedTotalMinor, currency)
                   : ""}
               </Button>
             </Modal.Footer>

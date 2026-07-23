@@ -19597,6 +19597,9 @@
           "fee_basis_points": {
             "type": "integer"
           },
+          "fx_minor_per_usd": {
+            "type": "integer"
+          },
           "packs": {
             "type": "array",
             "items": {
@@ -20142,6 +20145,9 @@
           },
           "save_payment_method": {
             "type": "boolean"
+          },
+          "subtotal_minor": {
+            "type": "integer"
           }
         }
       },
