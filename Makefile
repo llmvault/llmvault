@@ -241,7 +241,12 @@ test:
 # three-master cluster declared in docker-compose.yml.
 test-redis-cluster:
 	docker compose up -d redis redis-2 redis-3 redis-cluster-init
-	@until docker compose exec -T redis redis-cli -p 16279 cluster info 2>/dev/null | grep -q 'cluster_state:ok'; do sleep 1; done
+	@ready=false; \
+	for attempt in $$(seq 1 60); do \
+		if docker compose exec -T redis redis-cli -p 16279 cluster info 2>/dev/null | grep -q 'cluster_state:ok'; then ready=true; break; fi; \
+		sleep 1; \
+	done; \
+	if [ "$$ready" != true ]; then docker compose logs redis redis-2 redis-3 redis-cluster-init; exit 1; fi
 	HIVY_REDIS_ADDR="" \
 	HIVY_REDIS_CLUSTER=true \
 	HIVY_REDIS_CLUSTER_ADDRS="$(TEST_REDIS_CLUSTER_ADDRS)" \

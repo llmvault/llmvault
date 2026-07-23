@@ -37,6 +37,8 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+      - name: prepare Compose environment
+        run: touch .env
       - name: test production-shaped Redis topology
         run: make test-redis-cluster
         timeout-minutes: 5

@@ -394,16 +394,16 @@ services:
         condition: service_healthy
     command: >
       sh -ec '
-        if redis-cli -h redis-1.localhost -p 16279 cluster info 2>/dev/null | grep -q "cluster_state:ok"; then
+        if redis-cli -h redis -p 16279 cluster info 2>/dev/null | grep -q "cluster_state:ok"; then
           exit 0;
         fi;
         redis-cli --cluster create \
-          redis-1.localhost:16279 \
-          redis-2.localhost:16280 \
-          redis-3.localhost:16281 \
+          redis:16279 \
+          redis-2:16280 \
+          redis-3:16281 \
           --cluster-replicas 0 \
           --cluster-yes;
-        until redis-cli -h redis-1.localhost -p 16279 cluster info | grep -q "cluster_state:ok"; do
+        until redis-cli -h redis -p 16279 cluster info | grep -q "cluster_state:ok"; do
           sleep 1;
         done
       '
