@@ -173,6 +173,40 @@ func TestEstimateCostUSD_NovitaUsesDirectoryPricing(t *testing.T) {
 	}
 }
 
+func TestEstimateCostUSD_EngyUsesLiveDirectoryPricing(t *testing.T) {
+	tests := []struct {
+		model                               string
+		input, output, cached               int64
+		inputPrice, outputPrice, cachePrice float64
+	}{
+		{"engy-glm-5.2", 17, 32, 0, 0.68, 1.5, 0.18},
+		{"engy-qwen3.6-35b-a3b", 15, 32, 0, 0.045, 0.3, 0.015},
+	}
+
+	for _, test := range tests {
+		t.Run(test.model, func(t *testing.T) {
+			cost, err := billing.EstimateCostUSD(
+				nil,
+				"engy",
+				test.model,
+				test.input,
+				test.output,
+				test.cached,
+			)
+			if err != nil {
+				t.Fatalf("EstimateCostUSD: %v", err)
+			}
+			fresh := test.input - test.cached
+			want := (float64(fresh)*test.inputPrice +
+				float64(test.cached)*test.cachePrice +
+				float64(test.output)*test.outputPrice) / 1_000_000
+			if math.Abs(cost-want) > 1e-12 {
+				t.Fatalf("cost = %.12f, want %.12f", cost, want)
+			}
+		})
+	}
+}
+
 func TestEstimateCostUSD_NovitaUsesCacheReadPrice(t *testing.T) {
 	const input, cached, output = int64(1000), int64(800), int64(500)
 	cost, err := billing.EstimateCostUSD(nil, "novita", "deepseek-v4-flash", input, output, cached)

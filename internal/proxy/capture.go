@@ -226,7 +226,13 @@ func (sc *streamingCapture) parseLine(line []byte) {
 	}
 	u := ParseStreamingChunk(sc.providerID, payload)
 	if u.InputTokens > 0 || u.OutputTokens > 0 {
-		sc.captured.Usage = toObserveUsage(u)
+		sc.captured.Usage.InputTokens = u.InputTokens
+		sc.captured.Usage.OutputTokens = u.OutputTokens
+		sc.captured.Usage.CachedTokens = u.CachedTokens
+		sc.captured.Usage.ReasoningTokens = u.ReasoningTokens
+	}
+	if u.ProviderCostUSD > 0 {
+		sc.captured.Usage.ProviderCostUSD = u.ProviderCostUSD
 	}
 	if sc.captured.GenerationID == "" {
 		if id := parseResponseID(payload); id != "" {
@@ -254,6 +260,7 @@ func toObserveUsage(u UsageData) observe.UsageData {
 		OutputTokens:    u.OutputTokens,
 		CachedTokens:    u.CachedTokens,
 		ReasoningTokens: u.ReasoningTokens,
+		ProviderCostUSD: u.ProviderCostUSD,
 	}
 }
 

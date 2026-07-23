@@ -66,6 +66,8 @@ const MODEL_LOGO_PROVIDERS = {
   "quantised-mimo-v2.5-pro": "xiaomi",
   "quantised-minimax-m2.5": "minimax",
   "quantised-qwen3.5-9b": "qwen",
+  "engy-glm-5.2": "z-ai",
+  "engy-qwen3.6-35b-a3b": "qwen",
   "minimax-m3": "minimax",
   "minimax-m2.7": "minimax",
   "glm-5.2": "z-ai",

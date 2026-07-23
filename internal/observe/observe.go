@@ -12,6 +12,7 @@ type UsageData struct {
 	OutputTokens    int
 	CachedTokens    int
 	ReasoningTokens int
+	ProviderCostUSD float64
 }
 
 // CapturedData holds all observability data extracted from a proxy round-trip.

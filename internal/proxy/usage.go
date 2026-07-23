@@ -13,6 +13,7 @@ type UsageData struct {
 	OutputTokens    int
 	CachedTokens    int
 	ReasoningTokens int
+	ProviderCostUSD float64
 }
 
 // ParseUsageNonStreaming extracts token usage from a complete (non-streaming)
@@ -25,7 +26,7 @@ func ParseUsageNonStreaming(providerID string, body []byte) UsageData {
 		return parseGoogleUsage(body)
 	default:
 		// OpenAI format is the most common default (also used by many proxies)
-		return parseOpenAIUsage(body)
+		return parseOpenAIUsage(providerID, body)
 	}
 }
 
@@ -44,9 +45,7 @@ func ParseUsageStreaming(providerID string, events []byte) UsageData {
 			continue
 		}
 		u := parseStreamingChunk(providerID, []byte(data))
-		if u.InputTokens > 0 || u.OutputTokens > 0 {
-			usage = u
-		}
+		mergeUsage(&usage, u)
 	}
 	return usage
 }
@@ -64,13 +63,13 @@ func parseStreamingChunk(providerID string, data []byte) UsageData {
 	case isGoogleProvider(providerID):
 		return parseGoogleUsage(data)
 	default:
-		return parseOpenAIStreamChunk(data)
+		return parseOpenAIStreamChunk(providerID, data)
 	}
 }
 
 // --- OpenAI format ---
 
-func parseOpenAIUsage(body []byte) UsageData {
+func parseOpenAIUsage(providerID string, body []byte) UsageData {
 	var resp struct {
 		Usage *struct {
 			PromptTokens        int `json:"prompt_tokens"`
@@ -83,27 +82,46 @@ func parseOpenAIUsage(body []byte) UsageData {
 				ReasoningTokens int `json:"reasoning_tokens"`
 			} `json:"completion_tokens_details"`
 		} `json:"usage"`
+		Engy *struct {
+			ChargedMicro int64 `json:"charged_micro"`
+		} `json:"x_engy"`
 	}
-	if err := json.Unmarshal(body, &resp); err != nil || resp.Usage == nil {
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return UsageData{}
 	}
-	u := UsageData{
-		InputTokens:     resp.Usage.PromptTokens,
-		OutputTokens:    resp.Usage.CompletionTokens,
-		ReasoningTokens: resp.Usage.ReasoningTokens,
+	u := UsageData{}
+	if resp.Usage != nil {
+		u.InputTokens = resp.Usage.PromptTokens
+		u.OutputTokens = resp.Usage.CompletionTokens
+		u.ReasoningTokens = resp.Usage.ReasoningTokens
+		if resp.Usage.PromptTokensDetails != nil {
+			u.CachedTokens = resp.Usage.PromptTokensDetails.CachedTokens
+		}
+		if resp.Usage.CompletionTokensDetails != nil {
+			u.ReasoningTokens = resp.Usage.CompletionTokensDetails.ReasoningTokens
+		}
 	}
-	if resp.Usage.PromptTokensDetails != nil {
-		u.CachedTokens = resp.Usage.PromptTokensDetails.CachedTokens
-	}
-	if resp.Usage.CompletionTokensDetails != nil {
-		u.ReasoningTokens = resp.Usage.CompletionTokensDetails.ReasoningTokens
+	if providerID == "engy" && resp.Engy != nil && resp.Engy.ChargedMicro > 0 {
+		u.ProviderCostUSD = float64(resp.Engy.ChargedMicro) / 1_000_000
 	}
 	return u
 }
 
-func parseOpenAIStreamChunk(data []byte) UsageData {
+func parseOpenAIStreamChunk(providerID string, data []byte) UsageData {
 	// OpenAI sends usage in the final chunk with usage field
-	return parseOpenAIUsage(data)
+	return parseOpenAIUsage(providerID, data)
+}
+
+func mergeUsage(current *UsageData, next UsageData) {
+	if next.InputTokens > 0 || next.OutputTokens > 0 {
+		current.InputTokens = next.InputTokens
+		current.OutputTokens = next.OutputTokens
+		current.CachedTokens = next.CachedTokens
+		current.ReasoningTokens = next.ReasoningTokens
+	}
+	if next.ProviderCostUSD > 0 {
+		current.ProviderCostUSD = next.ProviderCostUSD
+	}
 }
 
 // --- Anthropic format ---

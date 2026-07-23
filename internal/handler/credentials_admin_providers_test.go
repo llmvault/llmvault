@@ -99,6 +99,25 @@ func TestBuildSystemCredentialDefaultsQuantisedProvider(t *testing.T) {
 	}
 }
 
+func TestBuildSystemCredentialDefaultsEngyProvider(t *testing.T) {
+	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
+
+	cred, err := h.buildCredential(context.Background(), nil, createCredentialRequest{
+		Label:      "system-engy",
+		ProviderID: "engy",
+		APIKey:     "engy-test-key",
+	})
+	if err != nil {
+		t.Fatalf("buildCredential returned error: %v", err)
+	}
+	if cred.BaseURL != "https://api.engy.ai/v1" {
+		t.Fatalf("BaseURL = %q", cred.BaseURL)
+	}
+	if cred.AuthScheme != "bearer" {
+		t.Fatalf("AuthScheme = %q", cred.AuthScheme)
+	}
+}
+
 func TestBuildSystemCredentialDefaultsReveProvider(t *testing.T) {
 	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
 

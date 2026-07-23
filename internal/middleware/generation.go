@@ -261,8 +261,13 @@ func buildGeneration(r *http.Request, claims *TokenClaims, captured *observe.Cap
 		CreatedAt: time.Now().UTC(),
 	}
 
-	gen.Cost = calculateCost(reg, actualProviderID, captured.Model, captured.Usage)
-	if gen.Cost > 0 {
+	if captured.Usage.ProviderCostUSD > 0 {
+		gen.Cost = captured.Usage.ProviderCostUSD
+		gen.BillingCostSource = billing.CostSourceProvider
+	} else {
+		gen.Cost = calculateCost(reg, actualProviderID, captured.Model, captured.Usage)
+	}
+	if gen.Cost > 0 && gen.BillingCostSource == "" {
 		gen.BillingCostSource = billing.CostSourceRegistry
 	}
 

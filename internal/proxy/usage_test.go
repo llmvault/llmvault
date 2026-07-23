@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"math"
 	"testing"
 )
 
@@ -68,6 +69,32 @@ func TestParseUsageNonStreaming_NovitaReasoningIsCompletionBreakdown(t *testing.
 
 	u := ParseUsageNonStreaming("novita", body)
 	assertUsage(t, u, 9, 32, 0, 32)
+}
+
+func TestParseUsageNonStreaming_EngyProviderCharge(t *testing.T) {
+	// Sanitized from a live Engy glm-5.2 response. Engy reports its actual
+	// rounded charge in millionths of a USD alongside OpenAI token usage.
+	body := []byte(`{
+		"id": "chatcmpl-sanitized",
+		"model": "glm-5.2",
+		"usage": {
+			"prompt_tokens": 17,
+			"completion_tokens": 32,
+			"total_tokens": 49,
+			"prompt_tokens_details": {"cached_tokens": 0}
+		},
+		"x_engy": {
+			"request_id": "request-sanitized",
+			"miner": "miner-sanitized",
+			"charged_micro": 60
+		}
+	}`)
+
+	u := ParseUsageNonStreaming("engy", body)
+	assertUsage(t, u, 17, 32, 0, 0)
+	if math.Abs(u.ProviderCostUSD-0.000060) > 1e-12 {
+		t.Fatalf("ProviderCostUSD = %.12f, want 0.000060", u.ProviderCostUSD)
+	}
 }
 
 func TestParseUsageNonStreaming_Anthropic(t *testing.T) {
@@ -167,6 +194,18 @@ func TestParseUsageStreaming_NovitaFinalUsageChunk(t *testing.T) {
 
 	u := ParseUsageStreaming("novita", events)
 	assertUsage(t, u, 27, 16, 0, 0)
+}
+
+func TestParseUsageStreaming_EngyMergesChargeAndUsageChunks(t *testing.T) {
+	// Sanitized from a live Engy qwen3.6-35b-a3b stream. The finish chunk
+	// carries the charge and the following summary chunk carries token usage.
+	events := []byte("data: {\"id\":\"chatcmpl-sanitized\",\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"x_engy\":{\"request_id\":\"request-sanitized\",\"miner\":\"miner-sanitized\",\"charged_micro\":10}}\n\ndata: {\"id\":\"chatcmpl-sanitized\",\"choices\":[],\"usage\":{\"prompt_tokens\":15,\"completion_tokens\":32,\"total_tokens\":47,\"prompt_tokens_details\":{\"cached_tokens\":0}}}\n\ndata: [DONE]\n\n")
+
+	u := ParseUsageStreaming("engy", events)
+	assertUsage(t, u, 15, 32, 0, 0)
+	if math.Abs(u.ProviderCostUSD-0.000010) > 1e-12 {
+		t.Fatalf("ProviderCostUSD = %.12f, want 0.000010", u.ProviderCostUSD)
+	}
 }
 
 func TestParseUsageStreaming_AnthropicMessageDelta(t *testing.T) {

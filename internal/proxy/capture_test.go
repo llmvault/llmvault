@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -213,6 +214,40 @@ func TestCaptureTransport_Streaming_NovitaUsageSummary(t *testing.T) {
 	}
 	if captured.Usage.OutputTokens != 16 {
 		t.Errorf("OutputTokens = %d, want 16", captured.Usage.OutputTokens)
+	}
+}
+
+func TestCaptureTransport_Streaming_EngyPreservesProviderCharge(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher := w.(http.Flusher)
+
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-sanitized\",\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"x_engy\":{\"request_id\":\"request-sanitized\",\"miner\":\"miner-sanitized\",\"charged_micro\":10}}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-sanitized\",\"choices\":[],\"usage\":{\"prompt_tokens\":15,\"completion_tokens\":32,\"total_tokens\":47,\"prompt_tokens_details\":{\"cached_tokens\":0}}}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	captured := &observe.CapturedData{ProviderID: "engy"}
+	ctx := observe.WithCapturedData(context.Background(), captured)
+	req, _ := http.NewRequestWithContext(ctx, "POST", upstream.URL, nil)
+
+	ct := &CaptureTransport{Inner: http.DefaultTransport}
+	resp, err := ct.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	if captured.Usage.InputTokens != 15 || captured.Usage.OutputTokens != 32 {
+		t.Fatalf("usage = %#v", captured.Usage)
+	}
+	if math.Abs(captured.Usage.ProviderCostUSD-0.000010) > 1e-12 {
+		t.Fatalf("ProviderCostUSD = %.12f, want 0.000010", captured.Usage.ProviderCostUSD)
 	}
 }
 

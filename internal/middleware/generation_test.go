@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/observe"
 	"github.com/usehivy/hivy/internal/registry"
@@ -189,6 +191,35 @@ func TestBuildGenerationUsesFallbackProviderAndModel(t *testing.T) {
 	}
 	if generation.OpenRouterGenerationID == nil || *generation.OpenRouterGenerationID != captured.GenerationID {
 		t.Fatalf("openrouter_generation_id = %v, want %q", generation.OpenRouterGenerationID, captured.GenerationID)
+	}
+}
+
+func TestBuildGenerationUsesEngyProviderReportedCost(t *testing.T) {
+	db := generationTestDB(t)
+	captured := &observe.CapturedData{
+		ProviderID: "engy",
+		Model:      "engy-glm-5.2",
+		Usage: observe.UsageData{
+			InputTokens:     17,
+			OutputTokens:    32,
+			ProviderCostUSD: 0.000060,
+		},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	claims := &TokenClaims{
+		OrgID:        uuid.NewString(),
+		CredentialID: uuid.NewString(),
+		TokenType:    model.TokenTypeAgentProxy,
+		IsSystem:     true,
+	}
+
+	generation := buildGeneration(request, claims, captured, "", registry.Global(), db, nil)
+
+	if math.Abs(generation.Cost-0.000060) > 1e-12 {
+		t.Fatalf("cost = %.12f, want Engy charge 0.000060", generation.Cost)
+	}
+	if generation.BillingCostSource != billing.CostSourceProvider {
+		t.Fatalf("billing_cost_source = %q, want %q", generation.BillingCostSource, billing.CostSourceProvider)
 	}
 }
 

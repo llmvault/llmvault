@@ -13,6 +13,7 @@ package registry
 // maintained Go literal so additions go through code review.
 var curatedProviders = []Provider{
 	atlasCloudProvider,
+	engyProvider,
 	novitaProvider,
 	{ // anthropic — Anthropic
 		ID:   "anthropic",
