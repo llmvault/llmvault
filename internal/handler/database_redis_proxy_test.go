@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/crypto"
@@ -24,7 +23,7 @@ func TestDatabaseProxyUsesTeamRedisConnectionGrant(t *testing.T) {
 	kms := newTestKMS(t)
 	encKey := testSymmetricKey(t)
 	redisAddr := testdb.RedisAddr("HIVY_REDIS_ADDR", "TEST_REDIS_ADDR")
-	redisClient := redis.NewClient(&redis.Options{Addr: redisAddr})
+	redisClient := testdb.NewRedisClient()
 	if err := redisClient.Ping(t.Context()).Err(); err != nil {
 		t.Skipf("redis not reachable at %s: %v", redisAddr, err)
 	}

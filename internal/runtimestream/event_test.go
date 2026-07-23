@@ -39,6 +39,9 @@ func TestRuntimeStreamKeysAreStable(t *testing.T) {
 	if StreamKey(12) != "runtime_events:12" {
 		t.Fatalf("stream key = %q", StreamKey(12))
 	}
+	if ClusterStreamKey(12) != "runtime_events:{runtime-shard-12}" {
+		t.Fatalf("cluster stream key = %q", ClusterStreamKey(12))
+	}
 	if LiveChannel(sessionID) != "runtime_session:{11111111-1111-1111-1111-111111111111}:live" {
 		t.Fatalf("live channel = %q", LiveChannel(sessionID))
 	}

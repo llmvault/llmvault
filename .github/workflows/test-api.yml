@@ -19,6 +19,31 @@ env:
   GOTOOLCHAIN: local
 
 jobs:
+  redis-cluster:
+    name: Redis Cluster integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      HIVY_KMS_KEY: test-only
+      HIVY_JWT_SIGNING_KEY: test-only
+      HIVY_AUTH_RSA_PRIVATE_KEY: test-only
+      HIVY_SANDBOX_ENCRYPTION_KEY: test-only
+      HIVY_NANGO_ENCRYPTION_KEY: test-only
+      HIVY_NANGO_SECRET_KEY: test-only
+      HIVY_SESSION_SECRET: test-only
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: test production-shaped Redis topology
+        run: make test-redis-cluster
+        timeout-minutes: 5
+      - name: cleanup containers
+        if: always()
+        run: docker compose down -v --remove-orphans
+
   internal-core:
     name: internal core ${{ matrix.group }}
     runs-on: ubuntu-latest

@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func runStreamingWorkerResumeChaos(t *testing.T, ctx context.Context, apiBase, workerBase, token, orgID, channelID string, redisClient *redis.Client, db *gorm.DB, runID string) {
+func runStreamingWorkerResumeChaos(t *testing.T, ctx context.Context, apiBase, workerBase, token, orgID, channelID string, redisClient redis.UniversalClient, db *gorm.DB, runID string) {
 	t.Helper()
 	session := agentSessionsCreateSession(t, ctx, apiBase, token, orgID, channelID, streamingE2EPrompt(runID, 9, 1, "STREAMING_E2E_WORKER_CHAOS_"+runID))
 	restartComposeService(t, ctx, "worker")
@@ -24,7 +24,7 @@ func runStreamingWorkerResumeChaos(t *testing.T, ctx context.Context, apiBase, w
 	assertRuntimeRedisAndPostgresConverged(t, ctx, db, redisClient, session.Session.ID)
 }
 
-func runStreamingAPIReconnectChaos(t *testing.T, ctx context.Context, apiBase, workerBase, token, orgID, channelID string, redisClient *redis.Client, db *gorm.DB, runID string) {
+func runStreamingAPIReconnectChaos(t *testing.T, ctx context.Context, apiBase, workerBase, token, orgID, channelID string, redisClient redis.UniversalClient, db *gorm.DB, runID string) {
 	t.Helper()
 	session := agentSessionsCreateSession(t, ctx, apiBase, token, orgID, channelID, streamingE2EPrompt(runID, 9, 2, "STREAMING_E2E_API_CHAOS_"+runID))
 	restartComposeService(t, ctx, "api")

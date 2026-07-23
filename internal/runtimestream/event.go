@@ -162,6 +162,10 @@ func StreamKey(shard int) string {
 	return "runtime_events:" + strconv.Itoa(shard)
 }
 
+func ClusterStreamKey(shard int) string {
+	return "runtime_events:{" + clusterShardTag(shard) + "}"
+}
+
 func LiveChannel(sessionID string) string {
 	return "runtime_session:{" + strings.TrimSpace(sessionID) + "}:live"
 }
@@ -176,6 +180,14 @@ func EventIndexKey(sessionID string) string {
 
 func ProjectedSeqKey(sessionID string) string {
 	return "runtime_session:{" + strings.TrimSpace(sessionID) + "}:projected_seq"
+}
+
+func clusterSessionKey(shard int, sessionID, suffix string) string {
+	return "runtime_session:{" + clusterShardTag(shard) + "}:" + strings.TrimSpace(sessionID) + ":" + suffix
+}
+
+func clusterShardTag(shard int) string {
+	return "runtime-shard-" + strconv.Itoa(shard)
 }
 
 func ShardForSession(sessionID string, shardCount int) int {

@@ -38,7 +38,7 @@ const (
 type testHarness struct {
 	db           *gorm.DB
 	kms          *crypto.KeyWrapper
-	redisClient  *redis.Client
+	redisClient  redis.UniversalClient
 	cacheManager *cache.Manager
 	auditWriter  *middleware.AuditWriter
 	router       *chi.Mux
@@ -83,7 +83,7 @@ func newHarness(t *testing.T) *testHarness {
 	testdb.ApplyMigrations(t, db)
 	t.Cleanup(func() { sqlDB.Close() })
 
-	rc := redis.NewClient(&redis.Options{Addr: testRedisAddrOrEnv()})
+	rc := testdb.NewRedisClient()
 	t.Cleanup(func() { rc.Close() })
 
 	kms, err := crypto.NewAEADWrapper(t.Context(), "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "e2e-test-key")

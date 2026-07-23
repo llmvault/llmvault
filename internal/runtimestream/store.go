@@ -12,6 +12,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/redisutil"
 )
 
 const (
@@ -81,6 +82,7 @@ type Store struct {
 	shardCount   int
 	streamMaxLen int64
 	sessionTTL   time.Duration
+	cluster      bool
 }
 
 type AppendResult struct {
@@ -103,6 +105,7 @@ func NewStore(client redis.UniversalClient, shardCount int) *Store {
 		shardCount:   shardCount,
 		streamMaxLen: DefaultStreamMaxLen,
 		sessionTTL:   DefaultSessionCheckpointTTL,
+		cluster:      redisutil.IsCluster(client),
 	}
 }
 
@@ -134,6 +137,45 @@ func (s *Store) StreamMaxLen() int64 {
 	return s.streamMaxLen
 }
 
+func (s *Store) IsCluster() bool {
+	return s != nil && s.cluster
+}
+
+func (s *Store) StreamKey(shard int) string {
+	if s.IsCluster() {
+		return ClusterStreamKey(shard)
+	}
+	return StreamKey(shard)
+}
+
+func (s *Store) LastSeqKey(sessionID string) string {
+	if s.IsCluster() {
+		shard := ShardForSession(sessionID, s.ShardCount())
+		return clusterSessionKey(shard, sessionID, "last_seq")
+	}
+	return LastSeqKey(sessionID)
+}
+
+func (s *Store) EventIndexKey(sessionID string) string {
+	if s.IsCluster() {
+		shard := ShardForSession(sessionID, s.ShardCount())
+		return clusterSessionKey(shard, sessionID, "event_index")
+	}
+	return EventIndexKey(sessionID)
+}
+
+func (s *Store) ProjectedSeqKey(sessionID string) string {
+	if s.IsCluster() {
+		shard := ShardForSession(sessionID, s.ShardCount())
+		return clusterSessionKey(shard, sessionID, "projected_seq")
+	}
+	return ProjectedSeqKey(sessionID)
+}
+
+func (s *Store) ShardLeaseKey(shard int) string {
+	return s.StreamKey(shard) + ":lease"
+}
+
 func (s *Store) Append(ctx context.Context, event Event) (AppendResult, error) {
 	if s == nil || s.client == nil {
 		return AppendResult{}, fmt.Errorf("runtime stream store is not configured")
@@ -162,8 +204,8 @@ func (s *Store) Append(ctx context.Context, event Event) (AppendResult, error) {
 	}
 
 	shard := ShardForSession(event.SessionID, s.ShardCount())
-	streamKey := StreamKey(shard)
-	keys := []string{LastSeqKey(event.SessionID), streamKey, EventIndexKey(event.SessionID)}
+	streamKey := s.StreamKey(shard)
+	keys := []string{s.LastSeqKey(event.SessionID), streamKey, s.EventIndexKey(event.SessionID)}
 	args := []any{
 		strconv.FormatInt(event.RuntimeSeq, 10),
 		string(eventRaw),
@@ -212,7 +254,7 @@ func (s *Store) CheckpointProjected(ctx context.Context, sessionID string, runti
 	if err := checkpointProjectedScript.Run(
 		ctx,
 		s.client,
-		[]string{ProjectedSeqKey(sessionID)},
+		[]string{s.ProjectedSeqKey(sessionID)},
 		strconv.FormatInt(runtimeSeq, 10),
 		strconv.FormatInt(s.SessionCheckpointTTL().Milliseconds(), 10),
 	).Err(); err != nil {
@@ -275,7 +317,7 @@ func (s *Store) EnsureConsumerGroup(ctx context.Context, shard int, group string
 	if strings.TrimSpace(group) == "" {
 		group = ProjectorGroup
 	}
-	err := s.client.XGroupCreateMkStream(ctx, StreamKey(shard), group, "0").Err()
+	err := s.client.XGroupCreateMkStream(ctx, s.StreamKey(shard), group, "0").Err()
 	if err == nil || strings.Contains(strings.ToUpper(err.Error()), "BUSYGROUP") {
 		return nil
 	}

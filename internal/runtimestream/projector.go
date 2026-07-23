@@ -105,7 +105,7 @@ func (p *Projector) Run(ctx context.Context) error {
 }
 
 func (p *Projector) runShard(ctx context.Context, shard int) error {
-	leaseKey := shardLeaseKey(shard)
+	leaseKey := p.store.ShardLeaseKey(shard)
 	for ctx.Err() == nil {
 		res, err := p.store.Redis().SetArgs(ctx, leaseKey, p.consumer, redis.SetArgs{Mode: "NX", TTL: p.leaseTTL}).Result()
 		if err != nil && !errors.Is(err, redis.Nil) {
@@ -137,7 +137,7 @@ func (p *Projector) runOwnedShard(ctx context.Context, shard int, leaseKey strin
 	if err := p.store.EnsureConsumerGroup(ctx, shard, ProjectorGroup); err != nil {
 		return err
 	}
-	stream := StreamKey(shard)
+	stream := p.store.StreamKey(shard)
 	batch := newProjectorMessageBatch(p.batchSize, p.flushWait)
 	for ctx.Err() == nil {
 		if batch.empty() {

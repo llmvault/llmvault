@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/redisutil"
 	"github.com/usehivy/hivy/internal/runtimestream"
 	"github.com/usehivy/hivy/internal/testdb"
 )
@@ -55,7 +55,7 @@ func TestRuntimeIngressFrameDecodesBatchedEvents(t *testing.T) {
 
 func TestRuntimeIngressAckIdentifiesSessionAndConflict(t *testing.T) {
 	ctx := context.Background()
-	redisClient := redis.NewClient(&redis.Options{Addr: testdb.RedisAddr("HIVY_REDIS_ADDR", "TEST_REDIS_ADDR")})
+	redisClient := testdb.NewRedisClient()
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		redisClient.Close()
 		t.Skipf("Redis is not available: %v", err)
@@ -69,10 +69,10 @@ func TestRuntimeIngressAckIdentifiesSessionAndConflict(t *testing.T) {
 	sandboxID := uuid.New()
 	sessionID := uuid.New()
 	t.Cleanup(func() {
-		redisClient.Del(ctx,
-			runtimestream.LastSeqKey(sessionID.String()),
-			runtimestream.EventIndexKey(sessionID.String()),
-			runtimestream.ProjectedSeqKey(sessionID.String()),
+		_ = redisutil.Delete(ctx, redisClient,
+			store.LastSeqKey(sessionID.String()),
+			store.EventIndexKey(sessionID.String()),
+			store.ProjectedSeqKey(sessionID.String()),
 		)
 	})
 
@@ -116,7 +116,7 @@ func TestRuntimeIngressAckIdentifiesSessionAndConflict(t *testing.T) {
 
 func TestRuntimeIngressAckAcceptsContiguousBatch(t *testing.T) {
 	ctx := context.Background()
-	redisClient := redis.NewClient(&redis.Options{Addr: testdb.RedisAddr("HIVY_REDIS_ADDR", "TEST_REDIS_ADDR")})
+	redisClient := testdb.NewRedisClient()
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		redisClient.Close()
 		t.Skipf("Redis is not available: %v", err)
@@ -130,10 +130,10 @@ func TestRuntimeIngressAckAcceptsContiguousBatch(t *testing.T) {
 	sandboxID := uuid.New()
 	sessionID := uuid.New()
 	t.Cleanup(func() {
-		redisClient.Del(ctx,
-			runtimestream.LastSeqKey(sessionID.String()),
-			runtimestream.EventIndexKey(sessionID.String()),
-			runtimestream.ProjectedSeqKey(sessionID.String()),
+		_ = redisutil.Delete(ctx, redisClient,
+			store.LastSeqKey(sessionID.String()),
+			store.EventIndexKey(sessionID.String()),
+			store.ProjectedSeqKey(sessionID.String()),
 		)
 	})
 

@@ -80,10 +80,6 @@ func runtimeSeqOnConflict() clause.OnConflict {
 	}
 }
 
-func shardLeaseKey(shard int) string {
-	return StreamKey(shard) + ":lease"
-}
-
 func defaultString(value, fallback string) string {
 	if strings.TrimSpace(value) != "" {
 		return strings.TrimSpace(value)

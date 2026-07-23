@@ -1,4 +1,4 @@
-.PHONY: build test test-e2e test-agent-runtime-e2e test-agent-sessions-e2e test-apps-flagship-e2e test-apps-realtime-e2e sandbox-app-image test-agent-streaming-e2e test-agent-production-e2e test-handler-sharded lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources check-deployment-workflows vet check ci-wait-services ci-start-nango ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-integrations ci-test-internal-storage ci-test-internal-extra ci-test-e2e ci-test-cmd ci-test-web ci-test-web-unit ci-web-knip ci-test-runtime ci-quality ensure-nango-image infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
+.PHONY: build test test-e2e test-agent-runtime-e2e test-agent-sessions-e2e test-apps-flagship-e2e test-apps-realtime-e2e sandbox-app-image test-agent-streaming-e2e test-agent-production-e2e test-handler-sharded test-redis-cluster lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources check-deployment-workflows vet check ci-wait-services ci-start-nango ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-integrations ci-test-internal-storage ci-test-internal-extra ci-test-e2e ci-test-cmd ci-test-web ci-test-web-unit ci-web-knip ci-test-runtime ci-quality ensure-nango-image infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
 .PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi canvas-cli-linux-build canvas-cli-linux-build-amd64 canvas-cli-linux-build-arm64 sandbox-runtime-image sandbox-runtime-developers-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-image-test
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -19,15 +19,17 @@ SANDBOX_RUNTIME_DEVELOPERS_IMAGE ?= ghcr.io/usehivy/hivy-sandboxes-runtime-devel
 MICROSANDBOX_BINARY ?= bin/microsandbox
 MICROSANDBOX_RELEASE_GO_IMAGE ?= golang:1.25-bookworm
 GO_BIN ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /opt/homebrew/bin/go ]; then echo /opt/homebrew/bin/go; elif [ -x /usr/local/go/bin/go ]; then echo /usr/local/go/bin/go; else echo go; fi)
-DEV_COMPOSE_SERVICES ?= postgres redis nango qdrant minio minio-setup api worker proxy web
-DEV_INFRA_SERVICES ?= postgres redis nango qdrant minio minio-setup
+DEV_COMPOSE_SERVICES ?= postgres redis redis-2 redis-3 redis-cluster-init nango qdrant minio minio-setup api worker proxy web
+DEV_INFRA_SERVICES ?= postgres redis redis-2 redis-3 redis-cluster-init nango qdrant minio minio-setup
 DEV_APP_SERVICES ?= api worker proxy web
 NANGO_COMPOSE_ENV_FILE ?= tmp/nango-compose.env
 DEV_DOCKER_COMPOSE ?= docker compose --env-file .env --env-file $(NANGO_COMPOSE_ENV_FILE)
 NANGO_SECRET_SQL = SELECT secret_key FROM nango._nango_environments WHERE name='\''prod'\'' LIMIT 1
 TEST_DATABASE_URL ?= postgres://hivy:localdev@localhost:$(or $(HIVY_COMPOSE_POSTGRES_PORT),5433)/hivy_test?sslmode=disable
 TEST_REDIS_ADDR ?= localhost:$(or $(HIVY_COMPOSE_REDIS_PORT),16279)
-TEST_ENV = DATABASE_URL="$(TEST_DATABASE_URL)" HIVY_DATABASE_URL="$(TEST_DATABASE_URL)" HIVY_REDIS_ADDR="$(TEST_REDIS_ADDR)"
+TEST_REDIS_CLUSTER ?= $(if $(CI),false,true)
+TEST_REDIS_CLUSTER_ADDRS ?= redis-1.localhost:$(or $(HIVY_COMPOSE_REDIS_PORT),16279),redis-2.localhost:$(or $(HIVY_COMPOSE_REDIS_2_PORT),16280),redis-3.localhost:$(or $(HIVY_COMPOSE_REDIS_3_PORT),16281)
+TEST_ENV = DATABASE_URL="$(TEST_DATABASE_URL)" HIVY_DATABASE_URL="$(TEST_DATABASE_URL)" HIVY_REDIS_ADDR="$(if $(filter true,$(TEST_REDIS_CLUSTER)),,$(TEST_REDIS_ADDR))" HIVY_REDIS_CLUSTER="$(TEST_REDIS_CLUSTER)" HIVY_REDIS_CLUSTER_ADDRS="$(if $(filter true,$(TEST_REDIS_CLUSTER)),$(TEST_REDIS_CLUSTER_ADDRS),)"
 AGENT_SESSIONS_E2E_API_BASE_URL ?= http://localhost:$(or $(HIVY_COMPOSE_API_PORT),8080)
 AGENT_SESSIONS_E2E_WORKER_BASE_URL ?= http://localhost:$(or $(HIVY_COMPOSE_WORKER_HEALTH_PORT),8090)
 HANDLER_TEST_SHARDS ?= 8
@@ -235,6 +237,37 @@ microsandbox-release-darwin-arm64:
 test:
 	$(TEST_ENV) go test ./internal/... -v -race -count=1
 
+# Run topology-sensitive Redis integration tests against the production-shaped
+# three-master cluster declared in docker-compose.yml.
+test-redis-cluster:
+	docker compose up -d redis redis-2 redis-3 redis-cluster-init
+	@until docker compose exec -T redis redis-cli -p 16279 cluster info 2>/dev/null | grep -q 'cluster_state:ok'; do sleep 1; done
+	HIVY_REDIS_ADDR="" \
+	HIVY_REDIS_CLUSTER=true \
+	HIVY_REDIS_CLUSTER_ADDRS="$(TEST_REDIS_CLUSTER_ADDRS)" \
+	HIVY_TEST_REDIS_CLUSTER_ADDRS="$(TEST_REDIS_CLUSTER_ADDRS)" \
+	go test ./internal/config -run '^Test(RedisClient|AsynqRedisOpt)_ConnectsToConfiguredCluster$$' -count=1 -v
+	HIVY_REDIS_ADDR="" \
+	HIVY_REDIS_CLUSTER=true \
+	HIVY_REDIS_CLUSTER_ADDRS="$(TEST_REDIS_CLUSTER_ADDRS)" \
+	go test ./internal/runtimestream ./internal/precontext -count=1 -v
+	HIVY_REDIS_ADDR="" \
+	HIVY_REDIS_CLUSTER=true \
+	HIVY_REDIS_CLUSTER_ADDRS="$(TEST_REDIS_CLUSTER_ADDRS)" \
+	go test ./internal/handler -run '^TestRuntimeIngress' -count=1 -v
+	HIVY_REDIS_ADDR="" \
+	HIVY_REDIS_CLUSTER=true \
+	HIVY_REDIS_CLUSTER_ADDRS="$(TEST_REDIS_CLUSTER_ADDRS)" \
+	go test ./internal/cache -run '^TestIntegration_Invalidation_' -count=1 -v
+	HIVY_REDIS_ADDR="" \
+	HIVY_REDIS_CLUSTER=true \
+	HIVY_REDIS_CLUSTER_ADDRS="$(TEST_REDIS_CLUSTER_ADDRS)" \
+	go test ./internal/counter -run '^TestUndo_' -count=1 -v
+	HIVY_REDIS_ADDR="" \
+	HIVY_REDIS_CLUSTER=true \
+	HIVY_REDIS_CLUSTER_ADDRS="$(TEST_REDIS_CLUSTER_ADDRS)" \
+	go test ./internal/databaseintegration -run '^Test(ExecuteRedis|IntrospectRedis)' -count=1 -v
+
 # Run e2e tests (requires docker-compose stack running)
 test-e2e:
 	$(TEST_ENV) go test ./e2e/... -v -count=1 -timeout=5m
@@ -290,12 +323,12 @@ test-handler-sharded:
 
 # Start services and wait for healthy (no teardown, no tests)
 test-setup:
-	docker compose up -d postgres redis minio qdrant
+	docker compose up -d postgres redis redis-2 redis-3 redis-cluster-init minio qdrant
 	@echo "Waiting for services..."
 	@until docker compose exec -T postgres pg_isready -U hivy -q 2>/dev/null; do sleep 1; done
 	@echo "  ✓ Postgres"
-	@until docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
-	@echo "  ✓ Redis"
+	@until docker compose exec -T redis redis-cli -p 16279 cluster info 2>/dev/null | grep -q 'cluster_state:ok'; do sleep 1; done
+	@echo "  ✓ Redis Cluster"
 	@until curl -fsS http://localhost:9000/minio/health/ready >/dev/null 2>&1; do sleep 1; done
 	@echo "  ✓ MinIO"
 	@until curl -fsS http://localhost:$${HIVY_COMPOSE_QDRANT_HTTP_PORT:-6333}/readyz >/dev/null 2>&1; do sleep 1; done
@@ -311,12 +344,12 @@ test-setup:
 # Start the real Nango service in addition to core infra. The Nango secret is
 # generated by Nango on first boot; tests read it from the local nango database.
 test-setup-nango: ensure-nango-image
-	$(DEV_DOCKER_COMPOSE) up -d postgres redis nango
+	$(DEV_DOCKER_COMPOSE) up -d postgres redis redis-2 redis-3 redis-cluster-init nango
 	@echo "Waiting for services..."
 	@until $(DEV_DOCKER_COMPOSE) exec -T postgres pg_isready -U hivy -q 2>/dev/null; do sleep 1; done
 	@echo "  ✓ Postgres"
-	@until $(DEV_DOCKER_COMPOSE) exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
-	@echo "  ✓ Redis"
+	@until $(DEV_DOCKER_COMPOSE) exec -T redis redis-cli -p 16279 cluster info 2>/dev/null | grep -q 'cluster_state:ok'; do sleep 1; done
+	@echo "  ✓ Redis Cluster"
 	@until curl -fsS http://localhost:$${HIVY_COMPOSE_NANGO_PORT:-23003}/health >/dev/null 2>&1; do sleep 1; done
 	@echo "  ✓ Nango"
 
@@ -596,7 +629,8 @@ docker-run:
 		-e HIVY_DB_SSLMODE=disable \
 		-e HIVY_KMS_TYPE=aead \
 		-e HIVY_KMS_KEY=$${HIVY_KMS_KEY} \
-		-e HIVY_REDIS_ADDR=localhost:16379 \
+		-e HIVY_REDIS_CLUSTER=true \
+		-e HIVY_REDIS_CLUSTER_ADDRS=redis-1.localhost:16279,redis-2.localhost:16280,redis-3.localhost:16281 \
 		-e HIVY_REDIS_CACHE_TTL=30m \
 		-e HIVY_MEM_CACHE_TTL=5m \
 		-e HIVY_MEM_CACHE_MAX_SIZE=10000 \
@@ -620,14 +654,15 @@ migrate-version:
 # postgres (metadata) + redis (locks) + minio (object storage) + qdrant
 # (vector search). Creates the hivy-rag-test bucket as a side effect.
 test-services-up:
-	HIVY_DB_PASSWORD=$${HIVY_DB_PASSWORD:-localdev} docker compose up -d postgres redis minio qdrant
+	HIVY_DB_PASSWORD=$${HIVY_DB_PASSWORD:-localdev} docker compose up -d postgres redis redis-2 redis-3 redis-cluster-init minio qdrant
+	@until docker compose exec -T redis redis-cli -p 16279 cluster info 2>/dev/null | grep -q 'cluster_state:ok'; do sleep 1; done
 	@until curl -fsS http://localhost:$${HIVY_COMPOSE_QDRANT_HTTP_PORT:-6333}/readyz >/dev/null 2>&1; do sleep 1; done
 	HIVY_DB_PASSWORD=$${HIVY_DB_PASSWORD:-localdev} docker compose run --rm minio-setup
 
 # Stop those services (keeps data volumes). Use `make down` for a full
 # teardown.
 test-services-down:
-	HIVY_DB_PASSWORD=$${HIVY_DB_PASSWORD:-localdev} docker compose stop postgres redis minio qdrant
+	HIVY_DB_PASSWORD=$${HIVY_DB_PASSWORD:-localdev} docker compose stop postgres redis redis-2 redis-3 minio qdrant
 
 # Run the real Slack bot-token RAG ingestion test against local Postgres/Qdrant.
 # Requires read-only Slack bot token and embedding env. By default it loads

@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -28,10 +27,9 @@ func TestReadyzReportsOrchestratorMissing(t *testing.T) {
 	}
 	t.Cleanup(func() { sqlDB.Close() })
 
-	addr := testdb.RedisAddr()
-	rc := redis.NewClient(&redis.Options{Addr: addr})
+	rc := testdb.NewRedisClient()
 	if err := rc.Ping(context.Background()).Err(); err != nil {
-		t.Skipf("redis not reachable at %s: %v", addr, err)
+		t.Skipf("redis not reachable: %v", err)
 	}
 	t.Cleanup(func() { rc.Close() })
 

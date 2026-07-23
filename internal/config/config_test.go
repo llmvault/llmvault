@@ -3,7 +3,9 @@ package config
 import (
 	"context"
 	"os"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -238,17 +240,58 @@ func TestRedisClient_ConnectsToConfiguredCluster(t *testing.T) {
 	if !ok {
 		t.Fatalf("client type = %T, want *redis.ClusterClient", client)
 	}
-	masters := 0
+	var masters atomic.Int64
 	if err := cluster.ForEachMaster(t.Context(), func(ctx context.Context, node *redis.Client) error {
-		masters++
+		masters.Add(1)
 		return node.Ping(ctx).Err()
 	}); err != nil {
 		t.Fatalf("discover and ping Redis Cluster masters: %v", err)
 	}
-	if masters < 3 {
-		t.Fatalf("discovered %d Redis Cluster masters, want at least 3", masters)
+	masterCount := masters.Load()
+	if masterCount < 3 {
+		t.Fatalf("discovered %d Redis Cluster masters, want at least 3", masterCount)
 	}
-	t.Logf("Redis Cluster discovery succeeded: %d masters reachable from %s", masters, seeds)
+	t.Logf("Redis Cluster discovery succeeded: %d masters reachable from %s", masterCount, seeds)
+}
+
+func TestAsynqRedisOpt_ConnectsToConfiguredCluster(t *testing.T) {
+	seeds := strings.TrimSpace(os.Getenv("HIVY_TEST_REDIS_CLUSTER_ADDRS"))
+	if seeds == "" {
+		t.Skip("HIVY_TEST_REDIS_CLUSTER_ADDRS is not configured")
+	}
+
+	opt, err := (&Config{
+		RedisCluster:      true,
+		RedisClusterAddrs: strings.Split(seeds, ","),
+	}).AsynqRedisOpt()
+	if err != nil {
+		t.Fatalf("create Asynq Redis Cluster option: %v", err)
+	}
+	client := asynq.NewClient(opt)
+	inspector := asynq.NewInspector(opt)
+	queue := "redis-cluster-integration-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	t.Cleanup(func() {
+		_ = inspector.DeleteQueue(queue, true)
+		_ = inspector.Close()
+		_ = client.Close()
+	})
+
+	if _, err := client.EnqueueContext(
+		t.Context(),
+		asynq.NewTask("test:redis-cluster", nil),
+		asynq.Queue(queue),
+		asynq.MaxRetry(0),
+		asynq.Timeout(time.Second),
+	); err != nil {
+		t.Fatalf("enqueue through Redis Cluster: %v", err)
+	}
+	info, err := inspector.GetQueueInfo(queue)
+	if err != nil {
+		t.Fatalf("inspect Redis Cluster queue: %v", err)
+	}
+	if info.Pending != 1 {
+		t.Fatalf("pending tasks = %d, want 1", info.Pending)
+	}
 }
 
 func TestLoad_WarnOnDisableSSLModeInProduction(t *testing.T) {

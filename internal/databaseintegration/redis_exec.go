@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/redis/go-redis/v9"
+
+	"github.com/usehivy/hivy/internal/redisutil"
 )
 
 const redisIntrospectionSampleLimit = 100
@@ -30,7 +33,7 @@ func ExecuteRedis(ctx context.Context, dsn string, body []byte, policy Policy) (
 	if err != nil {
 		return RedisResult{}, err
 	}
-	client, err := openRedis(dsn)
+	client, err := openRedis(ctx, dsn)
 	if err != nil {
 		return RedisResult{}, err
 	}
@@ -52,7 +55,7 @@ func ExecuteRedis(ctx context.Context, dsn string, body []byte, policy Policy) (
 }
 
 func TestRedis(ctx context.Context, dsn string) error {
-	client, err := openRedis(dsn)
+	client, err := openRedis(ctx, dsn)
 	if err != nil {
 		return err
 	}
@@ -61,41 +64,50 @@ func TestRedis(ctx context.Context, dsn string) error {
 }
 
 func IntrospectRedis(ctx context.Context, dsn string) ([]RedisKeyInfo, error) {
-	client, err := openRedis(dsn)
+	client, err := openRedis(ctx, dsn)
 	if err != nil {
 		return nil, err
 	}
 	defer client.Close()
-	iter := client.Scan(ctx, 0, "", redisIntrospectionSampleLimit).Iterator()
 	out := make([]RedisKeyInfo, 0, redisIntrospectionSampleLimit)
-	for iter.Next(ctx) {
-		key := iter.Val()
-		keyType, err := client.Type(ctx, key).Result()
-		if err != nil {
-			return nil, fmt.Errorf("inspect Redis key %q type: %w", key, err)
+	var mu sync.Mutex
+	err = redisutil.Scan(ctx, client, "", redisIntrospectionSampleLimit, func(ctx context.Context, _ redis.UniversalClient, keys []string) error {
+		for _, key := range keys {
+			mu.Lock()
+			if len(out) >= redisIntrospectionSampleLimit {
+				mu.Unlock()
+				return nil
+			}
+			mu.Unlock()
+			keyType, err := client.Type(ctx, key).Result()
+			if err != nil {
+				return fmt.Errorf("inspect Redis key %q type: %w", key, err)
+			}
+			info := RedisKeyInfo{Key: key, Type: keyType}
+			ttl, err := client.TTL(ctx, key).Result()
+			if err != nil {
+				return fmt.Errorf("inspect Redis key %q ttl: %w", key, err)
+			}
+			if ttl > 0 {
+				seconds := int64(ttl.Seconds())
+				info.TTLSeconds = &seconds
+			}
+			mu.Lock()
+			if len(out) < redisIntrospectionSampleLimit {
+				out = append(out, info)
+			}
+			mu.Unlock()
 		}
-		info := RedisKeyInfo{Key: key, Type: keyType}
-		ttl, err := client.TTL(ctx, key).Result()
-		if err != nil {
-			return nil, fmt.Errorf("inspect Redis key %q ttl: %w", key, err)
-		}
-		if ttl > 0 {
-			seconds := int64(ttl.Seconds())
-			info.TTLSeconds = &seconds
-		}
-		out = append(out, info)
-		if len(out) >= redisIntrospectionSampleLimit {
-			break
-		}
-	}
-	if err := iter.Err(); err != nil {
+		return nil
+	})
+	if err != nil {
 		return nil, fmt.Errorf("scan Redis keys: %w", err)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
 	return out, nil
 }
 
-func openRedis(dsn string) (*redis.Client, error) {
+func openRedis(ctx context.Context, dsn string) (redis.UniversalClient, error) {
 	opts, err := redis.ParseURL(dsn)
 	if err != nil {
 		if strings.Contains(dsn, "://") {
@@ -106,7 +118,52 @@ func openRedis(dsn string) (*redis.Client, error) {
 	if strings.TrimSpace(opts.Addr) == "" {
 		return nil, fmt.Errorf("Redis address is required")
 	}
-	return redis.NewClient(opts), nil
+	client := redis.NewClient(opts)
+	if _, err := client.ClusterInfo(ctx).Result(); err != nil {
+		if isClusterDisabledError(err) {
+			return client, nil
+		}
+		_ = client.Close()
+		return nil, fmt.Errorf("detect Redis topology: %w", err)
+	}
+	_ = client.Close()
+	if opts.DB != 0 {
+		return nil, fmt.Errorf("Redis Cluster only supports database 0")
+	}
+	return redis.NewClusterClient(&redis.ClusterOptions{
+		Addrs:                      []string{opts.Addr},
+		ClientName:                 opts.ClientName,
+		Dialer:                     opts.Dialer,
+		OnConnect:                  opts.OnConnect,
+		Protocol:                   opts.Protocol,
+		Username:                   opts.Username,
+		Password:                   opts.Password,
+		CredentialsProvider:        opts.CredentialsProvider,
+		CredentialsProviderContext: opts.CredentialsProviderContext,
+		MaxRetries:                 opts.MaxRetries,
+		MinRetryBackoff:            opts.MinRetryBackoff,
+		MaxRetryBackoff:            opts.MaxRetryBackoff,
+		DialTimeout:                opts.DialTimeout,
+		ReadTimeout:                opts.ReadTimeout,
+		WriteTimeout:               opts.WriteTimeout,
+		PoolFIFO:                   opts.PoolFIFO,
+		PoolSize:                   opts.PoolSize,
+		PoolTimeout:                opts.PoolTimeout,
+		MinIdleConns:               opts.MinIdleConns,
+		MaxIdleConns:               opts.MaxIdleConns,
+		MaxActiveConns:             opts.MaxActiveConns,
+		ConnMaxIdleTime:            opts.ConnMaxIdleTime,
+		ConnMaxLifetime:            opts.ConnMaxLifetime,
+		ReadBufferSize:             opts.ReadBufferSize,
+		WriteBufferSize:            opts.WriteBufferSize,
+		TLSConfig:                  opts.TLSConfig,
+	}), nil
+}
+
+func isClusterDisabledError(err error) bool {
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "cluster support disabled") ||
+		strings.Contains(message, "unknown command")
 }
 
 func normalizeRedisValue(value any, limit int) (any, int, bool) {

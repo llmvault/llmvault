@@ -6,12 +6,20 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/usehivy/hivy/internal/enqueue"
+	"github.com/usehivy/hivy/internal/testdb"
 )
 
-func AsynqRedisOpt() asynq.RedisClientOpt {
+func AsynqRedisOpt() asynq.RedisConnOpt {
+	if testdb.RedisClusterEnabled() {
+		return asynq.RedisClusterClientOpt{
+			Addrs:    testdb.RedisClusterAddrs(),
+			Password: testdb.RedisPassword(),
+		}
+	}
 	return asynq.RedisClientOpt{
-		Addr: RedisAddr(),
-		DB:   RedisDB(),
+		Addr:     RedisAddr(),
+		Password: testdb.RedisPassword(),
+		DB:       RedisDB(),
 	}
 }
 

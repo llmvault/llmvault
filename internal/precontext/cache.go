@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/usehivy/hivy/internal/redisutil"
 )
 
 type RedisCache struct {
@@ -45,29 +47,16 @@ func (c *RedisCache) Del(ctx context.Context, keys ...string) error {
 	if c == nil || c.Client == nil || len(keys) == 0 {
 		return nil
 	}
-	return c.Client.Del(ctx, keys...).Err()
+	return redisutil.Delete(ctx, c.Client, keys...)
 }
 
 func (c *RedisCache) DeletePrefix(ctx context.Context, prefix string) error {
 	if c == nil || c.Client == nil || prefix == "" {
 		return nil
 	}
-	var cursor uint64
-	for {
-		keys, next, err := c.Client.Scan(ctx, cursor, prefix+"*", 100).Result()
-		if err != nil {
-			return err
-		}
-		if len(keys) > 0 {
-			if err := c.Client.Del(ctx, keys...).Err(); err != nil {
-				return err
-			}
-		}
-		if next == 0 {
-			return nil
-		}
-		cursor = next
-	}
+	return redisutil.Scan(ctx, c.Client, prefix+"*", 100, func(ctx context.Context, _ redis.UniversalClient, keys []string) error {
+		return redisutil.Delete(ctx, c.Client, keys...)
+	})
 }
 
 func SessionsCacheKey(orgID, agentID uuid.UUID) string {

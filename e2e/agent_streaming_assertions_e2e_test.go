@@ -16,7 +16,7 @@ import (
 	"github.com/usehivy/hivy/internal/runtimestream"
 )
 
-func assertRuntimeRedisAndPostgresConverged(t *testing.T, ctx context.Context, db *gorm.DB, redisClient *redis.Client, sessionID string) {
+func assertRuntimeRedisAndPostgresConverged(t *testing.T, ctx context.Context, db *gorm.DB, redisClient redis.UniversalClient, sessionID string) {
 	t.Helper()
 	events := waitForRuntimeRedisEvents(t, ctx, redisClient, sessionID)
 	var previewCount, durableCount int
@@ -79,7 +79,7 @@ func assertRuntimeRedisAndPostgresConverged(t *testing.T, ctx context.Context, d
 	t.Logf("session %s runtime projection caught up: redis_preview=%d redis_durable=%d postgres_rows=%d", sessionID, previewCount, durableCount, len(rows))
 }
 
-func waitForRuntimeRedisEvents(t *testing.T, ctx context.Context, redisClient *redis.Client, sessionID string) []runtimestream.Event {
+func waitForRuntimeRedisEvents(t *testing.T, ctx context.Context, redisClient redis.UniversalClient, sessionID string) []runtimestream.Event {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Minute)
 	var last []runtimestream.Event
@@ -99,10 +99,12 @@ func waitForRuntimeRedisEvents(t *testing.T, ctx context.Context, redisClient *r
 	return nil
 }
 
-func runtimeRedisEventsForSession(t *testing.T, ctx context.Context, redisClient *redis.Client, sessionID string) []runtimestream.Event {
+func runtimeRedisEventsForSession(t *testing.T, ctx context.Context, redisClient redis.UniversalClient, sessionID string) []runtimestream.Event {
 	t.Helper()
-	shard := runtimestream.ShardForSession(sessionID, runtimeRedisShardCountForE2E(t))
-	messages, err := redisClient.XRange(ctx, runtimestream.StreamKey(shard), "-", "+").Result()
+	shardCount := runtimeRedisShardCountForE2E(t)
+	shard := runtimestream.ShardForSession(sessionID, shardCount)
+	store := runtimestream.NewStore(redisClient, shardCount)
+	messages, err := redisClient.XRange(ctx, store.StreamKey(shard), "-", "+").Result()
 	if err != nil {
 		t.Fatalf("read redis stream shard=%d: %v", shard, err)
 	}

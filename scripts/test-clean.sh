@@ -25,9 +25,9 @@ echo "==> Tearing down all services and volumes..."
 echo ""
 echo "==> Starting infrastructure..."
 if [[ "$TARGET" == "nango" || "$TARGET" == "integrations" || "$TARGET" == "all" ]]; then
-    "${COMPOSE[@]}" up -d postgres redis nango
+    "${COMPOSE[@]}" up -d postgres redis redis-2 redis-3 redis-cluster-init nango
 else
-    "${COMPOSE[@]}" up -d postgres redis
+    "${COMPOSE[@]}" up -d postgres redis redis-2 redis-3 redis-cluster-init
 fi
 
 echo ""
@@ -36,8 +36,12 @@ echo "==> Waiting for services to be healthy..."
 until "${COMPOSE[@]}" exec -T postgres pg_isready -U hivy -q 2>/dev/null; do sleep 1; done
 echo "  ✓ Postgres"
 
-until "${COMPOSE[@]}" exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
-echo "  ✓ Redis"
+until "${COMPOSE[@]}" exec -T redis redis-cli -p 16279 cluster info 2>/dev/null | grep -q 'cluster_state:ok'; do sleep 1; done
+echo "  ✓ Redis Cluster"
+
+export HIVY_REDIS_ADDR=""
+export HIVY_REDIS_CLUSTER=true
+export HIVY_REDIS_CLUSTER_ADDRS="${HIVY_REDIS_CLUSTER_ADDRS:-redis-1.localhost:16279,redis-2.localhost:16280,redis-3.localhost:16281}"
 
 if [[ "$TARGET" == "nango" || "$TARGET" == "integrations" || "$TARGET" == "all" ]]; then
     until curl -fsS "http://localhost:${HIVY_COMPOSE_NANGO_PORT:-23003}/health" >/dev/null 2>&1; do sleep 1; done

@@ -14,12 +14,11 @@ import (
 	"github.com/usehivy/hivy/internal/testdb"
 )
 
-func testRedis(t *testing.T) *redis.Client {
+func testRedis(t *testing.T) redis.UniversalClient {
 	t.Helper()
-	addr := testdb.RedisAddr("HIVY_REDIS_ADDR", "TEST_REDIS_ADDR")
-	rdb := redis.NewClient(&redis.Options{Addr: addr})
+	rdb := testdb.NewRedisClient()
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
-		t.Skipf("redis not reachable at %s: %v", addr, err)
+		t.Skipf("redis not reachable: %v", err)
 	}
 	t.Cleanup(func() { rdb.Close() })
 	return rdb

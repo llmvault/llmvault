@@ -25,10 +25,10 @@ services:
       HIVY_JWT_SIGNING_KEY: ${HIVY_JWT_SIGNING_KEY:?HIVY_JWT_SIGNING_KEY is required}
       HIVY_AUTH_RSA_PRIVATE_KEY: ${HIVY_AUTH_RSA_PRIVATE_KEY:?HIVY_AUTH_RSA_PRIVATE_KEY is required}
       HIVY_SANDBOX_ENCRYPTION_KEY: ${HIVY_SANDBOX_ENCRYPTION_KEY:?HIVY_SANDBOX_ENCRYPTION_KEY is required}
-      HIVY_REDIS_URL: ${HIVY_REDIS_URL:-}
-      HIVY_REDIS_ADDR: ${HIVY_REDIS_ADDR:-redis:6379}
-      HIVY_REDIS_CLUSTER: ${HIVY_REDIS_CLUSTER:-false}
-      HIVY_REDIS_CLUSTER_ADDRS: ${HIVY_REDIS_CLUSTER_ADDRS:-}
+      HIVY_REDIS_URL: ""
+      HIVY_REDIS_ADDR: ""
+      HIVY_REDIS_CLUSTER: "true"
+      HIVY_REDIS_CLUSTER_ADDRS: redis-1.localhost:16279,redis-2.localhost:16280,redis-3.localhost:16281
       HIVY_REDIS_PASSWORD: ${HIVY_REDIS_PASSWORD:-}
       HIVY_REDIS_DB: ${HIVY_REDIS_DB:-0}
       HIVY_REDIS_CACHE_TTL: ${HIVY_REDIS_CACHE_TTL:-30m}
@@ -82,8 +82,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+      redis-cluster-init:
+        condition: service_completed_successfully
       nango:
         condition: service_healthy
       minio-setup:
@@ -123,10 +123,10 @@ services:
       HIVY_JWT_SIGNING_KEY: ${HIVY_JWT_SIGNING_KEY:?HIVY_JWT_SIGNING_KEY is required}
       HIVY_AUTH_RSA_PRIVATE_KEY: ${HIVY_AUTH_RSA_PRIVATE_KEY:?HIVY_AUTH_RSA_PRIVATE_KEY is required}
       HIVY_SANDBOX_ENCRYPTION_KEY: ${HIVY_SANDBOX_ENCRYPTION_KEY:?HIVY_SANDBOX_ENCRYPTION_KEY is required}
-      HIVY_REDIS_URL: ${HIVY_REDIS_URL:-}
-      HIVY_REDIS_ADDR: ${HIVY_REDIS_ADDR:-redis:6379}
-      HIVY_REDIS_CLUSTER: ${HIVY_REDIS_CLUSTER:-false}
-      HIVY_REDIS_CLUSTER_ADDRS: ${HIVY_REDIS_CLUSTER_ADDRS:-}
+      HIVY_REDIS_URL: ""
+      HIVY_REDIS_ADDR: ""
+      HIVY_REDIS_CLUSTER: "true"
+      HIVY_REDIS_CLUSTER_ADDRS: redis-1.localhost:16279,redis-2.localhost:16280,redis-3.localhost:16281
       HIVY_REDIS_PASSWORD: ${HIVY_REDIS_PASSWORD:-}
       HIVY_REDIS_DB: ${HIVY_REDIS_DB:-0}
       HIVY_REDIS_CACHE_TTL: ${HIVY_REDIS_CACHE_TTL:-30m}
@@ -170,8 +170,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+      redis-cluster-init:
+        condition: service_completed_successfully
       nango:
         condition: service_healthy
       minio-setup:
@@ -262,16 +262,152 @@ services:
 
   redis:
     image: redis:7-alpine
+    command:
+      - redis-server
+      - --port
+      - "16279"
+      - --cluster-enabled
+      - "yes"
+      - --cluster-config-file
+      - nodes.conf
+      - --cluster-node-timeout
+      - "5000"
+      - --cluster-announce-hostname
+      - redis-1.localhost
+      - --cluster-announce-port
+      - "16279"
+      - --cluster-announce-bus-port
+      - "26279"
+      - --cluster-preferred-endpoint-type
+      - hostname
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
     ports:
-      - "${HIVY_COMPOSE_REDIS_PORT:-16379}:6379"
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+      - "${HIVY_COMPOSE_REDIS_PORT:-16279}:16279"
+      - "${HIVY_COMPOSE_REDIS_BUS_PORT:-26279}:26279"
     volumes:
-      - redisdata:/data
+      - redisdata-1:/data
+    networks:
+      default:
+        aliases:
+          - redis-1.localhost
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-p", "16279", "ping"]
       interval: 2s
       timeout: 5s
-      retries: 5
+      retries: 15
+
+  redis-2:
+    image: redis:7-alpine
+    command:
+      - redis-server
+      - --port
+      - "16280"
+      - --cluster-enabled
+      - "yes"
+      - --cluster-config-file
+      - nodes.conf
+      - --cluster-node-timeout
+      - "5000"
+      - --cluster-announce-hostname
+      - redis-2.localhost
+      - --cluster-announce-port
+      - "16280"
+      - --cluster-announce-bus-port
+      - "26280"
+      - --cluster-preferred-endpoint-type
+      - hostname
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+    ports:
+      - "${HIVY_COMPOSE_REDIS_2_PORT:-16280}:16280"
+      - "${HIVY_COMPOSE_REDIS_2_BUS_PORT:-26280}:26280"
+    volumes:
+      - redisdata-2:/data
+    networks:
+      default:
+        aliases:
+          - redis-2.localhost
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "16280", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  redis-3:
+    image: redis:7-alpine
+    command:
+      - redis-server
+      - --port
+      - "16281"
+      - --cluster-enabled
+      - "yes"
+      - --cluster-config-file
+      - nodes.conf
+      - --cluster-node-timeout
+      - "5000"
+      - --cluster-announce-hostname
+      - redis-3.localhost
+      - --cluster-announce-port
+      - "16281"
+      - --cluster-announce-bus-port
+      - "26281"
+      - --cluster-preferred-endpoint-type
+      - hostname
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+    ports:
+      - "${HIVY_COMPOSE_REDIS_3_PORT:-16281}:16281"
+      - "${HIVY_COMPOSE_REDIS_3_BUS_PORT:-26281}:26281"
+    volumes:
+      - redisdata-3:/data
+    networks:
+      default:
+        aliases:
+          - redis-3.localhost
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "16281", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  redis-cluster-init:
+    image: redis:7-alpine
+    depends_on:
+      redis:
+        condition: service_healthy
+      redis-2:
+        condition: service_healthy
+      redis-3:
+        condition: service_healthy
+    command: >
+      sh -ec '
+        if redis-cli -h redis-1.localhost -p 16279 cluster info 2>/dev/null | grep -q "cluster_state:ok"; then
+          exit 0;
+        fi;
+        redis-cli --cluster create \
+          redis-1.localhost:16279 \
+          redis-2.localhost:16280 \
+          redis-3.localhost:16281 \
+          --cluster-replicas 0 \
+          --cluster-yes;
+        until redis-cli -h redis-1.localhost -p 16279 cluster info | grep -q "cluster_state:ok"; do
+          sleep 1;
+        done
+      '
+    restart: "no"
 
   # --- Real Nango runtime (custom Hivy integrations image) ---
   # Used for tests that must exercise Nango's real request validation instead
@@ -376,7 +512,9 @@ services:
 
 volumes:
   pgdata:
-  redisdata:
+  redisdata-1:
+  redisdata-2:
+  redisdata-3:
   miniodata:
   qdrantdata:
   api-go-mod-cache:

@@ -11,7 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
+
+	"github.com/usehivy/hivy/internal/testdb"
 )
 
 const streamingE2EModel = "deepseek-v4-flash"
@@ -40,7 +41,7 @@ func TestAgentRuntimeRedisSequencingE2E(t *testing.T) {
 	agentSessionsEnsureSystemOpenRouterCredential(t)
 
 	db := agentSessionsOpenDB(t)
-	redisClient := redis.NewClient(&redis.Options{Addr: testRedisAddrOrEnv()})
+	redisClient := testdb.NewRedisClient()
 	t.Cleanup(func() { _ = redisClient.Close() })
 
 	runID := strings.ReplaceAll(uuid.NewString(), "-", "")[:12]

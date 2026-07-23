@@ -28,10 +28,9 @@ func connectTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func connectTestRedis(t *testing.T) *redis.Client {
+func connectTestRedis(t *testing.T) redis.UniversalClient {
 	t.Helper()
-	addr := testdb.RedisAddr("HIVY_REDIS_ADDR", "TEST_REDIS_ADDR")
-	client := redis.NewClient(&redis.Options{Addr: addr})
+	client := testdb.NewRedisClient()
 	t.Cleanup(func() { client.Close() })
 	return client
 }
