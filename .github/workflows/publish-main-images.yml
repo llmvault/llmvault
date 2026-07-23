@@ -1,0 +1,196 @@
+name: publish-main-images
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: publish-main-images
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  api:
+    name: Go API image
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    timeout-minutes: 30
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    env:
+      IMAGE: ghcr.io/usehivy/hivy
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Blacksmith builder
+        uses: useblacksmith/setup-docker-builder@v1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: build
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:main
+            ${{ env.IMAGE }}:dev
+            ${{ env.IMAGE }}:sha-${{ github.sha }}
+          build-args: |
+            VERSION=main
+            COMMIT=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=main
+
+  web:
+    name: Next.js web image
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    timeout-minutes: 30
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    env:
+      IMAGE: ghcr.io/usehivy/web
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Blacksmith builder
+        uses: useblacksmith/setup-docker-builder@v1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: build
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: apps/web
+          file: apps/web/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:main
+            ${{ env.IMAGE }}:dev
+            ${{ env.IMAGE }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=main
+
+  microsandbox-control:
+    name: Microsandbox control-plane image
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    timeout-minutes: 30
+    env:
+      IMAGE: ghcr.io/usehivy/msb
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Blacksmith builder
+        uses: useblacksmith/setup-docker-builder@v1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: .
+          file: Dockerfile.msb
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:main
+            ${{ env.IMAGE }}:dev
+            ${{ env.IMAGE }}:sha-${{ github.sha }}
+          build-args: |
+            VERSION=main
+            COMMIT=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=main
+
+  microsandbox-gateway:
+    name: Microsandbox preview-gateway image
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    timeout-minutes: 20
+    env:
+      IMAGE: ghcr.io/usehivy/microsandbox-gateway
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Blacksmith builder
+        uses: useblacksmith/setup-docker-builder@v1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: services/microsandbox-gateway
+          file: services/microsandbox-gateway/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:main
+            ${{ env.IMAGE }}:dev
+            ${{ env.IMAGE }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=main
+
+  deploy-staging:
+    name: Deploy staging application images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs:
+      - api
+      - web
+    environment: staging
+    env:
+      K8S_NAMESPACE: staging
+      BACKEND_IMAGE: ghcr.io/usehivy/hivy@${{ needs.api.outputs.digest }}
+      WEB_IMAGE: ghcr.io/usehivy/web@${{ needs.web.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Connect to the private Kubernetes API
+        env:
+          KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG_B64 }}
+          K8S_TUNNEL_SSH_KEY_B64: ${{ secrets.K8S_TUNNEL_SSH_KEY_B64 }}
+          K8S_TUNNEL_KNOWN_HOSTS_B64: ${{ secrets.K8S_TUNNEL_KNOWN_HOSTS_B64 }}
+          K8S_TUNNEL_HOSTS: ${{ vars.K8S_TUNNEL_HOSTS }}
+          K8S_TUNNEL_USER: ${{ vars.K8S_TUNNEL_USER }}
+        run: |
+          export KUBECONFIG="${RUNNER_TEMP}/hivy-kubeconfig"
+          bash ./scripts/deploy/setup-kubernetes-tunnel.sh
+          echo "KUBECONFIG=${KUBECONFIG}" >> "${GITHUB_ENV}"
+
+      - name: Deploy immutable images and wait for rollout
+        run: bash ./scripts/deploy/kubernetes-images.sh

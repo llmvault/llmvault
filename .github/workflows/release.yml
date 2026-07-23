@@ -1,0 +1,367 @@
+name: release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish.
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  prepare:
+    name: prepare release version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.RELEASE_TAG }}
+      version: ${{ steps.version.outputs.RELEASE_VERSION }}
+      prerelease: ${{ steps.version.outputs.RELEASE_IS_PRERELEASE }}
+      commit: ${{ steps.version.outputs.RELEASE_COMMIT }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          fetch-depth: 0
+
+      - name: derive version
+        id: version
+        run: bash ./scripts/release/derive-version.sh "${{ github.event.release.tag_name || inputs.tag }}" "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: verify release commit is on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+
+  api-image:
+    name: api image
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    needs: prepare
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
+
+      - name: login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: image tags
+        id: tags
+        shell: bash
+        run: |
+          tags="ghcr.io/usehivy/hivy:${{ needs.prepare.outputs.tag }}"
+          tags="${tags},ghcr.io/usehivy/hivy:${{ needs.prepare.outputs.version }}"
+          if [[ "${{ needs.prepare.outputs.prerelease }}" != "true" ]]; then
+            tags="${tags},ghcr.io/usehivy/hivy:latest"
+          fi
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+
+      - name: build and push
+        id: build
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.tag }}
+            COMMIT=${{ needs.prepare.outputs.commit }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/usehivy/hivy
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.tag }}
+
+  web-image:
+    name: web image
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    needs: prepare
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
+
+      - name: login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: image tags
+        id: tags
+        shell: bash
+        run: |
+          tags="ghcr.io/usehivy/web:${{ needs.prepare.outputs.tag }}"
+          tags="${tags},ghcr.io/usehivy/web:${{ needs.prepare.outputs.version }}"
+          if [[ "${{ needs.prepare.outputs.prerelease }}" != "true" ]]; then
+            tags="${tags},ghcr.io/usehivy/web:latest"
+          fi
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+
+      - name: build and push
+        id: build
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: apps/web
+          file: apps/web/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/usehivy/hivy
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.tag }}
+
+  deploy-production:
+    name: deploy production application images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: needs.prepare.outputs.prerelease != 'true'
+    needs:
+      - prepare
+      - api-image
+      - web-image
+    environment: production
+    env:
+      K8S_NAMESPACE: production
+      BACKEND_IMAGE: ghcr.io/usehivy/hivy@${{ needs.api-image.outputs.digest }}
+      WEB_IMAGE: ghcr.io/usehivy/web@${{ needs.web-image.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Connect to the private Kubernetes API
+        env:
+          KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG_B64 }}
+          K8S_TUNNEL_SSH_KEY_B64: ${{ secrets.K8S_TUNNEL_SSH_KEY_B64 }}
+          K8S_TUNNEL_KNOWN_HOSTS_B64: ${{ secrets.K8S_TUNNEL_KNOWN_HOSTS_B64 }}
+          K8S_TUNNEL_HOSTS: ${{ vars.K8S_TUNNEL_HOSTS }}
+          K8S_TUNNEL_USER: ${{ vars.K8S_TUNNEL_USER }}
+        run: |
+          export KUBECONFIG="${RUNNER_TEMP}/hivy-kubeconfig"
+          bash ./scripts/deploy/setup-kubernetes-tunnel.sh
+          echo "KUBECONFIG=${KUBECONFIG}" >> "${GITHUB_ENV}"
+
+      - name: Deploy immutable images and wait for rollout
+        run: bash ./scripts/deploy/kubernetes-images.sh
+
+  sandbox-runtime-images:
+    name: sandbox runtime images (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: blacksmith-8vcpu-ubuntu-2404
+            target: x86_64-unknown-linux-gnu
+            goarch: amd64
+            platform: linux/amd64
+            make_target: sandbox-runtime-linux-build-amd64
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: sandbox-runtime-release-${{ matrix.target }}
+          workspaces: sandboxes/runtime -> target
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: build runtime binary
+        run: make ${{ matrix.make_target }}
+
+      - name: build canvas cli
+        run: GOOS=linux GOARCH=${{ matrix.goarch }} CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=${{ needs.prepare.outputs.tag }} -X main.commit=${{ needs.prepare.outputs.commit }}" -o sandboxes/runtime/canvas ./cmd/canvas
+
+      - name: prepare runtime Docker build context
+        run: cp "sandboxes/runtime/dist/hivy-sandboxes-runtime-${{ matrix.target }}" sandboxes/runtime/hivy-sandboxes-runtime
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
+
+      - name: login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: build and push default runtime image
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: sandboxes/runtime
+          file: sandboxes/runtime/Dockerfile.runtime
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: |
+            ghcr.io/usehivy/hivy-sandboxes-runtime:${{ needs.prepare.outputs.tag }}-${{ matrix.arch }}
+            ghcr.io/usehivy/hivy-sandboxes-runtime:${{ needs.prepare.outputs.version }}-${{ matrix.arch }}
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.tag }}
+            COMMIT=${{ needs.prepare.outputs.commit }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/usehivy/hivy
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.tag }}
+
+      - name: build and push developers runtime image
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: sandboxes/runtime
+          file: sandboxes/runtime/Dockerfile.developers
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: |
+            ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${{ needs.prepare.outputs.tag }}-${{ matrix.arch }}
+            ghcr.io/usehivy/hivy-sandboxes-runtime-developers:${{ needs.prepare.outputs.version }}-${{ matrix.arch }}
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.tag }}
+            COMMIT=${{ needs.prepare.outputs.commit }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/usehivy/hivy
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.tag }}
+
+  sandbox-app-image:
+    name: sandbox app image (amd64)
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    needs: prepare
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: prepare app Docker build context
+        run: HIVY_APP_CONTEXT_OUT="${RUNNER_TEMP}/app-context" bash sandboxes/app/build_image.sh
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
+
+      - name: login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: build and push app sandbox image
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: ${{ runner.temp }}/app-context
+          file: ${{ runner.temp }}/app-context/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/usehivy/hivy-app:${{ needs.prepare.outputs.tag }}-amd64
+            ghcr.io/usehivy/hivy-app:${{ needs.prepare.outputs.version }}-amd64
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.tag }}
+            COMMIT=${{ needs.prepare.outputs.commit }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/usehivy/hivy
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.commit }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.tag }}
+
+  release-manifest:
+    name: release manifest
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+      - api-image
+      - sandbox-runtime-images
+      - sandbox-app-image
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: create sandbox runtime manifests
+        shell: bash
+        run: |
+          runtime="ghcr.io/usehivy/hivy-sandboxes-runtime"
+          developers="ghcr.io/usehivy/hivy-sandboxes-runtime-developers"
+          app="ghcr.io/usehivy/hivy-app"
+          for image in "$runtime" "$developers" "$app"; do
+            docker buildx imagetools create \
+              -t "${image}:${{ needs.prepare.outputs.tag }}" \
+              "${image}:${{ needs.prepare.outputs.tag }}-amd64"
+            docker buildx imagetools create \
+              -t "${image}:${{ needs.prepare.outputs.version }}" \
+              "${image}:${{ needs.prepare.outputs.version }}-amd64"
+            if [[ "${{ needs.prepare.outputs.prerelease }}" != "true" ]]; then
+              docker buildx imagetools create \
+                -t "${image}:latest" \
+                "${image}:${{ needs.prepare.outputs.tag }}-amd64"
+            fi
+          done
+
+      - name: write manifest
+        run: ./scripts/release/write-manifest.sh "${{ needs.prepare.outputs.tag }}" release-manifest.json "${{ needs.prepare.outputs.commit }}"
+
+      - name: archive manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest
+          path: release-manifest.json
+
+      - name: upload manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ needs.prepare.outputs.tag }}" release-manifest.json --clobber

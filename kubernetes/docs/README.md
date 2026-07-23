@@ -83,9 +83,10 @@ Neither MCP hostname appears in the shared certificate manifest, and production
 has no MCP HTTPRoute. Treat MCP TLS failures as an ingress configuration issue,
 not an application or provider failure, until those manifests are fixed.
 
-GitHub Actions does not publish Hivy images, create Daytona snapshots, or deploy
-Kubernetes workloads. Releases are metadata-only. Use an explicit operator-run
-deployment when changing the images pinned by an environment overlay.
+GitHub Actions publishes application images and deploys the staging namespace
+on pushes to `main`. Stable GitHub releases publish versioned images and deploy
+the production namespace. Daytona image targets and snapshot publication remain
+disabled.
 
 ## Safe first commands
 

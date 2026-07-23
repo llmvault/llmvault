@@ -7,10 +7,10 @@ ghcr.io/usehivy/hivy-sandboxes-runtime-daytona:<release>
 ghcr.io/usehivy/hivy-sandboxes-runtime-developers-daytona:<release>
 ```
 
-The app image was not part of this path. Automated image and snapshot
-publication has been retired: no GitHub Actions workflow builds these targets,
-pushes them to a registry, creates release manifests, or uploads them to
-Daytona.
+The app image was not part of this path. Automated Daytona image and snapshot
+publication has been retired: no GitHub Actions workflow builds the Daytona
+targets, pushes them to a registry, or uploads them to Daytona. The application
+and non-Daytona sandbox release paths remain active.
 
 ## Image contract
 
@@ -113,9 +113,9 @@ expires. See <https://www.daytona.io/docs/en/preview/>.
 
 ## Publication status
 
-The former release, runtime-manifest, and promotion workflows have been
-removed. Publishing a GitHub Release does not build or push Daytona images,
-publish snapshots, or update provider configuration.
+Release and runtime-manifest workflows omit Daytona targets. Publishing a
+GitHub Release does not build or push Daytona images, publish snapshots, or
+update Daytona provider configuration.
 
 ### First provider cutover
 
