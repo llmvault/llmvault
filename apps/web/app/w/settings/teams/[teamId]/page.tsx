@@ -191,11 +191,17 @@ export default function TeamDetailPage({
       ) : visibleActiveTab === "connections" ? (
         <div
           aria-labelledby="team-connections-tab"
-          className="flex flex-col gap-8"
           id="team-connections-panel"
           role="tabpanel"
         >
           <TeamConnectionsSection teamId={teamId} readOnly={!isAdmin} />
+        </div>
+      ) : visibleActiveTab === "routing" ? (
+        <div
+          aria-labelledby="team-routing-tab"
+          id="team-routing-panel"
+          role="tabpanel"
+        >
           <TeamExternalResourceRoutes teamId={teamId} />
         </div>
       ) : visibleActiveTab === "skills" ? (

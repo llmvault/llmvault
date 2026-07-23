@@ -6,6 +6,7 @@ describe("teamDetailTabs", () => {
     expect(teamDetailTabs(true).map((tab) => tab.id)).toEqual([
       "overview",
       "connections",
+      "routing",
       "skills",
       "knowledge",
       "environment-variables",
@@ -16,6 +17,7 @@ describe("teamDetailTabs", () => {
     expect(teamDetailTabs(false).map((tab) => tab.id)).toEqual([
       "overview",
       "connections",
+      "routing",
       "skills",
       "environment-variables",
     ])

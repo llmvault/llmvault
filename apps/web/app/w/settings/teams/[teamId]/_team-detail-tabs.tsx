@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 export type TeamDetailTab =
   | "overview"
   | "connections"
+  | "routing"
   | "skills"
   | "knowledge"
   | "environment-variables"
@@ -19,6 +20,7 @@ type TeamDetailTabOption = {
 const TEAM_DETAIL_TAB_OPTIONS: readonly TeamDetailTabOption[] = [
   { id: "overview", label: "Overview" },
   { id: "connections", label: "Connections" },
+  { id: "routing", label: "Routing" },
   { id: "skills", label: "Skills" },
   { id: "knowledge", label: "Knowledge", adminOnly: true },
   { id: "environment-variables", label: "Env" },
