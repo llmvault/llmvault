@@ -1,6 +1,7 @@
 import type { ComponentType, SVGProps } from "react"
 import Image from "next/image"
 import ThesvgChrome from "@thesvg/react/chrome"
+import ThesvgGrafana from "@thesvg/react/grafana"
 import ThesvgGithub from "@thesvg/react/github"
 import ThesvgGoogle from "@thesvg/react/google"
 import ThesvgLinear from "@thesvg/react/linear"
@@ -44,6 +45,7 @@ type BrandConfig = {
 const BRANDS: Record<string, BrandConfig> = {
   // `default` is already colored/dark — renders on white as-is.
   github: { Logo: ThesvgGithub },
+  grafana: { Logo: ThesvgGrafana },
   slack: { Logo: ThesvgSlack },
   linear: { Logo: ThesvgLinear },
   playwright: { Logo: ThesvgPlaywright },

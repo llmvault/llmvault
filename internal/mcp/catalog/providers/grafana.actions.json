@@ -1,0 +1,493 @@
+{
+  "display_name": "Grafana",
+  "resources": {},
+  "actions": {
+    "get_dashboard": {
+      "display_name": "Get Dashboard",
+      "description": "Load one Grafana dashboard by UID, including panels, variables, data source references, and saved query models. Use the saved panel queries as a starting point for query_data_source.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "uid"
+        ],
+        "properties": {
+          "uid": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Dashboard UID returned by search_dashboards. This is the stable UID, not the numeric dashboard ID."
+          }
+        }
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/dashboards/uid/{uid}"
+      },
+      "response_schema": "DashboardFullWithMeta"
+    },
+    "list_data_sources": {
+      "display_name": "List Data Sources",
+      "description": "List every Grafana data source visible to the connected service account. Use this before query_data_source when you need a data source UID, name, type, or access mode.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "properties": {},
+        "type": "object"
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/datasources"
+      },
+      "response_schema": "DataSourceList"
+    },
+    "query_data_source": {
+      "display_name": "Query Data Source",
+      "description": "Run one or more backend data source queries through Grafana. Each query needs a unique refId, datasource.uid, and the fields required by that data source, such as expr for Prometheus or Loki and rawSql for SQL. Grafana uses POST for this read-query endpoint; protect SQL data sources with read-only database credentials.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to",
+          "queries"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Start of the time range as milliseconds since the Unix epoch or a Grafana relative time such as now-1h."
+          },
+          "to": {
+            "type": "string",
+            "description": "End of the time range as milliseconds since the Unix epoch or a Grafana relative time such as now."
+          },
+          "queries": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "description": "Grafana data source query models. Every item needs a unique refId and a data source UID. Keep provider-specific fields such as expr, rawSql, queryType, editorMode, or legendFormat on the query object.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": [
+                "refId",
+                "datasource"
+              ],
+              "properties": {
+                "refId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Unique result identifier within this request, commonly A, B, or C."
+                },
+                "datasource": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "uid"
+                  ],
+                  "properties": {
+                    "uid": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Grafana data source UID returned by list_data_sources."
+                    },
+                    "type": {
+                      "type": "string",
+                      "description": "Optional data source plugin type, such as prometheus, loki, tempo, postgres, or mysql."
+                    }
+                  }
+                },
+                "format": {
+                  "type": "string",
+                  "enum": [
+                    "time_series",
+                    "table"
+                  ],
+                  "description": "Requested result format when the data source supports it."
+                },
+                "maxDataPoints": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "description": "Maximum points Grafana should return for this query."
+                },
+                "intervalMs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Query interval in milliseconds."
+                },
+                "expr": {
+                  "type": "string",
+                  "description": "Prometheus, Loki, or other expression understood by the selected data source."
+                },
+                "rawSql": {
+                  "type": "string",
+                  "description": "A SELECT, WITH, SHOW, EXPLAIN, or other read-only statement for a SQL-backed Grafana data source."
+                }
+              }
+            }
+          },
+          "debug": {
+            "type": "boolean",
+            "description": "Ask Grafana to include query debugging details when supported."
+          }
+        }
+      },
+      "execution": {
+        "method": "POST",
+        "path": "/api/ds/query",
+        "body_mapping": {
+          "debug": "debug",
+          "from": "from",
+          "queries": "queries",
+          "to": "to"
+        }
+      },
+      "response_schema": "QueryDataResponse"
+    },
+    "search_dashboards": {
+      "display_name": "Search Dashboards",
+      "description": "Search Grafana folders and dashboards by title, type, star status, or permission. Results only include resources visible to the connected service account. Pass a returned dashboard UID to get_dashboard.",
+      "access": "read",
+      "resource_type": "",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Text to match against dashboard and folder titles."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "dash-db",
+              "dash-folder"
+            ],
+            "description": "Restrict results to dashboards or folders."
+          },
+          "starred": {
+            "type": "boolean",
+            "description": "Return only starred dashboards when true."
+          },
+          "permission": {
+            "type": "string",
+            "enum": [
+              "View",
+              "Edit"
+            ],
+            "description": "Return resources the service account can view or edit."
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "alpha-asc",
+              "alpha-desc"
+            ],
+            "description": "Sort results by title."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "description": "Maximum results to return on one page."
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "One-based result page."
+          }
+        }
+      },
+      "execution": {
+        "method": "GET",
+        "path": "/api/search",
+        "query_mapping": {
+          "dashboardIds": "dashboardIds",
+          "dashboardUIDs": "dashboardUIDs",
+          "deleted": "deleted",
+          "folderIds": "folderIds",
+          "folderUIDs": "folderUIDs",
+          "limit": "limit",
+          "page": "page",
+          "permission": "permission",
+          "query": "query",
+          "sort": "sort",
+          "starred": "starred",
+          "tag": "tag",
+          "type": "type"
+        }
+      },
+      "response_schema": "HitList"
+    }
+  },
+  "schemas": {
+    "AnnotationActions": {
+      "type": "object",
+      "properties": {
+        "canAdd": {
+          "type": "boolean"
+        },
+        "canDelete": {
+          "type": "boolean"
+        },
+        "canEdit": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AnnotationPermission": {
+      "type": "object",
+      "properties": {
+        "dashboard": {
+          "type": "object",
+          "description": "+k8s:deepcopy-gen=true",
+          "schema_ref": "AnnotationActions"
+        }
+      }
+    },
+    "DashboardFullWithMeta": {
+      "type": "object",
+      "properties": {
+        "dashboard": {
+          "type": "object",
+          "schema_ref": "Json"
+        },
+        "meta": {
+          "type": "object",
+          "schema_ref": "DashboardMeta"
+        }
+      }
+    },
+    "DashboardMeta": {
+      "type": "object",
+      "properties": {
+        "annotationsPermissions": {
+          "type": "object",
+          "description": "+k8s:deepcopy-gen=true",
+          "schema_ref": "AnnotationPermission"
+        },
+        "apiVersion": {
+          "type": "string"
+        },
+        "canAdmin": {
+          "type": "boolean"
+        },
+        "canDelete": {
+          "type": "boolean"
+        },
+        "canEdit": {
+          "type": "boolean"
+        },
+        "canSave": {
+          "type": "boolean"
+        },
+        "canStar": {
+          "type": "boolean"
+        },
+        "created": {
+          "type": "string"
+        },
+        "createdBy": {
+          "type": "string"
+        },
+        "expires": {
+          "type": "string"
+        },
+        "folderId": {
+          "type": "integer",
+          "description": "Deprecated: use FolderUID instead"
+        },
+        "folderTitle": {
+          "type": "string"
+        },
+        "folderUid": {
+          "type": "string"
+        },
+        "folderUrl": {
+          "type": "string"
+        },
+        "hasAcl": {
+          "type": "boolean"
+        },
+        "isFolder": {
+          "type": "boolean"
+        },
+        "isSnapshot": {
+          "type": "boolean"
+        },
+        "provisioned": {
+          "type": "boolean"
+        },
+        "provisionedExternalId": {
+          "type": "string"
+        },
+        "publicDashboardEnabled": {
+          "type": "boolean"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "updated": {
+          "type": "string"
+        },
+        "updatedBy": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer"
+        }
+      }
+    },
+    "DataSourceList": {
+      "type": "array",
+      "items": {
+        "$ref": "DataSourceListItemDTO"
+      }
+    },
+    "DataSourceListItemDTO": {
+      "type": "object",
+      "properties": {
+        "access": {
+          "type": "string"
+        },
+        "basicAuth": {
+          "type": "boolean"
+        },
+        "database": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "isDefault": {
+          "type": "boolean"
+        },
+        "jsonData": {
+          "type": "object",
+          "schema_ref": "Json"
+        },
+        "name": {
+          "type": "string"
+        },
+        "orgId": {
+          "type": "integer"
+        },
+        "readOnly": {
+          "type": "boolean"
+        },
+        "type": {
+          "type": "string"
+        },
+        "typeLogoUrl": {
+          "type": "string"
+        },
+        "typeName": {
+          "type": "string"
+        },
+        "uid": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        }
+      }
+    },
+    "Hit": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "folderId": {
+          "type": "integer"
+        },
+        "folderTitle": {
+          "type": "string"
+        },
+        "folderUid": {
+          "type": "string"
+        },
+        "folderUrl": {
+          "type": "string"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "isDeleted": {
+          "type": "boolean"
+        },
+        "isStarred": {
+          "type": "boolean"
+        },
+        "orgId": {
+          "type": "integer"
+        },
+        "permanentlyDeleteDate": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "sortMeta": {
+          "type": "integer"
+        },
+        "sortMetaName": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array"
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "uid": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "HitList": {
+      "type": "array",
+      "items": {
+        "$ref": "Hit"
+      }
+    },
+    "Json": {
+      "type": "object"
+    },
+    "QueryDataResponse": {
+      "type": "object",
+      "properties": {
+        "results": {
+          "type": "object",
+          "description": "The QueryData method the QueryDataHandler method will set the RefId\nproperty on the DataResponses' frames based on these RefIDs.",
+          "schema_ref": "Responses"
+        }
+      }
+    },
+    "Responses": {
+      "type": "object"
+    }
+  }
+}

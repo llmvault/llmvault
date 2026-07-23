@@ -28,6 +28,20 @@ func matchesFilters(path string, includes, excludes []string) bool {
 	return true
 }
 
+// selectedOperation returns the matching exact allowlist entry. With no
+// selectors, every operation remains eligible.
+func selectedOperation(path, method string, selectors []OperationSelector) (OperationSelector, bool) {
+	if len(selectors) == 0 {
+		return OperationSelector{}, true
+	}
+	for _, selector := range selectors {
+		if selector.Path == path && strings.EqualFold(selector.Method, method) {
+			return selector, true
+		}
+	}
+	return OperationSelector{}, false
+}
+
 // deriveV2ActionKey produces the action key and display name from a Swagger operation.
 func deriveV2ActionKey(op *v2high.Operation, method, path string) (string, string) {
 	var key string

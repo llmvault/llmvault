@@ -45,6 +45,7 @@ describe("AddConnectionPage", () => {
         data: [
           { id: "slack", display_name: "Slack", provider: "slack" },
           { id: "notion", display_name: "Notion", provider: "notion" },
+          { id: "grafana", display_name: "Grafana", provider: "grafana" },
         ],
       },
       isError: false,
@@ -68,5 +69,9 @@ describe("AddConnectionPage", () => {
     expect(html).toContain("Integrations")
     expect(html).toContain("Slack")
     expect(html).toContain("Notion")
+    expect(html).toContain("Grafana")
+    expect(html).toContain(
+      "Query metrics, logs, traces, and other data through Grafana."
+    )
   })
 })

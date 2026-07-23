@@ -68,6 +68,7 @@ const DESCRIPTIONS: Record<string, string> = {
   apify: "Run actors and use web data in your workflows.",
   bugsink: "Investigate errors and application issues.",
   glitchtip: "Inspect errors, events, and performance data.",
+  grafana: "Query metrics, logs, traces, and other data through Grafana.",
 }
 
 export default function AddConnectionPage() {

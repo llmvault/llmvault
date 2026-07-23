@@ -2,13 +2,15 @@ package main
 
 // ServiceConfig defines how to fetch and parse a Swagger 2.0 spec for a service.
 type ServiceConfig struct {
-	Name           string            // service name (maps to metadata.json key)
-	SpecSource     string            // URL to the Swagger 2.0 spec file
-	NangoProviders []string          // nango provider IDs that share this API surface
-	PathFilters    []string          // include only paths matching these prefixes (empty = all)
-	PathExcludes   []string          // exclude paths matching these prefixes
-	ExtraHeaders   map[string]string // added to every action's execution.headers
-	TagResourceMap map[string]string // OpenAPI tags → resource_type
+	Name               string                    // service name (maps to metadata.json key)
+	SpecSource         string                    // URL to the Swagger 2.0 spec file
+	NangoProviders     []string                  // nango provider IDs that share this API surface
+	PathFilters        []string                  // include only paths matching these prefixes (empty = all)
+	PathExcludes       []string                  // exclude paths matching these prefixes
+	OperationSelectors []OperationSelector       // exact method/path allowlist (empty = all methods on matched paths)
+	ActionOverrides    map[string]ActionOverride // source operationId → reviewed action metadata
+	ExtraHeaders       map[string]string         // added to every action's execution.headers
+	TagResourceMap     map[string]string         // OpenAPI tags → resource_type
 }
 
 // AllServices returns the registry of Swagger 2.0 providers.
@@ -28,5 +30,6 @@ func AllServices() []ServiceConfig {
 			SpecSource:     "https://raw.githubusercontent.com/zoom/api/refs/heads/master/openapi.v2.json",
 			NangoProviders: []string{"zoom"},
 		},
+		grafanaService(),
 	}
 }

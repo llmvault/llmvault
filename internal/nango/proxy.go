@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"reflect"
-	"strings"
 
 	"github.com/usehivy/hivy/internal/logging"
 )
@@ -45,11 +45,11 @@ func (c *Client) ProxyRequestWithHeaders(ctx context.Context, method, providerCo
 
 	query := ""
 	if len(queryParams) > 0 {
-		q := make([]string, 0, len(queryParams))
+		values := make(url.Values, len(queryParams))
 		for k, v := range queryParams {
-			q = append(q, fmt.Sprintf("%s=%s", k, v))
+			values.Set(k, v)
 		}
-		query = "?" + strings.Join(q, "&")
+		query = "?" + values.Encode()
 	}
 
 	fullURL := c.endpoint + "/proxy" + path + query

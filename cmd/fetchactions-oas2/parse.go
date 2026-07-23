@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -53,11 +54,19 @@ func parseSpec(specData []byte, cfg ServiceConfig) (*ParseResult, error) {
 
 		ops := getV2Operations(pathItem)
 		for method, op := range ops {
-			if op.Deprecated {
+			selector, selected := selectedOperation(rawPath, method, cfg.OperationSelectors)
+			if !selected {
+				continue
+			}
+			if op.Deprecated && !selector.AllowDeprecated {
 				continue
 			}
 
 			actionKey, displayName := deriveV2ActionKey(op, method, fullPath)
+			override, hasOverride := cfg.ActionOverrides[op.OperationId]
+			if hasOverride && override.Key != "" {
+				actionKey = override.Key
+			}
 			if actionKey == "" {
 				continue
 			}
@@ -72,12 +81,34 @@ func parseSpec(specData []byte, cfg ServiceConfig) (*ParseResult, error) {
 			} else if op.Summary != "" {
 				desc = truncateDescription(op.Summary, 200)
 			}
+			if hasOverride {
+				if override.DisplayName != "" {
+					displayName = override.DisplayName
+				}
+				if override.Description != "" {
+					desc = override.Description
+				}
+			}
 
 			resourceType := inferV2ResourceType(op, cfg.TagResourceMap)
 
 			params, exec := buildV2ParamsAndExecution(op, pathItem.Parameters, method, fullPath, cfg.ExtraHeaders)
+			if hasOverride && len(override.Parameters) > 0 {
+				if !json.Valid(override.Parameters) {
+					return nil, fmt.Errorf("operation %s has an invalid parameter override", op.OperationId)
+				}
+				params = append(json.RawMessage(nil), override.Parameters...)
+			}
 
 			access := inferAccess(method, actionKey, fullPath)
+			if hasOverride && override.Access != "" {
+				switch override.Access {
+				case "read", "write":
+					access = override.Access
+				default:
+					return nil, fmt.Errorf("operation %s has invalid access %q", op.OperationId, override.Access)
+				}
+			}
 
 			responseSchemaRef := extractV2ResponseSchema(op, definitionsMap, schemas)
 
