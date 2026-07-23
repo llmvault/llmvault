@@ -44,13 +44,14 @@ const (
 )
 
 type AgentCatalogSubAgent struct {
-	Name           string         `json:"name"`
-	Description    string         `json:"description"`
-	Model          string         `json:"model,omitempty"`
-	Tools          JSON           `json:"tools,omitempty"`
-	McpToolFilter  *ToolFilter    `json:"mcp_tool_filter,omitempty"`
-	AutoLoadSkills AutoLoadSkills `json:"auto_load_skills,omitempty"`
-	Instructions   string         `json:"instructions"`
+	Name                string         `json:"name"`
+	Description         string         `json:"description"`
+	Model               string         `json:"model,omitempty"`
+	Tools               JSON           `json:"tools,omitempty"`
+	McpToolFilter       *ToolFilter    `json:"mcp_tool_filter,omitempty"`
+	AutoLoadSkills      AutoLoadSkills `json:"auto_load_skills,omitempty"`
+	Instructions        string         `json:"instructions"`
+	EmailInboxLocalPart string         `json:"-"`
 }
 
 type ToolFilter struct {

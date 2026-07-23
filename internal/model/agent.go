@@ -133,6 +133,14 @@ type BuiltInToolDefinition struct {
 	Locked      bool   `json:"locked"` // true = cannot be toggled off by the user
 }
 
+// AgentEmailMCPToolIDs is the native email capability group derived from an
+// agent's inbox presence.
+var AgentEmailMCPToolIDs = []string{
+	"send_email",
+	"email_read",
+	"email_search",
+}
+
 // ValidBuiltInTools is the canonical list of every tool an agent can be granted:
 // the Rust runtime's native built-in tools plus the Hivy MCP tools its runtime
 // surfaces. Consumed for permission-key validation (ValidatePermissionKeys /

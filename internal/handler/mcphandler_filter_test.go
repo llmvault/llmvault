@@ -34,13 +34,14 @@ func TestAgentProxyMCPToolFilterUsesCompilerAllowList(t *testing.T) {
 	org := model.Org{ID: uuid.New(), Name: "mcp-filter-" + uuid.NewString(), Active: true, RateLimit: 1000}
 	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "mcp-filter-team-" + uuid.NewString()}
 	agent := model.Agent{
-		ID:            uuid.New(),
-		OrgID:         &org.ID,
-		TeamID:        team.ID,
-		Name:          "Filtered agent",
-		Model:         "test-model",
-		Status:        "active",
-		McpToolFilter: &model.ToolFilter{Allow: []string{"sheet_list"}},
+		ID:                  uuid.New(),
+		OrgID:               &org.ID,
+		TeamID:              team.ID,
+		Name:                "Filtered agent",
+		Model:               "test-model",
+		Status:              "active",
+		EmailInboxLocalPart: "filtered-agent",
+		McpToolFilter:       &model.ToolFilter{Allow: []string{"sheet_list"}},
 	}
 	for _, row := range []any{&org, &team, &agent} {
 		if err := db.Create(row).Error; err != nil {
@@ -70,6 +71,11 @@ func TestAgentProxyMCPToolFilterUsesCompilerAllowList(t *testing.T) {
 	}
 	if !got["sheet_list"] || !got["skill_view"] {
 		t.Fatalf("compiled JTI filter = %#v, want sheet_list plus skill_view", filter)
+	}
+	for _, id := range model.AgentEmailMCPToolIDs {
+		if !got[id] {
+			t.Fatalf("compiled JTI filter = %#v, want inbox-derived tool %q", filter, id)
+		}
 	}
 	if got["app_create"] || got["web_search"] || got["search_knowledge_base"] {
 		t.Fatalf("compiled JTI filter leaked ungranted tools: %#v", filter)

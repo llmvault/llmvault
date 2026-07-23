@@ -14,10 +14,6 @@ END IF;
 ALTER TABLE public.agents
     ADD COLUMN IF NOT EXISTS email_inbox_local_part text NOT NULL DEFAULT '';
 
-UPDATE public.agents
-SET email_inbox_local_part = 'agent-' || substr(replace(id::text, '-', ''), 1, 8)
-WHERE email_inbox_local_part = '';
-
 CREATE UNIQUE INDEX IF NOT EXISTS idx_agents_email_inbox_local_part
     ON public.agents (email_inbox_local_part)
     WHERE email_inbox_local_part <> '';

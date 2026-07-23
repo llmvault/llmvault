@@ -70,6 +70,16 @@ func ProvisionInbox(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, 
 		if result.RowsAffected != 1 {
 			return fmt.Errorf("provision agent inbox: expected one updated agent, got %d", result.RowsAffected)
 		}
+		revision := tx.WithContext(ctx).
+			Model(&model.Org{}).
+			Where("id = ?", orgID).
+			UpdateColumn("mcp_config_version", gorm.Expr("mcp_config_version + 1"))
+		if revision.Error != nil {
+			return fmt.Errorf("advance MCP config version for agent inbox: %w", revision.Error)
+		}
+		if revision.RowsAffected != 1 {
+			return fmt.Errorf("advance MCP config version for agent inbox: expected one updated org, got %d", revision.RowsAffected)
+		}
 		agent.EmailInboxLocalPart = localPart
 		created = true
 		return nil

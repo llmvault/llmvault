@@ -56,6 +56,10 @@ func TestAgentInboxProvisionAndGet(t *testing.T) {
 	if beforeBody.Available || beforeBody.Email != "" || beforeBody.MessageCount != 0 {
 		t.Fatalf("GET before provisioning = %#v, want unavailable inbox", beforeBody)
 	}
+	versionBefore, err := agentruntime.MCPConfigVersion(t.Context(), db, org.ID)
+	if err != nil {
+		t.Fatalf("load MCP config version before provisioning: %v", err)
+	}
 
 	created := performAgentInboxRequest(t, router, org, member, http.MethodPost, agent.ID)
 	if created.Code != http.StatusCreated {
@@ -66,6 +70,23 @@ func TestAgentInboxProvisionAndGet(t *testing.T) {
 		!strings.HasSuffix(createdBody.Email, "@agents.example.test") {
 		t.Fatalf("POST response = %#v, want provisioned inbox address", createdBody)
 	}
+	versionAfter, err := agentruntime.MCPConfigVersion(t.Context(), db, org.ID)
+	if err != nil {
+		t.Fatalf("load MCP config version after provisioning: %v", err)
+	}
+	if versionAfter != versionBefore+1 {
+		t.Fatalf("MCP config version = %d, want %d after inbox provisioning", versionAfter, versionBefore+1)
+	}
+	var provisionedAgent model.Agent
+	if err := db.First(&provisionedAgent, "id = ?", agent.ID).Error; err != nil {
+		t.Fatalf("reload provisioned agent: %v", err)
+	}
+	effectiveFilter := agentruntime.ResolveAgentMCPToolFilter(t.Context(), db, &provisionedAgent)
+	for _, id := range model.AgentEmailMCPToolIDs {
+		if !containsAgentInboxTool(effectiveFilter.Allow, id) {
+			t.Fatalf("effective MCP allow = %#v, want inbox-derived tool %q", effectiveFilter.Allow, id)
+		}
+	}
 
 	repeated := performAgentInboxRequest(t, router, org, member, http.MethodPost, agent.ID)
 	if repeated.Code != http.StatusOK {
@@ -74,6 +95,13 @@ func TestAgentInboxProvisionAndGet(t *testing.T) {
 	repeatedBody := decodeAgentInboxResponse(t, repeated)
 	if repeatedBody.Email != createdBody.Email {
 		t.Fatalf("repeated POST email = %q, want %q", repeatedBody.Email, createdBody.Email)
+	}
+	versionAfterRepeat, err := agentruntime.MCPConfigVersion(t.Context(), db, org.ID)
+	if err != nil {
+		t.Fatalf("load MCP config version after repeated provisioning: %v", err)
+	}
+	if versionAfterRepeat != versionAfter {
+		t.Fatalf("repeated provisioning changed MCP config version from %d to %d", versionAfter, versionAfterRepeat)
 	}
 
 	thread := model.AgentEmailThread{
@@ -114,6 +142,15 @@ func TestAgentInboxProvisionAndGet(t *testing.T) {
 	if afterBody.MessageCount != 2 {
 		t.Fatalf("message_count = %d, want 2 inbound messages", afterBody.MessageCount)
 	}
+}
+
+func containsAgentInboxTool(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func performAgentInboxRequest(

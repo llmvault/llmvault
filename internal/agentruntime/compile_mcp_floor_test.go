@@ -86,8 +86,46 @@ func TestResolveAgentMCPToolFilter_AppliesFloorForUserAgent(t *testing.T) {
 	}
 }
 
+func TestResolveAgentMCPToolFilter_DerivesEmailToolsFromInbox(t *testing.T) {
+	orgID := uuid.New()
+	withoutInbox := &model.Agent{
+		ID:            uuid.New(),
+		OrgID:         &orgID,
+		Name:          "No inbox",
+		Model:         DefaultAgentModel,
+		McpToolFilter: &model.ToolFilter{Allow: append([]string(nil), model.AgentEmailMCPToolIDs...)},
+	}
+	filter := resolveAgentMCPToolFilter(context.Background(), nil, withoutInbox)
+	for _, id := range model.AgentEmailMCPToolIDs {
+		if containsString(filter.Allow, id) {
+			t.Fatalf("allow = %#v, must not contain %q without an inbox", filter.Allow, id)
+		}
+	}
+
+	withInbox := &model.Agent{
+		ID:                  uuid.New(),
+		OrgID:               &orgID,
+		Name:                "Provisioned inbox",
+		Model:               DefaultAgentModel,
+		EmailInboxLocalPart: "provisioned-agent",
+		McpToolFilter:       &model.ToolFilter{},
+		AgentCatalog: &model.AgentCatalog{Manifest: model.RawJSON(`{
+			"mcp_tool_filter": {"allow": ["web_search"]}
+		}`)},
+	}
+	filter = resolveAgentMCPToolFilter(context.Background(), nil, withInbox)
+	if !containsString(filter.Allow, "web_search") {
+		t.Fatalf("allow = %#v, want catalog grant web_search", filter.Allow)
+	}
+	for _, id := range model.AgentEmailMCPToolIDs {
+		if !containsString(filter.Allow, id) {
+			t.Fatalf("allow = %#v, want inbox-derived tool %q", filter.Allow, id)
+		}
+	}
+}
+
 func TestCompileSubAgentMCPToolFilter_ExcludesDriveSearch(t *testing.T) {
-	filter := compileSubAgentMCPToolFilter(&model.ToolFilter{Allow: []string{"drive_search", "web_search"}})
+	filter := compileSubAgentMCPToolFilter(&model.ToolFilter{Allow: []string{"drive_search", "web_search"}}, false)
 	if filter == nil {
 		t.Fatal("filter = nil")
 	}
@@ -96,5 +134,24 @@ func TestCompileSubAgentMCPToolFilter_ExcludesDriveSearch(t *testing.T) {
 	}
 	if !reflect.DeepEqual(filter.Allow, []string{"skill_view", "web_search"}) {
 		t.Fatalf("allow = %#v, want skill_view+web_search", filter.Allow)
+	}
+}
+
+func TestCompileSubAgentMCPToolFilter_DerivesEmailToolsFromInbox(t *testing.T) {
+	filter := compileSubAgentMCPToolFilter(
+		&model.ToolFilter{Allow: append([]string(nil), model.AgentEmailMCPToolIDs...)},
+		false,
+	)
+	for _, id := range model.AgentEmailMCPToolIDs {
+		if containsString(filter.Allow, id) {
+			t.Fatalf("allow = %#v, must not contain %q without an inbox", filter.Allow, id)
+		}
+	}
+
+	filter = compileSubAgentMCPToolFilter(&model.ToolFilter{}, true)
+	for _, id := range model.AgentEmailMCPToolIDs {
+		if !containsString(filter.Allow, id) {
+			t.Fatalf("allow = %#v, want inbox-derived tool %q", filter.Allow, id)
+		}
 	}
 }

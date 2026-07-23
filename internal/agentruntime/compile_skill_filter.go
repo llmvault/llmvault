@@ -22,11 +22,12 @@ type toolFilterJSON struct {
 // own deny filters and are not governed by this global filter.
 func ResolveAgentMCPToolFilter(ctx context.Context, db *gorm.DB, agent *model.Agent) *model.ToolFilter {
 	if agent == nil {
-		return compileMCPToolFilter(nil)
+		return applyAgentInboxEmailTools(compileMCPToolFilter(nil), false)
 	}
+	hasInbox := strings.TrimSpace(agent.EmailInboxLocalPart) != ""
 	if agent.AgentCatalog != nil {
 		if filter := mcpToolFilterFromCatalogManifest(agent.AgentCatalog.Manifest); filter != nil {
-			return filter
+			return applyAgentInboxEmailTools(filter, hasInbox)
 		}
 	}
 	if db != nil && agent.AgentCatalogID != nil {
@@ -36,14 +37,14 @@ func ResolveAgentMCPToolFilter(ctx context.Context, db *gorm.DB, agent *model.Ag
 			Where("id = ? AND status = ?", *agent.AgentCatalogID, model.AgentCatalogStatusActive).
 			First(&catalog).Error; err == nil {
 			if filter := mcpToolFilterFromCatalogManifest(catalog.Manifest); filter != nil {
-				return filter
+				return applyAgentInboxEmailTools(filter, hasInbox)
 			}
 		}
 	}
 	// User-created agents carry their own MCP tool filter. A nil filter has
 	// allow-all semantics in the runtime, so the compiler must never emit nil
 	// for an agent that has not explicitly granted MCP capabilities.
-	return compileMCPToolFilter(agent.McpToolFilter)
+	return applyAgentInboxEmailTools(compileMCPToolFilter(agent.McpToolFilter), hasInbox)
 }
 
 func resolveAgentMCPToolFilter(ctx context.Context, db *gorm.DB, agent *model.Agent) *model.ToolFilter {
@@ -59,11 +60,12 @@ func compileMCPToolFilter(filter *model.ToolFilter) *model.ToolFilter {
 
 // compileSubAgentMCPToolFilter applies the sub-agent-specific universal floor.
 // In particular, Drive search is parent-scoped alongside Drive upload/download.
-func compileSubAgentMCPToolFilter(filter *model.ToolFilter) *model.ToolFilter {
+func compileSubAgentMCPToolFilter(filter *model.ToolFilter, hasInbox bool) *model.ToolFilter {
 	compiled := normalizeToolFilter(filter)
 	if compiled == nil {
 		return nil
 	}
+	compiled = applyAgentInboxEmailTools(compiled, hasInbox)
 	allow := make([]string, 0, len(compiled.Allow))
 	for _, id := range compiled.Allow {
 		if id != "drive_search" {
@@ -72,6 +74,43 @@ func compileSubAgentMCPToolFilter(filter *model.ToolFilter) *model.ToolFilter {
 	}
 	compiled.Allow = allow
 	return compiled
+}
+
+// applyAgentInboxEmailTools makes inbox presence the sole grant for the native
+// email capability group. Explicit filters cannot expose unusable email tools
+// without an inbox, while a provisioned inbox always exposes the complete group.
+func applyAgentInboxEmailTools(filter *model.ToolFilter, hasInbox bool) *model.ToolFilter {
+	if filter == nil {
+		filter = &model.ToolFilter{Allow: []string{}}
+	}
+	emailTools := make(map[string]bool, len(model.AgentEmailMCPToolIDs))
+	for _, id := range model.AgentEmailMCPToolIDs {
+		emailTools[id] = true
+	}
+	allow := make([]string, 0, len(filter.Allow)+len(model.AgentEmailMCPToolIDs))
+	present := make(map[string]bool, len(filter.Allow)+len(model.AgentEmailMCPToolIDs))
+	for _, id := range filter.Allow {
+		rawID := strings.TrimPrefix(id, "hivy_")
+		if emailTools[rawID] {
+			continue
+		}
+		if !present[id] {
+			allow = append(allow, id)
+			present[id] = true
+		}
+	}
+	if hasInbox {
+		for _, id := range model.AgentEmailMCPToolIDs {
+			if !present[id] {
+				allow = append(allow, id)
+				present[id] = true
+			}
+		}
+	}
+	sort.Strings(allow)
+	filter.Allow = allow
+	filter.Deny = nil
+	return filter
 }
 
 func mcpToolFilterFromCatalogManifest(raw model.RawJSON) *model.ToolFilter {
