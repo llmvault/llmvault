@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/agentenvaccess"
 	"github.com/usehivy/hivy/internal/model"
 )
 
@@ -15,18 +16,15 @@ import (
 // exist and when to use them. Only variables with a description are listed;
 // undescribed ones remain available to programs through the environment.
 // Values are never included — only names and their descriptions.
-func appendTeamEnvVarPromptDoc(ctx context.Context, deps CompileDeps, def *AgentDefinition, orgID, teamID uuid.UUID) error {
-	if def == nil || orgID == uuid.Nil || teamID == uuid.Nil || deps.DB == nil {
+func appendTeamEnvVarPromptDoc(ctx context.Context, deps CompileDeps, def *AgentDefinition, orgID, teamID, agentID uuid.UUID) error {
+	if def == nil || orgID == uuid.Nil || teamID == uuid.Nil || agentID == uuid.Nil || deps.DB == nil {
 		return nil
 	}
-	var vars []model.TeamEnvVar
-	if err := deps.DB.WithContext(ctx).
-		Select("name", "description").
-		Where("org_id = ? AND team_id = ? AND description <> ''", orgID, teamID).
-		Order("name").
-		Find(&vars).Error; err != nil {
+	vars, err := agentenvaccess.EnabledTeamEnvVars(ctx, deps.DB, orgID, teamID, agentID)
+	if err != nil {
 		return fmt.Errorf("load team env var docs: %w", err)
 	}
+	vars = describedTeamEnvVars(vars)
 	if len(vars) == 0 {
 		return nil
 	}
@@ -38,6 +36,16 @@ func appendTeamEnvVarPromptDoc(ctx context.Context, deps CompileDeps, def *Agent
 	dynamic = append(dynamic, segment)
 	def.SystemPrompt.DynamicSegments = &dynamic
 	return nil
+}
+
+func describedTeamEnvVars(vars []model.TeamEnvVar) []model.TeamEnvVar {
+	out := make([]model.TeamEnvVar, 0, len(vars))
+	for _, envVar := range vars {
+		if strings.TrimSpace(envVar.Description) != "" {
+			out = append(out, envVar)
+		}
+	}
+	return out
 }
 
 func renderTeamEnvVarPromptDoc(vars []model.TeamEnvVar) string {

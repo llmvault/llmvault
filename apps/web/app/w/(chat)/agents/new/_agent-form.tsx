@@ -18,6 +18,7 @@ import { ToolsField } from "./_tools-field"
 import { SubAgentsField } from "./_sub-agents-field"
 import { TeamSelect } from "./_team-select"
 import { AgentConnectionsField } from "./_connections-field"
+import { AgentEnvironmentVariables } from "../[slug]/_agent-environment-variables"
 import {
   DEFAULT_AGENT_MODEL,
   SUBAGENT_TASK_TOOL,
@@ -41,6 +42,7 @@ export function AgentFormView({
   saving,
   onSave,
   headerAction,
+  environmentAgentId,
 }: {
   heading: string
   subheading: string
@@ -49,6 +51,7 @@ export function AgentFormView({
   saving: boolean
   onSave: (form: AgentForm) => void
   headerAction?: React.ReactNode
+  environmentAgentId?: string
 }) {
   const { activeOrg } = useAuth()
   const sandboxSizeOptions = sandboxSizeOptionsForTier(activeOrg?.capacity_tier)
@@ -197,6 +200,10 @@ export function AgentFormView({
         disabled={saving}
         onChange={(connectionMCPToolDeny) => update({ connectionMCPToolDeny })}
       />
+
+      {environmentAgentId && form.teamId === initialForm.teamId ? (
+        <AgentEnvironmentVariables agentId={environmentAgentId} />
+      ) : null}
 
       <Section
         title={`Sub-agents${hasSubAgents ? ` (${form.subAgents.length})` : ""}`}

@@ -2906,6 +2906,169 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/agents/{id}/environment-variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List environment variables inherited by an agent
+         * @description Lists the agent's team environment variables and whether each variable is enabled for new sessions. Values are never returned.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["agentEnvironmentVariablesResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agents/{id}/environment-variables/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Enable or disable an inherited environment variable for an agent
+         * @description Updates whether a team environment variable is included in new sessions for this agent.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent ID */
+                    id: string;
+                    /** @description Environment variable name */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            /** @description Environment variable access */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["updateAgentEnvironmentVariableRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["agentEnvironmentVariableMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/v1/agents/{id}/model": {
         parameters: {
             query?: never;
@@ -17191,6 +17354,17 @@ export interface components {
             name?: string;
             type?: string;
         };
+        agentEnvironmentVariableMutationResponse: {
+            environment_variable?: components["schemas"]["agentEnvironmentVariableResponse"];
+        };
+        agentEnvironmentVariableResponse: {
+            description?: string;
+            enabled?: boolean;
+            name?: string;
+        };
+        agentEnvironmentVariablesResponse: {
+            data?: components["schemas"]["agentEnvironmentVariableResponse"][];
+        };
         agentListItem: {
             attached_skills?: components["schemas"]["agentSkillSummary"][];
             auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
@@ -19098,6 +19272,9 @@ export interface components {
             clone_queued?: boolean;
             connection_id?: string;
             resources?: components["schemas"]["JSON"];
+        };
+        updateAgentEnvironmentVariableRequest: {
+            enabled?: boolean;
         };
         updateAgentModelRequest: {
             model?: string;

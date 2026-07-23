@@ -14,6 +14,10 @@ import {
   type ConnectionNameTarget,
 } from "./connection-name-modal"
 import { ConnectionInventoryRow } from "./connection-inventory-row"
+import {
+  ConnectionResourcesModal,
+  connectionNeedsResourceConfiguration,
+} from "./connection-resources-modal"
 import { DatabasePolicyModal } from "./database-policy-modal"
 import { useConnectIntegration } from "./use-connect-integration"
 
@@ -53,6 +57,7 @@ export default function ConnectionsPage() {
   const [policyTarget, setPolicyTarget] = useState<DatabaseConnection | null>(
     null
   )
+  const [resourceTarget, setResourceTarget] = useState<Connection | null>(null)
   const [disconnectTarget, setDisconnectTarget] =
     useState<DisconnectTarget | null>(null)
 
@@ -184,6 +189,7 @@ export default function ConnectionsPage() {
             connections={filteredConnections}
             canManage={isAdmin}
             connectingId={connectingId}
+            onConfigure={setResourceTarget}
             onRename={(connection) => rename("integration", connection)}
             onReconnect={reconnect}
             onDisconnect={(connection) =>
@@ -226,6 +232,15 @@ export default function ConnectionsPage() {
         />
       ) : null}
 
+      {resourceTarget ? (
+        <ConnectionResourcesModal
+          key={resourceTarget.id}
+          connection={resourceTarget}
+          onClose={() => setResourceTarget(null)}
+          onSaved={refresh}
+        />
+      ) : null}
+
       <ConfirmDialog
         open={disconnectTarget !== null}
         pending={disconnectPending}
@@ -249,6 +264,7 @@ function ConnectionSection({
   connections,
   canManage,
   connectingId,
+  onConfigure,
   onRename,
   onReconnect,
   onDisconnect,
@@ -257,6 +273,7 @@ function ConnectionSection({
   connections: Connection[]
   canManage: boolean
   connectingId: string | null
+  onConfigure: (connection: Connection) => void
   onRename: (connection: Connection) => void
   onReconnect: (connection: Connection) => void
   onDisconnect: (connection: Connection) => void
@@ -283,7 +300,16 @@ function ConnectionSection({
               `${providerName(connection.provider)} connection`
             }
             needsName={connection.needs_name === true}
+            needsResourceConfiguration={connectionNeedsResourceConfiguration(
+              connection
+            )}
             canManage={canManage && connectingId !== connection.id}
+            onConfigure={
+              (connection.configurable_resources?.length ?? 0) > 0
+                ? () => onConfigure(connection)
+                : undefined
+            }
+            configureLabel="Configure resources"
             onRename={() => onRename(connection)}
             onReconnect={() => onReconnect(connection)}
             onDisconnect={() => onDisconnect(connection)}

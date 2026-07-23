@@ -30,9 +30,21 @@ import {
 } from "./_agent-settings-section"
 import { AgentTeamsSection } from "./_agent-teams-section"
 import { AgentMemoriesSection } from "./_agent-memories-section"
+import { AgentEnvironmentVariables } from "./_agent-environment-variables"
 import { AgentConnectionsField } from "../new/_connections-field"
 
-type AgentDetailTab = "overview" | "memories"
+type AgentDetailTab =
+  | "overview"
+  | "connections"
+  | "environment-variables"
+  | "memories"
+
+const AGENT_DETAIL_TABS: AgentDetailTab[] = [
+  "overview",
+  "connections",
+  "environment-variables",
+  "memories",
+]
 
 export default function AgentDetailPage({
   params,
@@ -121,6 +133,20 @@ export default function AgentDetailPage({
               Overview
             </DetailTab>
             <DetailTab
+              id="connections"
+              activeTab={activeTab}
+              onSelect={setActiveTab}
+            >
+              Connections
+            </DetailTab>
+            <DetailTab
+              id="environment-variables"
+              activeTab={activeTab}
+              onSelect={setActiveTab}
+            >
+              Env
+            </DetailTab>
+            <DetailTab
               id="memories"
               activeTab={activeTab}
               onSelect={setActiveTab}
@@ -176,6 +202,13 @@ export default function AgentDetailPage({
                   mutate({ sandbox_size: value }, "Sandbox size updated")
                 }
               />
+            </div>
+          ) : activeTab === "connections" ? (
+            <div
+              id="agent-connections-panel"
+              role="tabpanel"
+              aria-labelledby="agent-connections-tab"
+            >
               <AgentConnectionsField
                 teamId={installed.team_id ?? ""}
                 value={installed.connection_mcp_tool_deny ?? {}}
@@ -202,6 +235,14 @@ export default function AgentDetailPage({
                   )
                 }
               />
+            </div>
+          ) : activeTab === "environment-variables" ? (
+            <div
+              id="agent-environment-variables-panel"
+              role="tabpanel"
+              aria-labelledby="agent-environment-variables-tab"
+            >
+              <AgentEnvironmentVariables agentId={installedID} />
             </div>
           ) : (
             <div
@@ -242,6 +283,7 @@ function DetailTab({
     onSelect(tab)
     document.getElementById(`agent-${tab}-tab`)?.focus()
   }
+  const currentIndex = AGENT_DETAIL_TABS.indexOf(id)
   return (
     <button
       id={`agent-${id}-tab`}
@@ -252,13 +294,28 @@ function DetailTab({
       tabIndex={selected ? 0 : -1}
       onClick={() => onSelect(id)}
       onKeyDown={(event) => {
-        if (event.key === "ArrowLeft" || event.key === "Home") {
+        if (event.key === "Home") {
           event.preventDefault()
-          selectAndFocus("overview")
+          selectAndFocus(AGENT_DETAIL_TABS[0])
         }
-        if (event.key === "ArrowRight" || event.key === "End") {
+        if (event.key === "End") {
           event.preventDefault()
-          selectAndFocus("memories")
+          selectAndFocus(AGENT_DETAIL_TABS[AGENT_DETAIL_TABS.length - 1])
+        }
+        if (event.key === "ArrowLeft") {
+          event.preventDefault()
+          selectAndFocus(
+            AGENT_DETAIL_TABS[
+              (currentIndex - 1 + AGENT_DETAIL_TABS.length) %
+                AGENT_DETAIL_TABS.length
+            ]
+          )
+        }
+        if (event.key === "ArrowRight") {
+          event.preventDefault()
+          selectAndFocus(
+            AGENT_DETAIL_TABS[(currentIndex + 1) % AGENT_DETAIL_TABS.length]
+          )
         }
       }}
       className={`-mb-px border-b-2 px-1 pb-2 text-sm font-medium transition-colors ${

@@ -144,6 +144,7 @@ var migratedTables = []string{
 	"agent_mcp_servers",
 	"agent_schedule_runs",
 	"agent_schedules",
+	"agent_team_env_var_denies",
 	"agent_trigger_deliveries",
 	"agent_triggers",
 	"agents",
@@ -221,4 +222,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 7
+const latestMigrationVersion = 8

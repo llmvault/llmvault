@@ -62,6 +62,20 @@ describe("ConnectionsPage", () => {
                 name: "support-slack",
                 provider: "slack",
               },
+              {
+                id: "connection-2",
+                configurable_resources: [
+                  {
+                    key: "repository",
+                    display_name: "Repositories",
+                    description: "GitHub repositories agents can access",
+                  },
+                ],
+                display_name: "GitHub",
+                meta: {},
+                name: "engineering-github",
+                provider: "github-app",
+              },
             ],
           },
           isError: false,
@@ -103,10 +117,13 @@ describe("ConnectionsPage", () => {
     expect(html).toContain("Connected")
     expect(html).toContain("support-slack")
     expect(html).toContain("Slack")
+    expect(html).toContain("engineering-github")
+    expect(html).toContain("Resource access is not configured")
     expect(html).toContain("Databases")
     expect(html).toContain("analytics-db")
     expect(html).toContain("PostgreSQL")
     expect(html).toContain('data-provider="slack"')
+    expect(html).toContain('data-provider="github-app"')
     expect(html).toContain('data-provider="postgres"')
     expect(html).toContain('data-icon="ellipsis"')
   })

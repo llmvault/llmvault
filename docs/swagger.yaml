@@ -696,6 +696,27 @@ definitions:
       type:
         type: string
     type: object
+  agentEnvironmentVariableMutationResponse:
+    properties:
+      environment_variable:
+        $ref: '#/definitions/agentEnvironmentVariableResponse'
+    type: object
+  agentEnvironmentVariableResponse:
+    properties:
+      description:
+        type: string
+      enabled:
+        type: boolean
+      name:
+        type: string
+    type: object
+  agentEnvironmentVariablesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/agentEnvironmentVariableResponse'
+        type: array
+    type: object
   agentListItem:
     properties:
       attached_skills:
@@ -4420,6 +4441,11 @@ definitions:
       resources:
         $ref: '#/definitions/JSON'
     type: object
+  updateAgentEnvironmentVariableRequest:
+    properties:
+      enabled:
+        type: boolean
+    type: object
   updateAgentModelRequest:
     properties:
       model:
@@ -6043,6 +6069,95 @@ paths:
       security:
       - BearerAuth: []
       summary: Save selected connection resources for an agent
+      tags:
+      - agents
+  /v1/agents/{id}/environment-variables:
+    get:
+      description: Lists the agent's team environment variables and whether each variable
+        is enabled for new sessions. Values are never returned.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agentEnvironmentVariablesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: List environment variables inherited by an agent
+      tags:
+      - agents
+  /v1/agents/{id}/environment-variables/{name}:
+    patch:
+      consumes:
+      - application/json
+      description: Updates whether a team environment variable is included in new
+        sessions for this agent.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Environment variable name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Environment variable access
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/updateAgentEnvironmentVariableRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agentEnvironmentVariableMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Enable or disable an inherited environment variable for an agent
       tags:
       - agents
   /v1/agents/{id}/model:

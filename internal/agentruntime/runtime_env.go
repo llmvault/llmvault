@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/usehivy/hivy/internal/agentenvaccess"
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/model"
 )
@@ -86,10 +87,12 @@ func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, dep
 		return ConfigUpdateRequest{}, err
 	}
 	orgID := uuid.Nil
+	agentID := uuid.Nil
 	if runtimeAgent != nil && runtimeAgent.OrgID != nil {
 		orgID = *runtimeAgent.OrgID
+		agentID = runtimeAgent.ID
 	}
-	if err := appendTeamEnvVarPromptDoc(ctx, deps, def, orgID, teamID); err != nil {
+	if err := appendTeamEnvVarPromptDoc(ctx, deps, def, orgID, teamID, agentID); err != nil {
 		return ConfigUpdateRequest{}, err
 	}
 	if err := appendTeamKnowledgeSourcePromptDoc(ctx, deps, def, orgID, teamID); err != nil {
@@ -139,7 +142,7 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 	if agent.OrgID != nil {
 		orgID = *agent.OrgID
 	}
-	if err := mergeTeamEnvVars(ctx, deps, env, orgID, teamID); err != nil {
+	if err := mergeTeamEnvVars(ctx, deps, env, orgID, teamID, agent.ID); err != nil {
 		return nil, err
 	}
 
@@ -180,7 +183,7 @@ func BuildRuntimeEnvWithProxyToken(ctx context.Context, deps CompileDeps, agent 
 // into env, each injected as __ENV__<NAME>. The sandbox runtime strips the
 // prefix before exposing the clean name to the workload. It must run before the
 // reserved control-plane keys are written so those keys stay authoritative.
-func mergeTeamEnvVars(ctx context.Context, deps CompileDeps, env map[string]string, orgID, teamID uuid.UUID) error {
+func mergeTeamEnvVars(ctx context.Context, deps CompileDeps, env map[string]string, orgID, teamID, agentID uuid.UUID) error {
 	if orgID == uuid.Nil || teamID == uuid.Nil {
 		return nil
 	}
@@ -190,10 +193,8 @@ func mergeTeamEnvVars(ctx context.Context, deps CompileDeps, env map[string]stri
 	if deps.EncKey == nil {
 		return fmt.Errorf("runtime env decrypt: encryption key is required")
 	}
-	var vars []model.TeamEnvVar
-	if err := deps.DB.WithContext(ctx).
-		Where("org_id = ? AND team_id = ?", orgID, teamID).
-		Find(&vars).Error; err != nil {
+	vars, err := agentenvaccess.EnabledTeamEnvVars(ctx, deps.DB, orgID, teamID, agentID)
+	if err != nil {
 		return fmt.Errorf("load team env vars: %w", err)
 	}
 	for _, v := range vars {

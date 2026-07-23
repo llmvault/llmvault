@@ -22,3 +22,15 @@ type TeamEnvVar struct {
 }
 
 func (TeamEnvVar) TableName() string { return "team_env_vars" }
+
+// AgentTeamEnvVarDeny disables one inherited team environment variable for one
+// agent. The relation points at the variable record so a rename cannot widen
+// access by silently re-enabling it.
+type AgentTeamEnvVarDeny struct {
+	OrgID        uuid.UUID `gorm:"type:uuid;not null;primaryKey"`
+	AgentID      uuid.UUID `gorm:"type:uuid;not null;primaryKey"`
+	TeamEnvVarID uuid.UUID `gorm:"column:team_env_var_id;type:uuid;not null;primaryKey"`
+	CreatedAt    time.Time
+}
+
+func (AgentTeamEnvVarDeny) TableName() string { return "agent_team_env_var_denies" }

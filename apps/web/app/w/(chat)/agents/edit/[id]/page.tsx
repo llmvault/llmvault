@@ -102,6 +102,7 @@ export default function EditAgentPage({
         initialForm={agentFormFromDetail(agent)}
         saving={saving}
         onSave={handleUpdate}
+        environmentAgentId={id}
         headerAction={
           <DeleteAgentButton
             pending={deleteAgent.isPending}

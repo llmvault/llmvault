@@ -233,6 +233,8 @@ func setupV1Routes(
 					r.Post("/agents", agentHandler.Create)
 					r.Patch("/agents/{id}", agentHandler.Update)
 					r.Delete("/agents/{id}", agentHandler.Archive)
+					r.Get("/agents/{id}/environment-variables", agentHandler.ListEnvironmentVariables)
+					r.Patch("/agents/{id}/environment-variables/{name}", agentHandler.UpdateEnvironmentVariableAccess)
 					// Model change is a member action: UpdateModel enforces authorizeAgentMutation, so NOT admin-gated.
 					r.Patch("/agents/{id}/model", agentHandler.UpdateModel)
 					r.Post("/triggers", triggerHandler.Create)

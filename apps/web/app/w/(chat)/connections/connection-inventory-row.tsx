@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Popover } from "@heroui/react"
+import { Popover, Tooltip } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { IntegrationLogo } from "@/components/integration-logo"
 
@@ -10,8 +10,10 @@ export function ConnectionInventoryRow({
   name,
   description,
   needsName,
+  needsResourceConfiguration = false,
   canManage,
   onConfigure,
+  configureLabel = "Configure access",
   onReconnect,
   onRename,
   onDisconnect,
@@ -20,8 +22,10 @@ export function ConnectionInventoryRow({
   name: string
   description: string
   needsName: boolean
+  needsResourceConfiguration?: boolean
   canManage: boolean
   onConfigure?: () => void
+  configureLabel?: string
   onReconnect?: () => void
   onRename: () => void
   onDisconnect: () => void
@@ -36,6 +40,24 @@ export function ConnectionInventoryRow({
               <h3 className="truncate text-sm font-medium text-foreground">
                 {name}
               </h3>
+              {needsResourceConfiguration ? (
+                <Tooltip delay={200} closeDelay={0}>
+                  <Tooltip.Trigger
+                    aria-label="Resource access is not configured"
+                    className="text-warning flex h-5 w-5 shrink-0 items-center justify-center"
+                  >
+                    <AppIcon icon="triangle-alert" className="h-4 w-4" />
+                  </Tooltip.Trigger>
+                  <Tooltip.Content
+                    placement="top"
+                    offset={6}
+                    className="w-96 max-w-[calc(100vw-2rem)] px-3 py-2 text-sm leading-5"
+                  >
+                    Resource access is not configured. Choose Configure
+                    resources from the menu.
+                  </Tooltip.Content>
+                </Tooltip>
+              ) : null}
               {needsName ? (
                 <span className="rounded-full bg-warning/15 px-2 py-0.5 text-xs text-warning">
                   Rename
@@ -50,6 +72,7 @@ export function ConnectionInventoryRow({
             <ConnectionOptionsMenu
               provider={provider}
               onConfigure={onConfigure}
+              configureLabel={configureLabel}
               onReconnect={onReconnect}
               onRename={onRename}
               onDisconnect={onDisconnect}
@@ -64,12 +87,14 @@ export function ConnectionInventoryRow({
 function ConnectionOptionsMenu({
   provider,
   onConfigure,
+  configureLabel,
   onReconnect,
   onRename,
   onDisconnect,
 }: {
   provider: string
   onConfigure?: () => void
+  configureLabel: string
   onReconnect?: () => void
   onRename: () => void
   onDisconnect: () => void
@@ -94,12 +119,12 @@ function ConnectionOptionsMenu({
         <Popover.Content
           placement="bottom end"
           offset={6}
-          className="w-44 rounded-2xl border border-border p-1.5"
+          className="w-[16.5rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-border p-1.5"
         >
           <Popover.Dialog className="flex w-full flex-col gap-0.5 p-0">
             {onConfigure ? (
               <Action icon="shield-check" onClick={() => select(onConfigure)}>
-                Configure access
+                {configureLabel}
               </Action>
             ) : null}
             <Action icon="pencil" onClick={() => select(onRename)}>

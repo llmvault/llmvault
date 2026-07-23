@@ -61,6 +61,7 @@ const MAX_RUNTIME_ENV_KEYS: usize = 128;
 const MAX_RUNTIME_ENV_KEY_LENGTH: usize = 128;
 const MAX_RUNTIME_ENV_VALUE_LENGTH: usize = 8192;
 const MAX_RUNTIME_ENV_PAYLOAD_BYTES: usize = 64 * 1024;
+const USER_ENV_PREFIX: &str = "__ENV__";
 const MAX_CONFIG_REQUEST_BODY_BYTES: usize = 2 * 1024 * 1024;
 const MAX_CONTROL_COMMANDS: usize = 20;
 const MAX_CONTROL_COMMAND_LENGTH: usize = 8 * 1024;
@@ -264,6 +265,15 @@ fn redacted_env_keys(entries: &HashMap<String, String>) -> Vec<&str> {
     entries.keys().map(|key| key.as_str()).collect()
 }
 
+fn replace_user_runtime_env(
+    mut current: HashMap<String, String>,
+    next: HashMap<String, String>,
+) -> HashMap<String, String> {
+    current.retain(|key, _| !key.starts_with(USER_ENV_PREFIX));
+    current.extend(next);
+    current
+}
+
 #[cfg_attr(feature = "openapi", utoipa::path(
     put,
     path = "/config",
@@ -347,8 +357,10 @@ pub async fn put_config(
         .runtime_secret
         .as_ref()
         .is_some_and(|v| !v.trim().is_empty());
-    let mut runtime_env = state.config_store.runtime_env().as_ref().clone();
-    runtime_env.extend(request.runtime_env);
+    let mut runtime_env = replace_user_runtime_env(
+        state.config_store.runtime_env().as_ref().clone(),
+        request.runtime_env,
+    );
     let mut next_runtime_secret = None;
     if let Some(secret) = request.runtime_secret {
         let secret = secret.trim().to_string();
@@ -1526,6 +1538,40 @@ mod tests {
         assert!(
             update.validate().is_ok(),
             "empty payload should be accepted as clear overlay"
+        );
+    }
+
+    #[test]
+    fn runtime_env_update_replaces_inherited_user_variables() {
+        let current = HashMap::from([
+            (
+                "__ENV__DISABLED_TEAM_TOKEN".to_string(),
+                "old-secret".to_string(),
+            ),
+            (
+                "HIVY_RUNTIME_SECRET".to_string(),
+                "runtime-secret".to_string(),
+            ),
+        ]);
+        let next = HashMap::from([(
+            "__ENV__ENABLED_TEAM_TOKEN".to_string(),
+            "new-secret".to_string(),
+        )]);
+
+        let merged = replace_user_runtime_env(current, next);
+
+        assert!(
+            !merged.contains_key("__ENV__DISABLED_TEAM_TOKEN"),
+            "a variable omitted by a new agent config must be removed"
+        );
+        assert_eq!(
+            merged.get("__ENV__ENABLED_TEAM_TOKEN"),
+            Some(&"new-secret".to_string())
+        );
+        assert_eq!(
+            merged.get("HIVY_RUNTIME_SECRET"),
+            Some(&"runtime-secret".to_string()),
+            "platform runtime values remain until their replacements arrive"
         );
     }
 }
