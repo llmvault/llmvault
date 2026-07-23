@@ -9,7 +9,8 @@ controller.
 
 `.github/workflows/publish-main-images.yml` starts on each push to `main`.
 It builds multi-platform images for the Go backend and Next.js web application,
-then publishes these tags to GHCR:
+plus amd64 sandbox runtime, developers-runtime, and app images. Application
+images are published under these tags:
 
 ```text
 ghcr.io/usehivy/hivy:main
@@ -21,27 +22,40 @@ ghcr.io/usehivy/web:dev
 ghcr.io/usehivy/web:sha-GIT_SHA
 ```
 
+Sandbox images get both a moving `main-amd64` tag and a commit-specific tag:
+
+```text
+ghcr.io/usehivy/hivy-sandboxes-runtime:sha-GIT_SHA-amd64
+ghcr.io/usehivy/hivy-sandboxes-runtime-developers:sha-GIT_SHA-amd64
+ghcr.io/usehivy/hivy-app:sha-GIT_SHA-amd64
+```
+
+Runs use a non-cancelling concurrency group. A newer push does not terminate a
+deployment while its tuple or automatic rollback is in progress; the latest
+queued push deploys afterward.
+
 The same workflow builds `ghcr.io/usehivy/msb` and
 `ghcr.io/usehivy/microsandbox-gateway`, but it does not deploy those two images.
 Their Kubernetes manifests remain pinned until an operator changes and applies
 them.
 
-After both backend and web builds finish, `deploy-staging` takes their registry
-digests, opens a restricted SSH tunnel to the Kubernetes API, patches all three
-staging Deployments, and polls each Deployment for up to ten minutes. The
-backend digest goes into the API and worker init containers as well as their
-main containers. The job succeeds only when every desired replica has updated
-and become available.
+After the backend, web, runtime, and app builds finish, `deploy-staging` takes
+the application registry digests and the commit-specific sandbox tags, opens a
+restricted SSH tunnel to the Kubernetes API, and deploys that tuple to all
+three staging Deployments. The backend digest goes into the API and worker init
+containers as well as their main containers. Explicit runtime and app tags are
+written into both backend pod templates, overriding older ConfigMap values.
+The job succeeds only when every desired replica has updated, become available,
+and the old ReplicaSets have no remaining Pods.
 
 A push to `main` is the staging trigger. In GitHub, open the
 `publish-main-images` run for that commit and check these jobs:
 
 1. `Go API image`
 2. `Next.js web image`
-3. `Deploy staging application images`
-
-The Microsandbox image jobs run beside them, but they do not gate or alter the
-three application Deployments.
+3. `Sandbox runtime images`
+4. `Sandbox app image`
+5. `Deploy staging application images`
 
 ## Production on a stable release
 
@@ -50,17 +64,19 @@ when an operator supplies a tag through `workflow_dispatch`. Tags must match
 `vX.Y.Z` or `vX.Y.Z-suffix`, and the tagged commit must belong to `main`.
 
 A stable `vX.Y.Z` release builds backend and web images tagged with the full
-tag, version without `v`, and `latest`. The `deploy-production` job patches
-production with immutable digests and waits using the same procedure as
-staging.
+tag, version without `v`, and `latest`. It also builds the corresponding amd64
+sandbox runtime, developers-runtime, and app images. The `deploy-production`
+job cannot start until all four deployable image jobs succeed. It patches
+production with the application digests and `vX.Y.Z-amd64` sandbox tags, then
+waits using the same procedure as staging.
 
 A tag containing a suffix, such as `v7.3.0-rc.1`, counts as a prerelease and
 does not deploy production. The decision comes from the tag string, not the
 GitHub Release's prerelease checkbox.
 
-The release workflow also builds non-Daytona sandbox runtime and app images and
-writes a `release-manifest.json` asset. It does not build Daytona image targets,
-publish Daytona snapshots, or change Daytona provider configuration.
+The release workflow writes a `release-manifest.json` asset. It does not build
+Daytona image targets, publish Daytona snapshots, or change Daytona provider
+configuration.
 
 Publish a normal production release with GitHub CLI:
 
@@ -123,21 +139,38 @@ ansible-playbook playbooks/k3s/deploy-tunnel.yml
 
 ## What an automated deployment changes
 
-`scripts/deploy/kubernetes-images.sh` rejects mutable tags. Both supplied image
-references must use `@sha256:...`. It then patches:
+`scripts/deploy/kubernetes-images.sh` rejects mutable application image
+references: backend and web must use `@sha256:...`. Sandbox tags are accepted
+because the backend constructs the runtime repository reference from a tag;
+the workflows use commit- or release-specific amd64 tags rather than `latest`.
+
+The script captures the current pod templates, pauses all three Deployments,
+patches the complete tuple, and resumes them together:
 
 | Deployment | Fields changed |
 | --- | --- |
-| `backend-api` | `initContainers[migrate].image`, `containers[api].image` |
-| `backend-worker` | `initContainers[migrate].image`, `containers[worker].image` |
-| `web` | `containers[web].image` |
+| `backend-api` | migration and API images; explicit runtime/app tag environment variables; tuple annotations |
+| `backend-worker` | migration and worker images; explicit runtime/app tag environment variables; tuple annotations |
+| `web` | web image and tuple annotations |
+
+The explicit environment variables in the pod template take precedence over
+the same keys inherited from `backend-config`. This keeps each ReplicaSet
+self-contained: an old Pod has the old backend/runtime/app tuple and a new Pod
+has the new tuple. A rolling update never combines a new binary with stale
+sandbox image configuration.
+
+If patching, rollout, or post-rollout tuple verification fails, the script uses
+JSON Patch to restore the exact three pod templates captured before deployment,
+resumes them, and waits for the previous tuple to become fully available.
 
 It does not apply manifests, change replica counts, update Nango, rotate
 configuration, or deploy Microsandbox components. The image digests in each
 `kustomization.yaml` are static records and are not rewritten by CI. Applying a
-full environment overlay later can therefore restore those recorded digests.
-Before an intentional full apply, update the overlay digests to the version
-that should remain live.
+full environment overlay later can therefore restore those recorded digests
+and remove the CI-managed explicit runtime/app environment variables. Before an
+intentional full apply, update both the overlay digests and the two sandbox tags
+in `kubernetes/config/env/ENVIRONMENT/backend.config.env` to the tuple that
+should remain live.
 
 ## Apply an environment from manifests
 
@@ -211,6 +244,13 @@ kubectl get deployment -n staging backend-api \
   -o jsonpath='{.spec.template.spec.initContainers[?(@.name=="migrate")].image}{"\n"}'
 ```
 
+Check the deployed tuple on API and worker:
+
+```sh
+kubectl get deployment -n staging backend-api backend-worker \
+  -o jsonpath='{range .items[*]}{.metadata.name}{" backend="}{.spec.template.metadata.annotations.hivy\.io/backend-image}{" runtime="}{.spec.template.metadata.annotations.hivy\.io/sandbox-runtime-image-tag}{" app="}{.spec.template.metadata.annotations.hivy\.io/sandbox-app-image-tag}{"\n"}{end}'
+```
+
 Then test the public readiness surfaces:
 
 ```sh
@@ -223,8 +263,9 @@ three rollouts completed.
 
 ## Roll back application images
 
-Deployment history keeps three revisions. Roll back API and worker together
-because they share one image and database migration set:
+Deployment history keeps three revisions. A revision now contains both the
+container image and explicit sandbox tags. Roll back API and worker together
+because they share one backend/runtime/app tuple and database migration set:
 
 ```sh
 kubectl rollout history -n ENVIRONMENT deployment/backend-api

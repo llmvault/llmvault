@@ -145,17 +145,22 @@ jobs:
   deploy-production:
     name: deploy production application images
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 40
     if: needs.prepare.outputs.prerelease != 'true'
     needs:
       - prepare
       - api-image
       - web-image
+      - sandbox-runtime-images
+      - sandbox-app-image
     environment: production
     env:
       K8S_NAMESPACE: production
       BACKEND_IMAGE: ghcr.io/usehivy/hivy@${{ needs.api-image.outputs.digest }}
       WEB_IMAGE: ghcr.io/usehivy/web@${{ needs.web-image.outputs.digest }}
+      SANDBOX_RUNTIME_IMAGE_TAG: ${{ needs.prepare.outputs.tag }}-amd64
+      SANDBOX_APP_IMAGE_TAG: ${{ needs.prepare.outputs.tag }}-amd64
+      DEPLOYMENT_REVISION: ${{ needs.prepare.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -173,7 +178,7 @@ jobs:
           bash ./scripts/deploy/setup-kubernetes-tunnel.sh
           echo "KUBECONFIG=${KUBECONFIG}" >> "${GITHUB_ENV}"
 
-      - name: Deploy immutable images and wait for rollout
+      - name: Deploy the release tuple and wait for rollout
         run: bash ./scripts/deploy/kubernetes-images.sh
 
   sandbox-runtime-images:

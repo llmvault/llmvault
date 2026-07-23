@@ -12,11 +12,18 @@ for workflow in "${main_workflow}" "${release_workflow}"; do
 done
 
 grep -Fq "branches: [main]" "${main_workflow}"
+grep -Fq "cancel-in-progress: false" "${main_workflow}"
 grep -Fq "Deploy staging application images" "${main_workflow}"
 grep -Fq "K8S_NAMESPACE: staging" "${main_workflow}"
+grep -Fq 'SANDBOX_RUNTIME_IMAGE_TAG: sha-${{ github.sha }}-amd64' "${main_workflow}"
+grep -Fq 'SANDBOX_APP_IMAGE_TAG: sha-${{ github.sha }}-amd64' "${main_workflow}"
+grep -Fq "sandbox-runtime" "${main_workflow}"
+grep -Fq "sandbox-app" "${main_workflow}"
 grep -Fq "types: [published]" "${release_workflow}"
 grep -Fq "deploy production application images" "${release_workflow}"
 grep -Fq "K8S_NAMESPACE: production" "${release_workflow}"
+grep -Fq 'SANDBOX_RUNTIME_IMAGE_TAG: ${{ needs.prepare.outputs.tag }}-amd64' "${release_workflow}"
+grep -Fq 'SANDBOX_APP_IMAGE_TAG: ${{ needs.prepare.outputs.tag }}-amd64' "${release_workflow}"
 
 if grep -Eiq "daytona|hivy-sandboxes-runtime-daytona" \
   "${main_workflow}" \
@@ -26,4 +33,6 @@ if grep -Eiq "daytona|hivy-sandboxes-runtime-daytona" \
   exit 1
 fi
 
-echo "✓ Staging and production deployment workflows are present; Daytona publication is absent."
+bash ./scripts/deploy/kubernetes-images_test.sh
+
+echo "✓ Staging and production deploy coherent backend and sandbox image tuples; Daytona publication is absent."
