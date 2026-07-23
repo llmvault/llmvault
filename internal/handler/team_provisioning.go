@@ -24,32 +24,29 @@ func NewTeamProvisioningHandler(db *gorm.DB) *TeamProvisioningHandler {
 	return &TeamProvisioningHandler{db: db}
 }
 
-// Mount registers the provisioning sub-routes on r. The route layer MUST call
-// this inside a group already scoped to /v1/orgs/current and wrapped with the
-// RequireOrgAdmin middleware, e.g.:
+// Mount registers the provisioning routes below prefix. The route layer MUST
+// call this inside a group wrapped with the RequireOrgAdmin middleware, e.g.:
 //
-//	r.Route("/v1/orgs/current", func(r chi.Router) {
-//	    r.Group(func(r chi.Router) {
-//	        r.Use(mw.RequireOrgAdmin)
-//	        teamProvisioningHandler.Mount(r)
-//	    })
+//	r.Group(func(r chi.Router) {
+//	    r.Use(mw.RequireOrgAdmin)
+//	    teamProvisioningHandler.Mount(r, "/v1/orgs/current")
 //	})
-func (h *TeamProvisioningHandler) Mount(r chi.Router) {
-	r.Post("/teams/{teamID}/connections", h.GrantTeamConnection)
-	r.Delete("/teams/{teamID}/connections/{connectionID}", h.RevokeTeamConnection)
-	r.Post("/teams/{teamID}/skills", h.GrantTeamSkill)
-	r.Delete("/teams/{teamID}/skills/{skillID}", h.RevokeTeamSkill)
-	r.Get("/teams/{teamID}/rag-sources", h.ListTeamRagSources)
-	r.Post("/teams/{teamID}/rag-sources", h.GrantTeamRagSource)
-	r.Delete("/teams/{teamID}/rag-sources/{sourceID}", h.RevokeTeamRagSource)
+func (h *TeamProvisioningHandler) Mount(r chi.Router, prefix string) {
+	r.Post(prefix+"/teams/{teamID}/connections", h.GrantTeamConnection)
+	r.Delete(prefix+"/teams/{teamID}/connections/{connectionID}", h.RevokeTeamConnection)
+	r.Post(prefix+"/teams/{teamID}/skills", h.GrantTeamSkill)
+	r.Delete(prefix+"/teams/{teamID}/skills/{skillID}", h.RevokeTeamSkill)
+	r.Get(prefix+"/teams/{teamID}/rag-sources", h.ListTeamRagSources)
+	r.Post(prefix+"/teams/{teamID}/rag-sources", h.GrantTeamRagSource)
+	r.Delete(prefix+"/teams/{teamID}/rag-sources/{sourceID}", h.RevokeTeamRagSource)
 }
 
 // MountReadable registers the provisioning read routes that a plain member of
 // the team may reach. The route layer mounts this OUTSIDE the RequireOrgAdmin
 // group; each handler enforces team-membership visibility itself.
-func (h *TeamProvisioningHandler) MountReadable(r chi.Router) {
-	r.Get("/teams/{teamID}/connections", h.ListTeamConnections)
-	r.Get("/teams/{teamID}/skills", h.ListTeamSkills)
+func (h *TeamProvisioningHandler) MountReadable(r chi.Router, prefix string) {
+	r.Get(prefix+"/teams/{teamID}/connections", h.ListTeamConnections)
+	r.Get(prefix+"/teams/{teamID}/skills", h.ListTeamSkills)
 }
 
 // ListTeamRagSources handles GET /v1/orgs/current/teams/{teamID}/rag-sources.

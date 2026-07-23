@@ -14,21 +14,22 @@ import (
 func mountOrgMemberLifecycleRoutes(r chi.Router, database *gorm.DB) {
 	orgMemberHandler := handler.NewOrgMemberHandler(database)
 	teamProvisioning := handler.NewTeamProvisioningHandler(database)
-	r.Route("/orgs/current", func(r chi.Router) {
-		// Reading a team's connections and skills is a member action, gated in-handler
-		// to members of that team; every mutation stays admin-only below.
-		teamProvisioning.MountReadable(r)
-		r.Group(func(r chi.Router) {
-			r.Use(middleware.RequireOrgAdmin(database))
-			teamProvisioning.Mount(r)
-			r.Patch("/members/{userID}/role", orgMemberHandler.PatchRole)
-			r.Delete("/members/{userID}", orgMemberHandler.Remove)
-		})
+	const orgCurrentPath = "/orgs/current"
+
+	// Reading a team's connections and skills is a member action, gated in-handler
+	// to members of that team; every mutation stays admin-only below.
+	teamProvisioning.MountReadable(r, orgCurrentPath)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.RequireOrgAdmin(database))
+		teamProvisioning.Mount(r, orgCurrentPath)
+		r.Patch(orgCurrentPath+"/members/{userID}/role", orgMemberHandler.PatchRole)
+		r.Delete(orgCurrentPath+"/members/{userID}", orgMemberHandler.Remove)
 	})
+
 	// Ownership transfer and org deletion are owner-only.
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireOrgOwner(database))
-		r.Post("/orgs/current/transfer-ownership", orgMemberHandler.TransferOwnership)
-		r.Delete("/orgs/current", orgMemberHandler.DeleteOrg)
+		r.Post(orgCurrentPath+"/transfer-ownership", orgMemberHandler.TransferOwnership)
+		r.Delete(orgCurrentPath, orgMemberHandler.DeleteOrg)
 	})
 }

@@ -9,6 +9,13 @@ vi.mock("@sentry/nextjs", () => ({
   captureMessage: vi.fn(),
 }))
 
+const loggerMocks = vi.hoisted(() => ({
+  childInfo: vi.fn(),
+  childDebug: vi.fn(),
+  childWarn: vi.fn(),
+  childError: vi.fn(),
+}))
+
 vi.mock("@/lib/logger", () => ({
   log: {
     info: vi.fn(),
@@ -16,10 +23,10 @@ vi.mock("@/lib/logger", () => ({
     warn: vi.fn(),
     error: vi.fn(),
     child: () => ({
-      info: vi.fn(),
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
+      info: loggerMocks.childInfo,
+      debug: loggerMocks.childDebug,
+      warn: loggerMocks.childWarn,
+      error: loggerMocks.childError,
     }),
   },
 }))
@@ -40,7 +47,7 @@ vi.mock("@/lib/auth/refresh", () => ({
 // Set HIVY_API_URL before the route module is loaded (it reads the env at module init time).
 process.env.HIVY_API_URL = "http://backend-test"
 
-const { POST } = await import("./route")
+const { GET, POST } = await import("./route")
 
 function makeRequest(path: string, options: { method?: string; body?: unknown } = {}) {
   const method = options.method ?? "GET"
@@ -54,6 +61,72 @@ function makeRequest(path: string, options: { method?: string; body?: unknown } 
   }
   return new NextRequest(url, { method })
 }
+
+describe("org current proxy diagnostics", () => {
+  const originalFetch = global.fetch
+
+  beforeEach(() => {
+    loggerMocks.childInfo.mockClear()
+    loggerMocks.childDebug.mockClear()
+    loggerMocks.childWarn.mockClear()
+    loggerMocks.childError.mockClear()
+  })
+
+  afterEach(() => {
+    global.fetch = originalFetch
+  })
+
+  it("logs upstream routing details without exposing the active org value", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response("page not found", {
+        status: 404,
+        statusText: "Not Found",
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          server: "test-upstream",
+        },
+      })
+    )
+
+    const req = new NextRequest(
+      "http://localhost/api/proxy/v1/orgs/current",
+      {
+        headers: { cookie: "hivy_active_org=org-secret-value" },
+      }
+    )
+    const res = await GET(req, {
+      params: Promise.resolve({ path: ["v1", "orgs", "current"] }),
+    })
+
+    expect(res.status).toBe(404)
+    expect(await res.text()).toBe("page not found")
+    expect(loggerMocks.childInfo).toHaveBeenCalledWith(
+      {
+        upstream_origin: "http://backend-test",
+        upstream_path: "/v1/orgs/current",
+        has_session: false,
+        has_active_org: true,
+      },
+      "org current proxy request"
+    )
+    expect(loggerMocks.childWarn).toHaveBeenCalledWith(
+      {
+        status: 404,
+        status_text: "Not Found",
+        content_type: "text/plain; charset=utf-8",
+        server: "test-upstream",
+        response_body: "page not found",
+      },
+      "org current upstream response"
+    )
+
+    const diagnosticCalls = JSON.stringify([
+      ...loggerMocks.childInfo.mock.calls,
+      ...loggerMocks.childWarn.mock.calls,
+    ])
+    expect(diagnosticCalls).not.toContain("org-secret-value")
+  })
+})
 
 describe("Set-Cookie header forwarding", () => {
   const originalFetch = global.fetch

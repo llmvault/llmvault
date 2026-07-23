@@ -27,6 +27,8 @@ const AUTH_PATHS = new Set([
 ])
 
 const LOGOUT_PATH = "auth/logout"
+const ORG_CURRENT_PATH = "v1/orgs/current"
+const DIAGNOSTIC_BODY_MAX_CHARS = 512
 
 function captureRefreshFailure(
   stage: string,
@@ -191,6 +193,19 @@ async function handler(
     }
   }
 
+  const isOrgCurrent = apiPath === ORG_CURRENT_PATH
+  if (isOrgCurrent) {
+    reqLog.info(
+      {
+        upstream_origin: url.origin,
+        upstream_path: url.pathname,
+        has_session: Boolean(session),
+        has_active_org: Boolean(req.cookies.get("hivy_active_org")?.value),
+      },
+      "org current proxy request"
+    )
+  }
+
   const headers = buildUpstreamHeaders(req, session)
   let upstream: Response
   try {
@@ -222,6 +237,33 @@ async function handler(
         method: req.method,
         upstreamStatus: upstream.status,
       })
+    }
+  }
+
+  if (isOrgCurrent) {
+    const diagnostics = {
+      status: upstream.status,
+      status_text: upstream.statusText,
+      content_type: upstream.headers.get("content-type") ?? undefined,
+      server: upstream.headers.get("server") ?? undefined,
+      response_body: undefined as string | undefined,
+    }
+
+    if (upstream.status === 404) {
+      try {
+        diagnostics.response_body = (await upstream.clone().text()).slice(
+          0,
+          DIAGNOSTIC_BODY_MAX_CHARS
+        )
+      } catch (err) {
+        reqLog.warn({ err }, "org current response body could not be read")
+      }
+    }
+
+    if (upstream.status === 404) {
+      reqLog.warn(diagnostics, "org current upstream response")
+    } else {
+      reqLog.info(diagnostics, "org current upstream response")
     }
   }
 
