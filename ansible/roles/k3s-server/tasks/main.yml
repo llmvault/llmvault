@@ -8,7 +8,13 @@
       - k3s_node_name | length > 0
       - k3s_node_ip is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
       - k3s_bootstrap_host in groups['k3s_servers']
-    fail_msg: "K3s requires a supported Ubuntu amd64 host and explicit node identity."
+      - k3s_resolv_conf_path | length > 0
+      - k3s_dns_nameservers | length > 0
+      - k3s_dns_nameservers | length <= 3
+      - k3s_dns_nameservers | reject('match', '^(127\\.|::1$|169\\.254\\.|fe80:)') | list | length == k3s_dns_nameservers | length
+    fail_msg: >-
+      K3s requires a supported Ubuntu amd64 host, explicit node identity,
+      and between one and three routable Pod DNS nameservers.
 
 - name: Install the Hetzner vSwitch netplan
   ansible.builtin.template:
@@ -130,6 +136,15 @@
   loop:
     - /etc/rancher/k3s
     - /var/lib/rancher/k3s
+
+- name: Install the K3s Pod resolver configuration
+  ansible.builtin.template:
+    src: resolv.conf.j2
+    dest: "{{ k3s_resolv_conf_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart K3s
 
 - name: Check for an existing K3s server token
   ansible.builtin.stat:

@@ -8,6 +8,7 @@ resources:
   - ../config/env/observability
   - routes.yaml
   - network-policy.yaml
+  - redis-backup-rules.yaml
 
 configMapGenerator:
   - name: hivy-grafana-dashboards

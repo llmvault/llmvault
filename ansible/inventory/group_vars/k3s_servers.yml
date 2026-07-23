@@ -45,6 +45,15 @@ k3s_etcd_s3_config_secret: k3s-etcd-s3
 k3s_system_reserved: "cpu=1000m,memory=2Gi,ephemeral-storage=5Gi"
 k3s_kube_reserved: "cpu=1000m,memory=2Gi,ephemeral-storage=5Gi"
 
+# Kubelet accepts at most three upstream nameservers when constructing Pod
+# resolver configuration. Keep this list deterministic instead of inheriting
+# the four-entry resolver file installed on Hetzner hosts.
+k3s_resolv_conf_path: /etc/rancher/k3s/resolv.conf
+k3s_dns_nameservers:
+  - 185.12.64.1
+  - 185.12.64.2
+  - 2a01:4ff:ff00::add:1
+
 # Public keys for automated Kubernetes API tunnels. Each account is restricted
 # to local TCP forwarding into the Kubernetes API and has no interactive shell.
 k3s_deploy_tunnel_accounts:

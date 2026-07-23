@@ -1,6 +1,7 @@
 ---
 - name: Install the production K3s server
   hosts: k3s_servers
+  serial: 1
   become: true
   gather_facts: true
   roles:

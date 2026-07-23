@@ -18,6 +18,7 @@ tls-san:
 
 cluster-cidr: {{ k3s_cluster_cidr }}
 service-cidr: {{ k3s_service_cidr }}
+resolv-conf: {{ k3s_resolv_conf_path }}
 
 flannel-backend: none
 disable-network-policy: true

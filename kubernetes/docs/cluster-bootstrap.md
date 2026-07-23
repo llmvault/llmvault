@@ -175,14 +175,12 @@ ansible-playbook playbooks/k3s/validate.yml --limit k8s1
 ```
 
 Reconcile the existing servers afterward so their shared TLS SAN list matches
-the expanded inventory. Run one at a time because the playbook has no serial
-restart guard:
+the expanded inventory. The playbook's `serial: 1` guard reconciles one server
+at a time:
 
 ```sh
-ansible-playbook playbooks/k3s/install.yml --limit k8s0
-ansible-playbook playbooks/k3s/validate.yml --limit k8s0
-ansible-playbook playbooks/k3s/install.yml --limit k8s1
-ansible-playbook playbooks/k3s/validate.yml --limit k8s1
+ansible-playbook playbooks/k3s/install.yml
+ansible-playbook playbooks/k3s/validate.yml
 ```
 
 Then check membership and Cilium coverage:

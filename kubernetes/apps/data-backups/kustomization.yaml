@@ -4,3 +4,8 @@ resources:
   - qdrant.yaml
   - redis.yaml
 
+configMapGenerator:
+  - name: redis-backup-scripts
+    files:
+      - backup.sh=scripts/redis-backup.sh
+      - upload.sh=scripts/redis-upload.sh

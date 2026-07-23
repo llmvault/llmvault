@@ -45,6 +45,8 @@ embedded etcd; the other members join its private API address.
 Membership has two effects:
 
 - the K3s config labels the node `hivy.io/public-ingress=true`;
+- K3s uses an Ansible-managed resolver file with at most three explicit
+  upstreams, avoiding kubelet `DNSConfigForming` truncation;
 - runner HAProxy includes the node in its private Gateway and registry pools.
 
 Keep a server in `k3s_ingress` only if it can accept ports 443, 10080, 10443,
@@ -86,17 +88,14 @@ Those paths are ignored by Git. Files should remain mode `0600`, and the whole
 ## K3s host reconciliation
 
 The install playbook targets every host in `k3s_servers` and configures the
-restricted GitHub Actions tunnel accounts. An unchanged reconciliation can run
-against the full group:
+restricted GitHub Actions tunnel accounts. Reconciliation runs one server at a
+time so a K3s configuration change cannot restart both current control-plane
+members together:
 
 ```sh
 ansible-playbook playbooks/k3s/install.yml
 ansible-playbook playbooks/k3s/validate.yml
 ```
-
-If a shared K3s setting changed, limit the run to one node, wait for it to
-return, then run the next node. The playbook does not declare `serial: 1`, and
-its restart handler can otherwise restart both current etcd members together.
 
 Limit a run while adding or repairing one node:
 

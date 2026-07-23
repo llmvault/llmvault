@@ -105,10 +105,15 @@ kubectl -n redis-operator logs deployment/redis-operator --since=30m
 kubectl -n production get pods,pvc -l app.kubernetes.io/name=backend-redis
 ```
 
-The `backend-redis-backup` CronJob runs at 03:00 UTC each day. Staging uploads
-`standalone.rdb`; production uploads an RDB from every leader and records the
-cluster topology. Both use the environment's backend PostgreSQL bucket under a
-separate `redis/` prefix.
+The `backend-redis-backup` CronJob runs at 03:00 UTC each day with
+`timeZone: Etc/UTC`. Staging uploads `standalone.rdb`; production uploads an RDB
+from every leader and records the cluster topology. Before upload, the job
+checks each RDB structurally, boots a disposable loopback Redis with a bounded
+readiness wait, and rejects a production snapshot set if cluster health or slot
+topology changes during export. The upload step verifies the remote size of
+every expected object and includes `manifest.sha256` for restore verification.
+Both environments use the backend PostgreSQL bucket under a separate `redis/`
+prefix.
 
 ## Qdrant
 
@@ -185,6 +190,10 @@ that the bytes work:
 - Restore Qdrant under a temporary collection name and query a known point. For
   production, use the matching snapshot set from all peers.
 - Never make the first restore attempt against the live cluster or collection.
+
+VictoriaMetrics alerts when a Redis backup Job fails or when the most recent
+successful Redis recovery point is older than 30 hours. These alerts still
+require an external Alertmanager receiver before they can page an operator.
 
 K3s handles etcd separately. Each server takes a snapshot every six hours and
 uploads it to `usehivy-k3s-etcd` through K3s's S3 support. Its credentials and

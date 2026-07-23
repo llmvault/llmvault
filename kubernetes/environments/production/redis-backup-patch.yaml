@@ -8,7 +8,7 @@ spec:
       template:
         spec:
           initContainers:
-            - name: validate-rdb
+            - name: backup-and-validate
               resources:
                 requests:
                   cpu: 100m

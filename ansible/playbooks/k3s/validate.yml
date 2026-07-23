@@ -24,8 +24,25 @@
       register: k3s_snapshot_status
       changed_when: false
 
+    - name: Read the K3s Pod resolver nameserver count
+      ansible.builtin.shell:
+        cmd: >-
+          set -o pipefail &&
+          grep -Ec '^[[:space:]]*nameserver[[:space:]]+' {{ k3s_resolv_conf_path | quote }}
+        executable: /bin/bash
+      register: k3s_resolver_nameserver_count
+      changed_when: false
+
+    - name: Validate the K3s Pod resolver nameserver count
+      ansible.builtin.assert:
+        that:
+          - k3s_resolver_nameserver_count.stdout | int > 0
+          - k3s_resolver_nameserver_count.stdout | int <= 3
+        fail_msg: "K3s Pod DNS must use between one and three upstream nameservers."
+
     - name: Show validation status
       ansible.builtin.debug:
         msg:
           - "{{ k3s_node_status.stdout }}"
           - "Embedded etcd snapshot command succeeded."
+          - "K3s Pod resolver uses {{ k3s_resolver_nameserver_count.stdout }} upstream nameservers."
