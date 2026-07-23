@@ -20,8 +20,17 @@ import {
   teamLabel,
   type Team,
 } from "../_components/team-settings"
+import {
+  TeamDetailTabs,
+  teamDetailTabs,
+  type TeamDetailTab,
+} from "./_team-detail-tabs"
 import { TeamMembersSection } from "./team-sections"
-import { TeamProvisioningSection } from "./team-provisioning"
+import {
+  TeamConnectionsSection,
+  TeamKnowledgeSourcesSection,
+  TeamSkillsSection,
+} from "./team-provisioning"
 import { TeamEnvironmentVariablesPanel } from "./team-environment-variables"
 import { TeamExternalResourceRoutes } from "./team-external-resource-routes"
 
@@ -38,6 +47,7 @@ export default function TeamDetailPage({
   const [inviteOpen, setInviteOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<TeamDetailTab>("overview")
 
   const teamQuery = $api.useQuery("get", "/v1/orgs/current/teams/{id}", {
     params: { path: { id: teamId } },
@@ -61,6 +71,11 @@ export default function TeamDetailPage({
     () => membersQuery.data?.data ?? [],
     [membersQuery.data?.data]
   )
+  const tabs = teamDetailTabs(isAdmin)
+  const visibleActiveTab = tabs.some((tab) => tab.id === activeTab)
+    ? activeTab
+    : "overview"
+
   function refreshTeam() {
     queryClient.invalidateQueries({
       queryKey: queryKeys.team(),
@@ -125,7 +140,7 @@ export default function TeamDetailPage({
           <h1 className="truncate text-2xl font-semibold">{teamLabel(team)}</h1>
           <p className="mt-1 text-sm text-muted">
             {team.description ||
-              "Manage this team's members and external resource routing."}
+              "Manage this team's members and shared access."}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Chip size="sm">{team.member_count ?? members.length} members</Chip>
@@ -151,21 +166,63 @@ export default function TeamDetailPage({
         ) : null}
       </div>
 
-      <TeamMembersSection
-        teamId={teamId}
-        members={members}
-        orgMembers={orgMembers}
-        isLoading={membersQuery.isLoading}
-        onInvite={() => setInviteOpen(true)}
-        onChanged={refreshTeam}
-        readOnly={!isAdmin}
+      <TeamDetailTabs
+        tabs={tabs}
+        activeTab={visibleActiveTab}
+        onSelect={setActiveTab}
       />
 
-      <TeamEnvironmentVariablesPanel teamId={teamId} />
-
-      <TeamExternalResourceRoutes teamId={teamId} />
-
-      <TeamProvisioningSection teamId={teamId} />
+      {visibleActiveTab === "overview" ? (
+        <div
+          aria-labelledby="team-overview-tab"
+          id="team-overview-panel"
+          role="tabpanel"
+        >
+          <TeamMembersSection
+            teamId={teamId}
+            members={members}
+            orgMembers={orgMembers}
+            isLoading={membersQuery.isLoading}
+            onInvite={() => setInviteOpen(true)}
+            onChanged={refreshTeam}
+            readOnly={!isAdmin}
+          />
+        </div>
+      ) : visibleActiveTab === "connections" ? (
+        <div
+          aria-labelledby="team-connections-tab"
+          className="flex flex-col gap-8"
+          id="team-connections-panel"
+          role="tabpanel"
+        >
+          <TeamConnectionsSection teamId={teamId} readOnly={!isAdmin} />
+          <TeamExternalResourceRoutes teamId={teamId} />
+        </div>
+      ) : visibleActiveTab === "skills" ? (
+        <div
+          aria-labelledby="team-skills-tab"
+          id="team-skills-panel"
+          role="tabpanel"
+        >
+          <TeamSkillsSection teamId={teamId} readOnly={!isAdmin} />
+        </div>
+      ) : visibleActiveTab === "knowledge" && isAdmin ? (
+        <div
+          aria-labelledby="team-knowledge-tab"
+          id="team-knowledge-panel"
+          role="tabpanel"
+        >
+          <TeamKnowledgeSourcesSection teamId={teamId} />
+        </div>
+      ) : (
+        <div
+          aria-labelledby="team-environment-variables-tab"
+          id="team-environment-variables-panel"
+          role="tabpanel"
+        >
+          <TeamEnvironmentVariablesPanel teamId={teamId} />
+        </div>
+      )}
 
       {inviteOpen ? (
         <InviteMemberModal

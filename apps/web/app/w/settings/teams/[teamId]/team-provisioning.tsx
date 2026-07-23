@@ -7,7 +7,6 @@ import { IntegrationLogo } from "@/components/integration-logo"
 import { AppIcon } from "@/components/icon"
 import { extractErrorMessage } from "@/lib/api/error"
 import { $api } from "@/lib/api/hooks"
-import { useIsAdmin } from "@/lib/auth/use-role"
 import type { components } from "@/lib/api/schema"
 import {
   deriveProvider,
@@ -37,23 +36,12 @@ const TEAM_RAG_SOURCES_KEY = [
   "/v1/orgs/current/teams/{teamID}/rag-sources",
 ] as const
 
-export function TeamProvisioningSection({ teamId }: { teamId: string }) {
-  const isAdmin = useIsAdmin()
-  return (
-    <div className="flex flex-col gap-8">
-      <TeamConnectionsSection teamId={teamId} readOnly={!isAdmin} />
-      <TeamSkillsSection teamId={teamId} readOnly={!isAdmin} />
-      {isAdmin ? <TeamKnowledgeSourcesSection teamId={teamId} /> : null}
-    </div>
-  )
-}
-
 type ConnectionRow =
   | components["schemas"]["connectionResponse"]
   | components["schemas"]["databaseConnectionResponse"]
 type SkillRow = components["schemas"]["skillResponse"]
 
-function TeamConnectionsSection({
+export function TeamConnectionsSection({
   teamId,
   readOnly,
 }: {
@@ -220,7 +208,7 @@ function TeamConnectionsSection({
   )
 }
 
-function TeamSkillsSection({
+export function TeamSkillsSection({
   teamId,
   readOnly,
 }: {
@@ -309,7 +297,7 @@ function TeamSkillsSection({
   )
 }
 
-function TeamKnowledgeSourcesSection({ teamId }: { teamId: string }) {
+export function TeamKnowledgeSourcesSection({ teamId }: { teamId: string }) {
   const queryClient = useQueryClient()
 
   const sourcesQuery = $api.useQuery("get", "/v1/rag/sources", {
