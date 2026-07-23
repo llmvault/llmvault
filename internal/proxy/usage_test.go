@@ -143,6 +143,22 @@ func TestParseUsageNonStreaming_UnknownProvider(t *testing.T) {
 	assertUsage(t, u, 50, 25, 0, 0)
 }
 
+func TestParseUsageNonStreaming_TogetherTopLevelDetails(t *testing.T) {
+	// Together documents cached_tokens and reasoning_tokens as optional
+	// Together-specific usage fields that can be returned at the top level.
+	body := []byte(`{
+		"usage": {
+			"prompt_tokens": 200,
+			"completion_tokens": 75,
+			"cached_tokens": 160,
+			"reasoning_tokens": 50
+		}
+	}`)
+
+	u := ParseUsageNonStreaming("together", body)
+	assertUsage(t, u, 200, 75, 160, 50)
+}
+
 func TestParseUsageNonStreaming_MalformedJSON(t *testing.T) {
 	body := []byte(`{broken json`)
 
@@ -206,6 +222,14 @@ func TestParseUsageStreaming_EngyMergesChargeAndUsageChunks(t *testing.T) {
 	if math.Abs(u.ProviderCostUSD-0.000010) > 1e-12 {
 		t.Fatalf("ProviderCostUSD = %.12f, want 0.000010", u.ProviderCostUSD)
 	}
+}
+
+func TestParseUsageStreaming_TogetherFinalUsageChunk(t *testing.T) {
+	// Sanitized from a live thinkingmachines/Inkling response.
+	events := []byte("data: {\"choices\":[{\"delta\":{\"reasoning\":\"The\"}}],\"usage\":null}\n\ndata: {\"choices\":[],\"usage\":{\"prompt_tokens\":20,\"completion_tokens\":32,\"total_tokens\":52,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":28}}}\n\ndata: [DONE]\n\n")
+
+	u := ParseUsageStreaming("together", events)
+	assertUsage(t, u, 20, 32, 0, 28)
 }
 
 func TestParseUsageStreaming_AnthropicMessageDelta(t *testing.T) {

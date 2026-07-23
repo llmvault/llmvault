@@ -118,6 +118,25 @@ func TestBuildSystemCredentialDefaultsEngyProvider(t *testing.T) {
 	}
 }
 
+func TestBuildSystemCredentialDefaultsTogetherProvider(t *testing.T) {
+	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
+
+	cred, err := h.buildCredential(context.Background(), nil, createCredentialRequest{
+		Label:      "system-together",
+		ProviderID: "together",
+		APIKey:     "together-test-key",
+	})
+	if err != nil {
+		t.Fatalf("buildCredential returned error: %v", err)
+	}
+	if cred.BaseURL != "https://api.together.ai/v1" {
+		t.Fatalf("BaseURL = %q", cred.BaseURL)
+	}
+	if cred.AuthScheme != "bearer" {
+		t.Fatalf("AuthScheme = %q", cred.AuthScheme)
+	}
+}
+
 func TestBuildSystemCredentialDefaultsReveProvider(t *testing.T) {
 	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
 

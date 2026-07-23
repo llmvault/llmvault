@@ -35,6 +35,17 @@ func agentSessionsEnsureSystemOpenRouterCredential(t *testing.T) {
 	})
 }
 
+func agentSessionsEnsureSystemTogetherCredential(t *testing.T) {
+	t.Helper()
+	agentSessionsEnsureSystemCredential(t, agentSessionsSystemCredentialConfig{
+		env:        "HIVY_SYSTEM_TOGETHER_API_KEY",
+		label:      "E2E System Together AI",
+		providerID: "together",
+		baseURL:    "https://api.together.ai/v1",
+		authScheme: "bearer",
+	})
+}
+
 func agentSessionsEnsureSystemReveCredential(t *testing.T) {
 	t.Helper()
 	agentSessionsEnsureSystemCredential(t, agentSessionsSystemCredentialConfig{

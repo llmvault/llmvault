@@ -65,6 +65,7 @@ describe("model logos", () => {
 
     expect(providerLogoURL("alibaba")).toBe("/logos/alibaba.png")
     expect(providerLogoURL("byte-plus")).toBe("/logos/byteplus.png")
+    expect(providerLogoURL("together")).toBe("/logos/together.png")
     expect(providerLogoURL("xai")).toBe("/logos/x-ai.png")
     expect(providerLogoURL("zai")).toBe("/logos/z-ai.png")
     expect(modelLogoURL("qwen-max")).toBeUndefined()

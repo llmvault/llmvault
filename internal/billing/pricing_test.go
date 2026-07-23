@@ -326,6 +326,26 @@ func TestEstimateCostUSD_ZeroTokensZeroCost(t *testing.T) {
 	}
 }
 
+func TestEstimateCostUSD_TogetherUsesLiveDirectoryPricing(t *testing.T) {
+	cost, err := billing.EstimateCostUSD(
+		nil,
+		"together",
+		"nemotron-3-ultra-550b-a55b",
+		1_000_000,
+		1_000_000,
+		800_000,
+	)
+	if err != nil {
+		t.Fatalf("EstimateCostUSD: %v", err)
+	}
+	// 200K regular input at $0.60/M + 800K cached input at $0.20/M +
+	// 1M output at $3.60/M.
+	const want = 3.88
+	if math.Abs(cost-want) > 1e-12 {
+		t.Fatalf("cost = %.12f, want %.12f", cost, want)
+	}
+}
+
 func TestIsKnownModel(t *testing.T) {
 	if !billing.IsKnownModel("deepseek-v4-flash") {
 		t.Error("IsKnownModel(deepseek-v4-flash) = false, want true")

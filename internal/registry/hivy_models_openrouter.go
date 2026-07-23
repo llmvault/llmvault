@@ -170,12 +170,6 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		},
 	},
 	{
-		ID: "nemotron-3-ultra-550b-a55b",
-		Routes: []ModelRoute{
-			{ProviderID: "openrouter", ModelID: "nvidia/nemotron-3-ultra-550b-a55b"},
-		},
-	},
-	{
 		ID: "qwen3.6-max-preview",
 		Routes: []ModelRoute{
 			{ProviderID: "openrouter", ModelID: "qwen/qwen3.6-max-preview"},

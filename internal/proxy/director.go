@@ -241,7 +241,11 @@ func applyUsageAccounting(req *http.Request, providerID, baseURL, endUserID stri
 		providerheaders.ApplyOpenRouter(req)
 		return EnsureOpenRouterUsage(req, endUserID)
 	}
-	if providerID == "xiaomi" || providerID == "atlascloud" || providerID == "novita" || providerID == "engy" {
+	if providerID == "xiaomi" ||
+		providerID == "atlascloud" ||
+		providerID == "novita" ||
+		providerID == "engy" ||
+		providerID == "together" {
 		return EnsureOpenAICompatibleUsage(req)
 	}
 	return nil
