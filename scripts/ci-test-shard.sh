@@ -123,6 +123,7 @@ internal_extra_packages() {
     github.com/usehivy/hivy/internal/canvasartifact \
     github.com/usehivy/hivy/internal/connectionaccess \
     github.com/usehivy/hivy/internal/databaseintegration \
+    github.com/usehivy/hivy/internal/infrastructure \
     github.com/usehivy/hivy/internal/keyedlock \
     github.com/usehivy/hivy/internal/microsandbox/api \
     github.com/usehivy/hivy/internal/microsandbox/control \
