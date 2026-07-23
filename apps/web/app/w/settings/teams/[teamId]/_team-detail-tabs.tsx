@@ -21,7 +21,7 @@ const TEAM_DETAIL_TAB_OPTIONS: readonly TeamDetailTabOption[] = [
   { id: "connections", label: "Connections" },
   { id: "skills", label: "Skills" },
   { id: "knowledge", label: "Knowledge", adminOnly: true },
-  { id: "environment-variables", label: "Environment variables" },
+  { id: "environment-variables", label: "Env" },
 ]
 
 export function teamDetailTabs(
