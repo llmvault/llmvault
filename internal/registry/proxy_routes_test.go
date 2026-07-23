@@ -22,18 +22,21 @@ func TestProxyRoutesForModelRetainsOnlyAvailableDirectRoute(t *testing.T) {
 	}
 }
 
-func TestProxyRoutesForMiMoPreferXiaomiWithOpenRouterFallback(t *testing.T) {
+func TestProxyRoutesForMiMoPreferXiaomiWithNovitaAndOpenRouterFallbacks(t *testing.T) {
 	for _, modelID := range []string{"mimo-v2.5-pro", "mimo-v2.5"} {
 		t.Run(modelID, func(t *testing.T) {
 			routes := Global().ProxyRoutesForModel(modelID)
-			if len(routes) != 2 {
-				t.Fatalf("route count = %d, want 2", len(routes))
+			if len(routes) != 3 {
+				t.Fatalf("route count = %d, want 3", len(routes))
 			}
 			if routes[0] != (ModelRoute{ProviderID: "xiaomi", ModelID: modelID}) {
 				t.Fatalf("primary route = %#v, want Xiaomi MiMo", routes[0])
 			}
-			if routes[1] != (ModelRoute{ProviderID: "openrouter", ModelID: "xiaomi/" + modelID}) {
-				t.Fatalf("fallback route = %#v, want OpenRouter", routes[1])
+			if routes[1] != (ModelRoute{ProviderID: "novita", ModelID: "xiaomimimo/" + modelID}) {
+				t.Fatalf("first fallback route = %#v, want Novita", routes[1])
+			}
+			if routes[2] != (ModelRoute{ProviderID: "openrouter", ModelID: "xiaomi/" + modelID}) {
+				t.Fatalf("second fallback route = %#v, want OpenRouter", routes[2])
 			}
 		})
 	}
@@ -88,16 +91,19 @@ func TestProxyRoutesForMiMoCarryDirectProviderPricing(t *testing.T) {
 	}
 }
 
-func TestProxyRoutesForHy3PreferAtlasCloudWithOpenRouterFallback(t *testing.T) {
+func TestProxyRoutesForHy3PreferCheaperNovitaRoute(t *testing.T) {
 	routes := Global().ProxyRoutesForModel("hy3")
-	if len(routes) != 2 {
-		t.Fatalf("route count = %d, want 2", len(routes))
+	if len(routes) != 3 {
+		t.Fatalf("route count = %d, want 3", len(routes))
 	}
-	if routes[0] != (ModelRoute{ProviderID: "atlascloud", ModelID: "tencent/hy3"}) {
-		t.Fatalf("primary route = %#v, want Atlas Cloud", routes[0])
+	if routes[0] != (ModelRoute{ProviderID: "novita", ModelID: "tencent/hy3"}) {
+		t.Fatalf("primary route = %#v, want Novita", routes[0])
 	}
-	if routes[1] != (ModelRoute{ProviderID: "openrouter", ModelID: "tencent/hy3"}) {
-		t.Fatalf("fallback route = %#v, want OpenRouter", routes[1])
+	if routes[1] != (ModelRoute{ProviderID: "atlascloud", ModelID: "tencent/hy3"}) {
+		t.Fatalf("first fallback route = %#v, want Atlas Cloud", routes[1])
+	}
+	if routes[2] != (ModelRoute{ProviderID: "openrouter", ModelID: "tencent/hy3"}) {
+		t.Fatalf("second fallback route = %#v, want OpenRouter", routes[2])
 	}
 }
 

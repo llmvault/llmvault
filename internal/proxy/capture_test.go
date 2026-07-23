@@ -180,6 +180,42 @@ func TestCaptureTransport_Streaming_XiaomiMiMoUsageSummary(t *testing.T) {
 	}
 }
 
+func TestCaptureTransport_Streaming_NovitaUsageSummary(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher := w.(http.Flusher)
+
+		// Sanitized from a live Novita Ling stream. Novita first emits zero
+		// usage, followed by a separate final usage summary.
+		fmt.Fprint(w, "data: {\"id\":\"novita-test\",\"choices\":[{\"delta\":{\"content\":\"NOVITA_OK\"}}],\"usage\":{\"prompt_tokens\":0,\"completion_tokens\":0,\"total_tokens\":0}}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: {\"id\":\"novita-test\",\"choices\":[],\"usage\":{\"prompt_tokens\":27,\"completion_tokens\":16,\"total_tokens\":43}}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	captured := &observe.CapturedData{ProviderID: "novita"}
+	ctx := observe.WithCapturedData(context.Background(), captured)
+	req, _ := http.NewRequestWithContext(ctx, "POST", upstream.URL, nil)
+
+	ct := &CaptureTransport{Inner: http.DefaultTransport}
+	resp, err := ct.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	if captured.Usage.InputTokens != 27 {
+		t.Errorf("InputTokens = %d, want 27", captured.Usage.InputTokens)
+	}
+	if captured.Usage.OutputTokens != 16 {
+		t.Errorf("OutputTokens = %d, want 16", captured.Usage.OutputTokens)
+	}
+}
+
 func TestCaptureTransport_Streaming_Anthropic(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")

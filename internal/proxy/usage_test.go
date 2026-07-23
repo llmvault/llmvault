@@ -34,6 +34,42 @@ func TestParseUsageNonStreaming_OpenAI_NoDetails(t *testing.T) {
 	assertUsage(t, u, 200, 75, 0, 0)
 }
 
+func TestParseUsageNonStreaming_NovitaLing(t *testing.T) {
+	// Sanitized from a live Novita inclusionai/ling-3.0-flash response.
+	// Novita reports tokens but no request-level dollar cost.
+	body := []byte(`{
+		"id": "chatcmpl-sanitized",
+		"model": "inclusionai/ling-3.0-flash",
+		"choices": [{"message": {"content": "NOVITA_OK", "reasoning_content": "We need answer exactly."}}],
+		"usage": {
+			"prompt_tokens": 27,
+			"completion_tokens": 36,
+			"total_tokens": 63,
+			"prompt_tokens_details": null,
+			"completion_tokens_details": null
+		}
+	}`)
+
+	u := ParseUsageNonStreaming("novita", body)
+	assertUsage(t, u, 27, 36, 0, 0)
+}
+
+func TestParseUsageNonStreaming_NovitaReasoningIsCompletionBreakdown(t *testing.T) {
+	// Sanitized from a live paid Novita deepseek/deepseek-v4-flash response.
+	body := []byte(`{
+		"model": "deepseek/deepseek-v4-flash",
+		"usage": {
+			"prompt_tokens": 9,
+			"completion_tokens": 32,
+			"total_tokens": 41,
+			"completion_tokens_details": {"reasoning_tokens": 32}
+		}
+	}`)
+
+	u := ParseUsageNonStreaming("novita", body)
+	assertUsage(t, u, 9, 32, 0, 32)
+}
+
 func TestParseUsageNonStreaming_Anthropic(t *testing.T) {
 	body := []byte(`{
 		"id": "msg_123",
@@ -122,6 +158,15 @@ func TestParseUsageStreaming_AtlasCloudTopLevelReasoningAndCache(t *testing.T) {
 
 	u := ParseUsageStreaming("atlascloud", events)
 	assertUsage(t, u, 6918, 64, 6912, 64)
+}
+
+func TestParseUsageStreaming_NovitaFinalUsageChunk(t *testing.T) {
+	// Sanitized from a live Novita inclusionai/ling-3.0-flash stream.
+	// The initial zero-valued usage object must not replace the final summary.
+	events := []byte("data: {\"choices\":[{\"delta\":{\"content\":\"NOVITA_OK\"}}],\"usage\":{\"prompt_tokens\":0,\"completion_tokens\":0,\"total_tokens\":0}}\n\ndata: {\"choices\":[],\"usage\":{\"prompt_tokens\":27,\"completion_tokens\":16,\"total_tokens\":43}}\n\ndata: [DONE]\n\n")
+
+	u := ParseUsageStreaming("novita", events)
+	assertUsage(t, u, 27, 16, 0, 0)
 }
 
 func TestParseUsageStreaming_AnthropicMessageDelta(t *testing.T) {

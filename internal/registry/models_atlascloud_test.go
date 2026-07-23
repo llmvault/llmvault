@@ -139,6 +139,7 @@ func TestAtlasCloudPrimaryRoutesAreDeclaredExplicitly(t *testing.T) {
 		{canonicalID: "claude-opus-4.7", atlasModelID: "anthropic/claude-opus-4.7"},
 		{canonicalID: "claude-sonnet-4.5", atlasModelID: "anthropic/claude-sonnet-4.5-20250929"},
 		{canonicalID: "claude-sonnet-4.6", atlasModelID: "anthropic/claude-sonnet-4.6"},
+		{canonicalID: "deepseek-v3.2", atlasModelID: "deepseek-ai/deepseek-v3.2"},
 		{canonicalID: "deepseek-v4-flash", atlasModelID: "deepseek-ai/deepseek-v4-flash"},
 		{canonicalID: "deepseek-v4-pro", atlasModelID: "deepseek-ai/deepseek-v4-pro"},
 		{canonicalID: "gemini-3-flash-preview", atlasModelID: "google/gemini-3-flash-preview"},
@@ -149,7 +150,6 @@ func TestAtlasCloudPrimaryRoutesAreDeclaredExplicitly(t *testing.T) {
 		{canonicalID: "glm-5", atlasModelID: "zai-org/glm-5"},
 		{canonicalID: "glm-5-turbo", atlasModelID: "zai-org/glm-5-turbo"},
 		{canonicalID: "glm-5.1", atlasModelID: "zai-org/glm-5.1"},
-		{canonicalID: "glm-5.2", atlasModelID: "zai-org/glm-5.2"},
 		{canonicalID: "gpt-5.4", atlasModelID: "openai/gpt-5.4"},
 		{canonicalID: "gpt-5.4-mini", atlasModelID: "openai/gpt-5.4-mini"},
 		{canonicalID: "gpt-5.4-nano", atlasModelID: "openai/gpt-5.4-nano"},
@@ -159,15 +159,12 @@ func TestAtlasCloudPrimaryRoutesAreDeclaredExplicitly(t *testing.T) {
 		{canonicalID: "gpt-5.6-terra", atlasModelID: "openai/gpt-5.6-terra"},
 		{canonicalID: "grok-4.3", atlasModelID: "xai/grok-4.3"},
 		{canonicalID: "grok-4.5", atlasModelID: "xai/grok-4.5"},
-		{canonicalID: "hy3", atlasModelID: "tencent/hy3"},
 		{canonicalID: "kimi-k2.5", atlasModelID: "moonshotai/kimi-k2.5"},
 		{canonicalID: "kimi-k2.6", atlasModelID: "moonshotai/kimi-k2.6"},
 		{canonicalID: "kimi-k2.7-code", atlasModelID: "moonshotai/kimi-k2.7-code"},
 		{canonicalID: "minimax-m2.5", atlasModelID: "minimaxai/minimax-m2.5"},
 		{canonicalID: "minimax-m2.7", atlasModelID: "minimaxai/minimax-m2.7"},
-		{canonicalID: "minimax-m3", atlasModelID: "minimaxai/minimax-m3"},
 		{canonicalID: "qwen3.6-35b-a3b", atlasModelID: "qwen/qwen3.6-35b-a3b"},
-		{canonicalID: "qwen3.7-max", atlasModelID: "qwen/qwen3.7-max"},
 		{canonicalID: "qwen3.7-plus", atlasModelID: "qwen/qwen3.7-plus"},
 	}
 
@@ -196,8 +193,14 @@ func TestAtlasCloudPrimaryRoutesAreDeclaredExplicitly(t *testing.T) {
 		if routes[0] != wantAtlas {
 			t.Errorf("%s primary route = %#v", test.canonicalID, routes[0])
 		}
-		if routes[1].ProviderID != "openrouter" {
-			t.Errorf("%s first fallback = %#v, want OpenRouter", test.canonicalID, routes[1])
+		openRouterIndex := slices.IndexFunc(routes, func(route ModelRoute) bool {
+			return route.ProviderID == "openrouter"
+		})
+		declaresOpenRouter := slices.ContainsFunc(hivyModel.Routes, func(route ModelRoute) bool {
+			return route.ProviderID == "openrouter"
+		})
+		if declaresOpenRouter && openRouterIndex < 1 {
+			t.Errorf("%s routes = %#v, want OpenRouter after Atlas", test.canonicalID, routes)
 		}
 		if _, ok := Global().ResolveModel("atlascloud", test.canonicalID); !ok {
 			t.Errorf("%s Atlas route does not resolve", test.canonicalID)

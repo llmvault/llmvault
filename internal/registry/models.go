@@ -13,6 +13,7 @@ package registry
 // maintained Go literal so additions go through code review.
 var curatedProviders = []Provider{
 	atlasCloudProvider,
+	novitaProvider,
 	{ // anthropic — Anthropic
 		ID:   "anthropic",
 		Name: "Anthropic",
@@ -1330,9 +1331,8 @@ var curatedProviders = []Provider{
 					Input:  []string{"text"},
 					Output: []string{"text"},
 				},
-				// Priced from the AtlasCloud endpoint — the only one supporting
-				// tool calls; the cheaper $0.14/$0.58 headline endpoint has no
-				// tools/structured-output support so agent traffic never hits it.
+				// OpenRouter pricing. Novita's cheaper tool-capable route is
+				// represented separately in novitaProvider.
 				Cost: &Cost{
 					Input:     0.2,
 					Output:    0.8,

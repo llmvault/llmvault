@@ -90,10 +90,12 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		ID: "deepseek-v4-pro",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "deepseek-ai/deepseek-v4-pro"},
+			{ProviderID: "novita", ModelID: "deepseek/deepseek-v4-pro"},
 			{ProviderID: "openrouter", ModelID: "deepseek/deepseek-v4-pro"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "deepseek-ai/deepseek-v4-pro"},
+			{ProviderID: "novita", ModelID: "deepseek/deepseek-v4-pro"},
 			{ProviderID: "openrouter", ModelID: "deepseek/deepseek-v4-pro"},
 		},
 	},
@@ -101,32 +103,46 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		ID: "deepseek-v4-flash",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "deepseek-ai/deepseek-v4-flash"},
+			{ProviderID: "novita", ModelID: "deepseek/deepseek-v4-flash"},
 			{ProviderID: "openrouter", ModelID: "deepseek/deepseek-v4-flash"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "deepseek-ai/deepseek-v4-flash"},
+			{ProviderID: "novita", ModelID: "deepseek/deepseek-v4-flash"},
 			{ProviderID: "openrouter", ModelID: "deepseek/deepseek-v4-flash"},
 		},
 	},
 	{
 		ID: "step-3.7-flash",
 		Routes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "stepfun/step-3.7-flash"},
+			{ProviderID: "openrouter", ModelID: "stepfun/step-3.7-flash"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "stepfun/step-3.7-flash"},
 			{ProviderID: "openrouter", ModelID: "stepfun/step-3.7-flash"},
 		},
 	},
 	{
 		ID: "ling-2.6-1t",
 		Routes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "inclusionai/ling-2.6-1t"},
+			{ProviderID: "openrouter", ModelID: "inclusionai/ling-2.6-1t"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "inclusionai/ling-2.6-1t"},
 			{ProviderID: "openrouter", ModelID: "inclusionai/ling-2.6-1t"},
 		},
 	},
 	{
 		ID: "qwen3.7-max",
 		Routes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "qwen/qwen3.7-max"},
 			{ProviderID: "atlascloud", ModelID: "qwen/qwen3.7-max"},
 			{ProviderID: "openrouter", ModelID: "qwen/qwen3.7-max"},
 		},
 		ProxyRoutes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "qwen/qwen3.7-max"},
 			{ProviderID: "atlascloud", ModelID: "qwen/qwen3.7-max"},
 			{ProviderID: "openrouter", ModelID: "qwen/qwen3.7-max"},
 		},
@@ -175,16 +191,23 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		ID: "qwen3.6-35b-a3b",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "qwen/qwen3.6-35b-a3b"},
+			{ProviderID: "novita", ModelID: "qwen/qwen3.6-35b-a3b"},
 			{ProviderID: "openrouter", ModelID: "qwen/qwen3.6-35b-a3b"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "qwen/qwen3.6-35b-a3b"},
+			{ProviderID: "novita", ModelID: "qwen/qwen3.6-35b-a3b"},
 			{ProviderID: "openrouter", ModelID: "qwen/qwen3.6-35b-a3b"},
 		},
 	},
 	{
 		ID: "qwen3.6-27b",
 		Routes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "qwen/qwen3.6-27b"},
+			{ProviderID: "openrouter", ModelID: "qwen/qwen3.6-27b"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "qwen/qwen3.6-27b"},
 			{ProviderID: "openrouter", ModelID: "qwen/qwen3.6-27b"},
 		},
 	},
@@ -192,11 +215,13 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		ID: "kimi-k2.6",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "moonshotai/kimi-k2.6"},
+			{ProviderID: "novita", ModelID: "moonshotai/kimi-k2.6"},
 			{ProviderID: "openrouter", ModelID: "moonshotai/kimi-k2.6"},
 			{ProviderID: "moonshotai", ModelID: "kimi-k2.6"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "moonshotai/kimi-k2.6"},
+			{ProviderID: "novita", ModelID: "moonshotai/kimi-k2.6"},
 			{ProviderID: "openrouter", ModelID: "moonshotai/kimi-k2.6"},
 			{ProviderID: "moonshotai", ModelID: "kimi-k2.6"},
 		},
@@ -219,10 +244,12 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		ID: "mimo-v2.5-pro",
 		Routes: []ModelRoute{
 			{ProviderID: "xiaomi", ModelID: "mimo-v2.5-pro"},
+			{ProviderID: "novita", ModelID: "xiaomimimo/mimo-v2.5-pro"},
 			{ProviderID: "openrouter", ModelID: "xiaomi/mimo-v2.5-pro"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "xiaomi", ModelID: "mimo-v2.5-pro"},
+			{ProviderID: "novita", ModelID: "xiaomimimo/mimo-v2.5-pro"},
 			{ProviderID: "openrouter", ModelID: "xiaomi/mimo-v2.5-pro"},
 		},
 	},
@@ -230,10 +257,12 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		ID: "mimo-v2.5",
 		Routes: []ModelRoute{
 			{ProviderID: "xiaomi", ModelID: "mimo-v2.5"},
+			{ProviderID: "novita", ModelID: "xiaomimimo/mimo-v2.5"},
 			{ProviderID: "openrouter", ModelID: "xiaomi/mimo-v2.5"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "xiaomi", ModelID: "mimo-v2.5"},
+			{ProviderID: "novita", ModelID: "xiaomimimo/mimo-v2.5"},
 			{ProviderID: "openrouter", ModelID: "xiaomi/mimo-v2.5"},
 		},
 	},
@@ -241,10 +270,12 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		ID: "minimax-m2.7",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "minimaxai/minimax-m2.7"},
+			{ProviderID: "novita", ModelID: "minimax/minimax-m2.7"},
 			{ProviderID: "openrouter", ModelID: "minimax/minimax-m2.7"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "minimaxai/minimax-m2.7"},
+			{ProviderID: "novita", ModelID: "minimax/minimax-m2.7"},
 			{ProviderID: "openrouter", ModelID: "minimax/minimax-m2.7"},
 		},
 	},
@@ -252,10 +283,12 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		ID: "glm-5.1",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "zai-org/glm-5.1"},
+			{ProviderID: "novita", ModelID: "zai-org/glm-5.1"},
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-5.1"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "zai-org/glm-5.1"},
+			{ProviderID: "novita", ModelID: "zai-org/glm-5.1"},
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-5.1"},
 		},
 	},
@@ -263,10 +296,12 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		ID: "glm-5-turbo",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "zai-org/glm-5-turbo"},
+			{ProviderID: "novita", ModelID: "zai-org/glm-5-turbo"},
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-5-turbo"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "zai-org/glm-5-turbo"},
+			{ProviderID: "novita", ModelID: "zai-org/glm-5-turbo"},
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-5-turbo"},
 		},
 	},
@@ -274,10 +309,12 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		ID: "glm-5",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "zai-org/glm-5"},
+			{ProviderID: "novita", ModelID: "zai-org/glm-5"},
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-5"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "zai-org/glm-5"},
+			{ProviderID: "novita", ModelID: "zai-org/glm-5"},
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-5"},
 		},
 	},
@@ -285,16 +322,23 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		ID: "glm-4.7",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "zai-org/glm-4.7"},
+			{ProviderID: "novita", ModelID: "zai-org/glm-4.7"},
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-4.7"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "zai-org/glm-4.7"},
+			{ProviderID: "novita", ModelID: "zai-org/glm-4.7"},
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-4.7"},
 		},
 	},
 	{
 		ID: "glm-4.7-flash",
 		Routes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "zai-org/glm-4.7-flash"},
+			{ProviderID: "openrouter", ModelID: "z-ai/glm-4.7-flash"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "zai-org/glm-4.7-flash"},
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-4.7-flash"},
 		},
 	},
@@ -308,10 +352,12 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		ID: "minimax-m2.5",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "minimaxai/minimax-m2.5"},
+			{ProviderID: "novita", ModelID: "minimax/minimax-m2.5"},
 			{ProviderID: "openrouter", ModelID: "minimax/minimax-m2.5"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "minimaxai/minimax-m2.5"},
+			{ProviderID: "novita", ModelID: "minimax/minimax-m2.5"},
 			{ProviderID: "openrouter", ModelID: "minimax/minimax-m2.5"},
 		},
 	},
@@ -325,11 +371,13 @@ var coreHivyModelsOpenRouter = []HivyModel{
 		ID: "kimi-k2.5",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "moonshotai/kimi-k2.5"},
+			{ProviderID: "novita", ModelID: "moonshotai/kimi-k2.5"},
 			{ProviderID: "openrouter", ModelID: "moonshotai/kimi-k2.5"},
 			{ProviderID: "moonshotai", ModelID: "kimi-k2.5"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "moonshotai/kimi-k2.5"},
+			{ProviderID: "novita", ModelID: "moonshotai/kimi-k2.5"},
 			{ProviderID: "openrouter", ModelID: "moonshotai/kimi-k2.5"},
 			{ProviderID: "moonshotai", ModelID: "kimi-k2.5"},
 		},

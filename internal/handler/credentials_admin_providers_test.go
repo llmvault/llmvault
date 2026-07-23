@@ -61,6 +61,25 @@ func TestBuildSystemCredentialDefaultsAtlasCloudProvider(t *testing.T) {
 	}
 }
 
+func TestBuildSystemCredentialDefaultsNovitaProvider(t *testing.T) {
+	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
+
+	cred, err := h.buildCredential(context.Background(), nil, createCredentialRequest{
+		Label:      "system-novita",
+		ProviderID: "novita",
+		APIKey:     "novita-test-key",
+	})
+	if err != nil {
+		t.Fatalf("buildCredential returned error: %v", err)
+	}
+	if cred.BaseURL != "https://api.novita.ai/openai/v1" {
+		t.Fatalf("BaseURL = %q", cred.BaseURL)
+	}
+	if cred.AuthScheme != "bearer" {
+		t.Fatalf("AuthScheme = %q", cred.AuthScheme)
+	}
+}
+
 func TestBuildSystemCredentialDefaultsQuantisedProvider(t *testing.T) {
 	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
 

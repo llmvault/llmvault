@@ -110,6 +110,29 @@ func TestApplyUsageAccounting_AtlasCloudUsesOpenAICompatibleContract(t *testing.
 	}
 }
 
+func TestApplyUsageAccounting_NovitaUsesOpenAICompatibleContract(t *testing.T) {
+	req := makePostRequest(`{"model":"inclusionai/ling-3.0-flash","stream":true,"messages":[]}`)
+
+	if err := applyUsageAccounting(req, "novita", "https://api.novita.ai/openai/v1", "ignored-user"); err != nil {
+		t.Fatalf("applyUsageAccounting: %v", err)
+	}
+
+	body := decodeBody(t, req)
+	if _, ok := body["usage"]; ok {
+		t.Fatal("Novita request received OpenRouter usage extension")
+	}
+	if _, ok := body["user"]; ok {
+		t.Fatal("Novita request received OpenRouter user attribution")
+	}
+	so := map[string]json.RawMessage{}
+	if err := json.Unmarshal(body["stream_options"], &so); err != nil {
+		t.Fatalf("stream_options not an object: %s", body["stream_options"])
+	}
+	if string(so["include_usage"]) != "true" {
+		t.Fatalf("include_usage = %s, want true", so["include_usage"])
+	}
+}
+
 func TestEnsureOpenAICompatibleUsage_XiaomiNonStreamingPreservesBody(t *testing.T) {
 	req := makePostRequest(`{"model":"mimo-v2.5-pro","messages":[{"role":"user","content":"hi"}]}`)
 

@@ -56,11 +56,13 @@ var latestHivyModels = []HivyModel{
 		ID: "kimi-k2.7-code",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "moonshotai/kimi-k2.7-code"},
+			{ProviderID: "novita", ModelID: "moonshotai/kimi-k2.7-code"},
 			{ProviderID: "openrouter", ModelID: "moonshotai/kimi-k2.7-code"},
 			{ProviderID: "moonshotai", ModelID: "kimi-k2.7-code"},
 		},
 		ProxyRoutes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "moonshotai/kimi-k2.7-code"},
+			{ProviderID: "novita", ModelID: "moonshotai/kimi-k2.7-code"},
 			{ProviderID: "openrouter", ModelID: "moonshotai/kimi-k2.7-code"},
 			{ProviderID: "moonshotai", ModelID: "kimi-k2.7-code"},
 		},
@@ -68,10 +70,12 @@ var latestHivyModels = []HivyModel{
 	{
 		ID: "minimax-m3",
 		Routes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "minimax/minimax-m3"},
 			{ProviderID: "atlascloud", ModelID: "minimaxai/minimax-m3"},
 			{ProviderID: "openrouter", ModelID: "minimax/minimax-m3"},
 		},
 		ProxyRoutes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "minimax/minimax-m3"},
 			{ProviderID: "atlascloud", ModelID: "minimaxai/minimax-m3"},
 			{ProviderID: "openrouter", ModelID: "minimax/minimax-m3"},
 		},
@@ -79,10 +83,12 @@ var latestHivyModels = []HivyModel{
 	{
 		ID: "glm-5.2",
 		Routes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "zai-org/glm-5.2"},
 			{ProviderID: "atlascloud", ModelID: "zai-org/glm-5.2"},
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-5.2"},
 		},
 		ProxyRoutes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "zai-org/glm-5.2"},
 			{ProviderID: "atlascloud", ModelID: "zai-org/glm-5.2"},
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-5.2"},
 		},
@@ -90,12 +96,63 @@ var latestHivyModels = []HivyModel{
 	{
 		ID: "hy3",
 		Routes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "tencent/hy3"},
 			{ProviderID: "atlascloud", ModelID: "tencent/hy3"},
 			{ProviderID: "openrouter", ModelID: "tencent/hy3"},
 		},
 		ProxyRoutes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "tencent/hy3"},
 			{ProviderID: "atlascloud", ModelID: "tencent/hy3"},
 			{ProviderID: "openrouter", ModelID: "tencent/hy3"},
+		},
+	},
+	{
+		ID: "ling-3.0-flash",
+		Routes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "inclusionai/ling-3.0-flash"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "inclusionai/ling-3.0-flash"},
+		},
+	},
+	{
+		ID: "kimi-k3",
+		Routes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "moonshotai/kimi-k3"},
+			{ProviderID: "atlascloud", ModelID: "moonshotai/kimi-k3"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "moonshotai/kimi-k3"},
+			{ProviderID: "atlascloud", ModelID: "moonshotai/kimi-k3"},
+		},
+	},
+	{
+		ID: "deepseek-v3.2",
+		Routes: []ModelRoute{
+			{ProviderID: "atlascloud", ModelID: "deepseek-ai/deepseek-v3.2"},
+			{ProviderID: "novita", ModelID: "deepseek/deepseek-v3.2"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "atlascloud", ModelID: "deepseek-ai/deepseek-v3.2"},
+			{ProviderID: "novita", ModelID: "deepseek/deepseek-v3.2"},
+		},
+	},
+	{
+		ID: "nemotron-3-nano-30b-a3b",
+		Routes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "nvidia/nemotron-3-nano-30b-a3b"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "nvidia/nemotron-3-nano-30b-a3b"},
+		},
+	},
+	{
+		ID: "cobuddy",
+		Routes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "baidu/cobuddy"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "novita", ModelID: "baidu/cobuddy"},
 		},
 	},
 	{
