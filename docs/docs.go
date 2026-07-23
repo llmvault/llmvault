@@ -14835,6 +14835,32 @@ const docTemplate = `{
                 },
                 "output": {
                     "type": "number"
+                },
+                "tiers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/CostTier"
+                    }
+                }
+            }
+        },
+        "CostTier": {
+            "type": "object",
+            "properties": {
+                "cache_read": {
+                    "type": "number"
+                },
+                "cache_write": {
+                    "type": "number"
+                },
+                "input": {
+                    "type": "number"
+                },
+                "min_context": {
+                    "type": "integer"
+                },
+                "output": {
+                    "type": "number"
                 }
             }
         },

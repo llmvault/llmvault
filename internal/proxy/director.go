@@ -210,16 +210,24 @@ func configureRequest(req *http.Request, cred *cache.DecryptedCredential, attrCa
 
 	req.Header.Del("Authorization")
 	AttachAuth(req, cred.AuthScheme, cred.APIKey)
-	if providerheaders.IsOpenRouter(cred.ProviderID, cred.BaseURL) {
-		providerheaders.ApplyOpenRouter(req)
-		if err := EnsureOpenRouterUsage(req, openRouterEndUser(attrCache, claims.JTI)); err != nil {
-			logging.Capture(req.Context(), fmt.Errorf("proxy director: force usage accounting: %w", err))
-		}
+	if err := applyUsageAccounting(req, cred.ProviderID, cred.BaseURL, openRouterEndUser(attrCache, claims.JTI)); err != nil {
+		logging.Capture(req.Context(), fmt.Errorf("proxy director: force usage accounting: %w", err))
 	}
 	for i := range cred.APIKey {
 		cred.APIKey[i] = 0
 	}
 	req.Header.Set("X-Request-ID", uuid.New().String())
+	return nil
+}
+
+func applyUsageAccounting(req *http.Request, providerID, baseURL, endUserID string) error {
+	if providerheaders.IsOpenRouter(providerID, baseURL) {
+		providerheaders.ApplyOpenRouter(req)
+		return EnsureOpenRouterUsage(req, endUserID)
+	}
+	if providerID == "xiaomi" || providerID == "atlascloud" {
+		return EnsureOpenAICompatibleUsage(req)
+	}
 	return nil
 }
 

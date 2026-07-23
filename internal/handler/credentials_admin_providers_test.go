@@ -42,6 +42,25 @@ func TestBuildSystemCredentialDefaultsXiaomiProvider(t *testing.T) {
 	}
 }
 
+func TestBuildSystemCredentialDefaultsAtlasCloudProvider(t *testing.T) {
+	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
+
+	cred, err := h.buildCredential(context.Background(), nil, createCredentialRequest{
+		Label:      "system-atlascloud",
+		ProviderID: "atlascloud",
+		APIKey:     "atlascloud-test-key",
+	})
+	if err != nil {
+		t.Fatalf("buildCredential returned error: %v", err)
+	}
+	if cred.BaseURL != "https://api.atlascloud.ai/v1" {
+		t.Fatalf("BaseURL = %q", cred.BaseURL)
+	}
+	if cred.AuthScheme != "bearer" {
+		t.Fatalf("AuthScheme = %q", cred.AuthScheme)
+	}
+}
+
 func TestBuildSystemCredentialDefaultsQuantisedProvider(t *testing.T) {
 	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
 

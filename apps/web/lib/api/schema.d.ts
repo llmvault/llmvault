@@ -17256,6 +17256,14 @@ export interface components {
             cache_write?: number;
             input?: number;
             output?: number;
+            tiers?: components["schemas"]["CostTier"][];
+        };
+        CostTier: {
+            cache_read?: number;
+            cache_write?: number;
+            input?: number;
+            min_context?: number;
+            output?: number;
         };
         DiscoveredPage: {
             path?: string;

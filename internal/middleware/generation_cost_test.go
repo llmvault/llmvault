@@ -42,6 +42,36 @@ func TestCalculateCost_ReasoningTokensDoNotDoubleBill(t *testing.T) {
 	}
 }
 
+func TestCalculateCost_XiaomiMiMoUsesCachedAndCompletionTokens(t *testing.T) {
+	usage := observe.UsageData{
+		InputTokens:     269,
+		OutputTokens:    128,
+		CachedTokens:    192,
+		ReasoningTokens: 129,
+	}
+
+	got := calculateCost(registry.Global(), "xiaomi", "mimo-v2.5-pro", usage)
+	want := (77*0.435 + 192*0.0036 + 128*0.87) / 1_000_000
+	if math.Abs(got-want) > 1e-12 {
+		t.Fatalf("calculateCost = %.12f, want %.12f", got, want)
+	}
+}
+
+func TestCalculateCost_AtlasCloudHy3UsesPromptAndCompletionTotals(t *testing.T) {
+	usage := observe.UsageData{
+		InputTokens:     6_918,
+		OutputTokens:    64,
+		CachedTokens:    6_912,
+		ReasoningTokens: 65,
+	}
+
+	got := calculateCost(registry.Global(), "atlascloud", "hy3", usage)
+	want := (6*0.2 + 6_912*0.05 + 64*0.8) / 1_000_000
+	if math.Abs(got-want) > 1e-12 {
+		t.Fatalf("calculateCost = %.12f, want %.12f", got, want)
+	}
+}
+
 func TestCalculateCost_UnknownModelZero(t *testing.T) {
 	if got := calculateCost(registry.Global(), "openrouter", "does-not-exist", observe.UsageData{InputTokens: 10}); got != 0 {
 		t.Fatalf("calculateCost(unknown) = %f, want 0", got)

@@ -115,6 +115,15 @@ func TestParseUsageStreaming_OpenAIWithReasoning(t *testing.T) {
 	assertUsage(t, u, 200, 100, 0, 30)
 }
 
+func TestParseUsageStreaming_AtlasCloudTopLevelReasoningAndCache(t *testing.T) {
+	// Sanitized from a live Atlas Cloud tencent/hy3 stream after the stable
+	// prompt prefix hit the provider cache.
+	events := []byte("data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"Checking\"}}]}\n\ndata: {\"choices\":[],\"usage\":{\"prompt_tokens\":6918,\"total_tokens\":6982,\"completion_tokens\":64,\"prompt_tokens_details\":{\"cached_tokens\":6912},\"reasoning_tokens\":64}}\n\ndata: [DONE]\n\n")
+
+	u := ParseUsageStreaming("atlascloud", events)
+	assertUsage(t, u, 6918, 64, 6912, 64)
+}
+
 func TestParseUsageStreaming_AnthropicMessageDelta(t *testing.T) {
 	events := []byte("data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":150,\"output_tokens\":0}}}\n\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"hi\"}}\n\ndata: {\"type\":\"message_delta\",\"usage\":{\"input_tokens\":150,\"output_tokens\":80,\"cache_read_input_tokens\":40}}\n\ndata: {\"type\":\"message_stop\"}\n\n")
 

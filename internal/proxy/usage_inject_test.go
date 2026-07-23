@@ -40,6 +40,109 @@ func TestEnsureOpenRouterUsage_StreamingInjectsIncludeUsage(t *testing.T) {
 	}
 }
 
+func TestEnsureOpenAICompatibleUsage_XiaomiStreamingContract(t *testing.T) {
+	req := makePostRequest(`{"model":"mimo-v2.5-pro","stream":true,"messages":[{"role":"user","content":"hi"}]}`)
+
+	if err := EnsureOpenAICompatibleUsage(req); err != nil {
+		t.Fatalf("EnsureOpenAICompatibleUsage: %v", err)
+	}
+
+	body := decodeBody(t, req)
+	if _, ok := body["usage"]; ok {
+		t.Fatal("OpenRouter-only usage field must not be sent to Xiaomi")
+	}
+	if _, ok := body["user"]; ok {
+		t.Fatal("OpenRouter-only user attribution must not be sent to Xiaomi")
+	}
+
+	so := map[string]json.RawMessage{}
+	if err := json.Unmarshal(body["stream_options"], &so); err != nil {
+		t.Fatalf("stream_options not an object: %s", body["stream_options"])
+	}
+	if string(so["include_usage"]) != "true" {
+		t.Fatalf("include_usage = %s, want true", so["include_usage"])
+	}
+}
+
+func TestApplyUsageAccounting_XiaomiUsesOpenAICompatibleContract(t *testing.T) {
+	req := makePostRequest(`{"model":"mimo-v2.5-pro","stream":true,"messages":[]}`)
+
+	if err := applyUsageAccounting(req, "xiaomi", "https://api.xiaomimimo.com/v1", "ignored-user"); err != nil {
+		t.Fatalf("applyUsageAccounting: %v", err)
+	}
+
+	body := decodeBody(t, req)
+	if _, ok := body["usage"]; ok {
+		t.Fatal("Xiaomi request received OpenRouter usage extension")
+	}
+	if _, ok := body["user"]; ok {
+		t.Fatal("Xiaomi request received OpenRouter user attribution")
+	}
+	so := map[string]json.RawMessage{}
+	if err := json.Unmarshal(body["stream_options"], &so); err != nil {
+		t.Fatalf("stream_options not an object: %s", body["stream_options"])
+	}
+	if string(so["include_usage"]) != "true" {
+		t.Fatalf("include_usage = %s, want true", so["include_usage"])
+	}
+}
+
+func TestApplyUsageAccounting_AtlasCloudUsesOpenAICompatibleContract(t *testing.T) {
+	req := makePostRequest(`{"model":"hy3","stream":true,"messages":[]}`)
+
+	if err := applyUsageAccounting(req, "atlascloud", "https://api.atlascloud.ai/v1", "ignored-user"); err != nil {
+		t.Fatalf("applyUsageAccounting: %v", err)
+	}
+
+	body := decodeBody(t, req)
+	if _, ok := body["usage"]; ok {
+		t.Fatal("Atlas Cloud request received OpenRouter usage extension")
+	}
+	if _, ok := body["user"]; ok {
+		t.Fatal("Atlas Cloud request received OpenRouter user attribution")
+	}
+	so := map[string]json.RawMessage{}
+	if err := json.Unmarshal(body["stream_options"], &so); err != nil {
+		t.Fatalf("stream_options not an object: %s", body["stream_options"])
+	}
+	if string(so["include_usage"]) != "true" {
+		t.Fatalf("include_usage = %s, want true", so["include_usage"])
+	}
+}
+
+func TestEnsureOpenAICompatibleUsage_XiaomiNonStreamingPreservesBody(t *testing.T) {
+	req := makePostRequest(`{"model":"mimo-v2.5-pro","messages":[{"role":"user","content":"hi"}]}`)
+
+	if err := EnsureOpenAICompatibleUsage(req); err != nil {
+		t.Fatalf("EnsureOpenAICompatibleUsage: %v", err)
+	}
+
+	body := decodeBody(t, req)
+	if _, ok := body["stream_options"]; ok {
+		t.Fatal("stream_options should be absent for non-streaming request")
+	}
+	if string(body["model"]) != `"mimo-v2.5-pro"` {
+		t.Fatalf("model = %s, want mimo-v2.5-pro", body["model"])
+	}
+}
+
+func TestEnsureOpenAICompatibleUsage_XiaomiReplacesNullStreamOptions(t *testing.T) {
+	req := makePostRequest(`{"model":"mimo-v2.5-pro","stream":true,"stream_options":null,"messages":[]}`)
+
+	if err := EnsureOpenAICompatibleUsage(req); err != nil {
+		t.Fatalf("EnsureOpenAICompatibleUsage: %v", err)
+	}
+
+	body := decodeBody(t, req)
+	so := map[string]json.RawMessage{}
+	if err := json.Unmarshal(body["stream_options"], &so); err != nil {
+		t.Fatalf("stream_options not an object: %s", body["stream_options"])
+	}
+	if string(so["include_usage"]) != "true" {
+		t.Fatalf("include_usage = %s, want true", so["include_usage"])
+	}
+}
+
 func TestEnsureOpenRouterUsage_NonStreamingOmitsStreamOptions(t *testing.T) {
 	req := makePostRequest(`{"model":"z-ai/glm-5.2","messages":[{"role":"user","content":"hi"}]}`)
 

@@ -12,7 +12,7 @@ package registry
 // Replaces the previous //go:embed models.json approach with a hand-
 // maintained Go literal so additions go through code review.
 var curatedProviders = []Provider{
-
+	atlasCloudProvider,
 	{ // anthropic — Anthropic
 		ID:   "anthropic",
 		Name: "Anthropic",
@@ -2751,6 +2751,11 @@ var curatedProviders = []Provider{
 					Input:  []string{"text"},
 					Output: []string{"text"},
 				},
+				Cost: &Cost{
+					Input:     1.305,
+					Output:    2.61,
+					CacheRead: 0.0108,
+				},
 				Limit: &Limit{
 					Context: 1048576,
 					Output:  131072,
@@ -2770,6 +2775,11 @@ var curatedProviders = []Provider{
 					Input:  []string{"text"},
 					Output: []string{"text"},
 				},
+				Cost: &Cost{
+					Input:     0.435,
+					Output:    0.87,
+					CacheRead: 0.0036,
+				},
 				Limit: &Limit{
 					Context: 1048576,
 					Output:  131072,
@@ -2787,6 +2797,11 @@ var curatedProviders = []Provider{
 				Modalities: &Modalities{
 					Input:  []string{"text", "image", "audio", "video"},
 					Output: []string{"text"},
+				},
+				Cost: &Cost{
+					Input:     0.14,
+					Output:    0.28,
+					CacheRead: 0.0028,
 				},
 				Limit: &Limit{
 					Context: 1048576,

@@ -10,6 +10,9 @@ import (
 )
 
 func TestCostUSDToCredits(t *testing.T) {
+	floatingWholeCost := 0.4
+	floatingWholeCost += 0.8
+
 	for _, tc := range []struct {
 		name string
 		cost float64
@@ -20,6 +23,7 @@ func TestCostUSDToCredits(t *testing.T) {
 		{name: "sub credit", cost: 0.00084592, want: 1},
 		{name: "exact credit", cost: 0.031, want: 31},
 		{name: "ceil", cost: 0.03071, want: 31},
+		{name: "floating point whole credit", cost: floatingWholeCost, want: 1200},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := billing.CostUSDToCredits(tc.cost); got != tc.want {
@@ -86,6 +90,69 @@ func TestEstimateCostUSD_DeepseekV4ProVerifiedCacheRead(t *testing.T) {
 	}
 	if math.Abs(want-0.000380712) > 1e-9 {
 		t.Fatalf("fixture drifted from provider-verified charge: %.9f", want)
+	}
+}
+
+func TestEstimateCostUSD_XiaomiMiMoCountsReasoningInCompletionOnce(t *testing.T) {
+	// Live MiMo fixture: completion_tokens is the billed output total and
+	// reasoning_tokens is only a breakdown within that total.
+	const input, cached, completion = 269, 192, 128
+	cost, err := billing.EstimateCostUSD(nil, "xiaomi", "mimo-v2.5-pro", input, completion, cached)
+	if err != nil {
+		t.Fatalf("EstimateCostUSD: %v", err)
+	}
+
+	want := (77*0.435 + 192*0.0036 + 128*0.87) / 1_000_000
+	if math.Abs(cost-want) > 1e-12 {
+		t.Fatalf("cost = %.12f, want %.12f", cost, want)
+	}
+
+	doubleBilledReasoning := want + 129*0.87/1_000_000
+	if math.Abs(cost-doubleBilledReasoning) < 1e-12 {
+		t.Fatalf("reasoning token breakdown was added to completion tokens: %.12f", cost)
+	}
+}
+
+func TestEstimateCostUSD_AtlasCloudHy3UsesVerifiedCacheReadRate(t *testing.T) {
+	// Sanitized daily ledger fixture: Atlas reported 6,988 fresh input,
+	// 20,736 cache-read, 2,134 output, and $0.004142 after display rounding.
+	const fresh, cached, completion = 6_988, 20_736, 2_134
+	const input = fresh + cached
+	cost, err := billing.EstimateCostUSD(nil, "atlascloud", "hy3", input, completion, cached)
+	if err != nil {
+		t.Fatalf("EstimateCostUSD: %v", err)
+	}
+
+	want := (fresh*0.2 + cached*0.05 + completion*0.8) / 1_000_000
+	if math.Abs(cost-want) > 1e-12 {
+		t.Fatalf("cost = %.12f, want %.12f", cost, want)
+	}
+	if math.Abs(want-0.0041416) > 1e-12 {
+		t.Fatalf("fixture cost = %.12f, want Atlas ledger value 0.0041416", want)
+	}
+}
+
+func TestEstimateCostUSD_AtlasCloudUsesLongContextTier(t *testing.T) {
+	const cached, output = int64(200_000), int64(1_000)
+
+	baseInput := int64(271_999)
+	baseCost, err := billing.EstimateCostUSD(nil, "atlascloud", "gpt-5.4", baseInput, output, cached)
+	if err != nil {
+		t.Fatalf("EstimateCostUSD base tier: %v", err)
+	}
+	baseWant := (float64(baseInput-cached)*2.5 + float64(cached)*0.25 + float64(output)*15) / 1_000_000
+	if math.Abs(baseCost-baseWant) > 1e-12 {
+		t.Fatalf("base cost = %.12f, want %.12f", baseCost, baseWant)
+	}
+
+	tierInput := int64(272_000)
+	tierCost, err := billing.EstimateCostUSD(nil, "atlascloud", "gpt-5.4", tierInput, output, cached)
+	if err != nil {
+		t.Fatalf("EstimateCostUSD long-context tier: %v", err)
+	}
+	tierWant := (float64(tierInput-cached)*5 + float64(cached)*0.5 + float64(output)*22.5) / 1_000_000
+	if math.Abs(tierCost-tierWant) > 1e-12 {
+		t.Fatalf("tier cost = %.12f, want %.12f", tierCost, tierWant)
 	}
 }
 

@@ -203,6 +203,23 @@ definitions:
         type: number
       output:
         type: number
+      tiers:
+        items:
+          $ref: '#/definitions/CostTier'
+        type: array
+    type: object
+  CostTier:
+    properties:
+      cache_read:
+        type: number
+      cache_write:
+        type: number
+      input:
+        type: number
+      min_context:
+        type: integer
+      output:
+        type: number
     type: object
   DiscoveredPage:
     properties:

@@ -138,6 +138,48 @@ func TestCaptureTransport_Streaming_OpenAI(t *testing.T) {
 	}
 }
 
+func TestCaptureTransport_Streaming_XiaomiMiMoUsageSummary(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher := w.(http.Flusher)
+
+		// Sanitized from a live mimo-v2.5-pro stream. MiMo sends usage in a
+		// separate final chunk whose choices array is empty.
+		fmt.Fprint(w, "data: {\"id\":\"mimo-test\",\"choices\":[{\"delta\":{\"reasoning_content\":\"Compare decimals\"},\"finish_reason\":null,\"index\":0}],\"model\":\"mimo-v2.5-pro\",\"object\":\"chat.completion.chunk\"}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: {\"id\":\"mimo-test\",\"choices\":[],\"model\":\"mimo-v2.5-pro\",\"object\":\"chat.completion.chunk\",\"usage\":{\"completion_tokens\":128,\"prompt_tokens\":269,\"total_tokens\":397,\"completion_tokens_details\":{\"reasoning_tokens\":129},\"prompt_tokens_details\":{\"cached_tokens\":192}}}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	captured := &observe.CapturedData{ProviderID: "xiaomi"}
+	ctx := observe.WithCapturedData(context.Background(), captured)
+	req, _ := http.NewRequestWithContext(ctx, "POST", upstream.URL, nil)
+
+	ct := &CaptureTransport{Inner: http.DefaultTransport}
+	resp, err := ct.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	if captured.Usage.InputTokens != 269 {
+		t.Errorf("InputTokens = %d, want 269", captured.Usage.InputTokens)
+	}
+	if captured.Usage.OutputTokens != 128 {
+		t.Errorf("OutputTokens = %d, want 128", captured.Usage.OutputTokens)
+	}
+	if captured.Usage.CachedTokens != 192 {
+		t.Errorf("CachedTokens = %d, want 192", captured.Usage.CachedTokens)
+	}
+	if captured.Usage.ReasoningTokens != 129 {
+		t.Errorf("ReasoningTokens = %d, want 129", captured.Usage.ReasoningTokens)
+	}
+}
+
 func TestCaptureTransport_Streaming_Anthropic(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")

@@ -55,31 +55,57 @@ var latestHivyModels = []HivyModel{
 	{
 		ID: "kimi-k2.7-code",
 		Routes: []ModelRoute{
-			{ProviderID: "moonshotai", ModelID: "kimi-k2.7-code"},
+			{ProviderID: "atlascloud", ModelID: "moonshotai/kimi-k2.7-code"},
 			{ProviderID: "openrouter", ModelID: "moonshotai/kimi-k2.7-code"},
+			{ProviderID: "moonshotai", ModelID: "kimi-k2.7-code"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "atlascloud", ModelID: "moonshotai/kimi-k2.7-code"},
+			{ProviderID: "openrouter", ModelID: "moonshotai/kimi-k2.7-code"},
+			{ProviderID: "moonshotai", ModelID: "kimi-k2.7-code"},
 		},
 	},
 	{
 		ID: "minimax-m3",
 		Routes: []ModelRoute{
+			{ProviderID: "atlascloud", ModelID: "minimaxai/minimax-m3"},
+			{ProviderID: "openrouter", ModelID: "minimax/minimax-m3"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "atlascloud", ModelID: "minimaxai/minimax-m3"},
 			{ProviderID: "openrouter", ModelID: "minimax/minimax-m3"},
 		},
 	},
 	{
 		ID: "glm-5.2",
 		Routes: []ModelRoute{
+			{ProviderID: "atlascloud", ModelID: "zai-org/glm-5.2"},
+			{ProviderID: "openrouter", ModelID: "z-ai/glm-5.2"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "atlascloud", ModelID: "zai-org/glm-5.2"},
 			{ProviderID: "openrouter", ModelID: "z-ai/glm-5.2"},
 		},
 	},
 	{
 		ID: "hy3",
 		Routes: []ModelRoute{
+			{ProviderID: "atlascloud", ModelID: "tencent/hy3"},
+			{ProviderID: "openrouter", ModelID: "tencent/hy3"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "atlascloud", ModelID: "tencent/hy3"},
 			{ProviderID: "openrouter", ModelID: "tencent/hy3"},
 		},
 	},
 	{
 		ID: "grok-4.5",
 		Routes: []ModelRoute{
+			{ProviderID: "atlascloud", ModelID: "xai/grok-4.5"},
+			{ProviderID: "openrouter", ModelID: "x-ai/grok-4.5"},
+		},
+		ProxyRoutes: []ModelRoute{
+			{ProviderID: "atlascloud", ModelID: "xai/grok-4.5"},
 			{ProviderID: "openrouter", ModelID: "x-ai/grok-4.5"},
 		},
 	},

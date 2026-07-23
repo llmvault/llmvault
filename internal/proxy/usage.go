@@ -75,6 +75,7 @@ func parseOpenAIUsage(body []byte) UsageData {
 		Usage *struct {
 			PromptTokens        int `json:"prompt_tokens"`
 			CompletionTokens    int `json:"completion_tokens"`
+			ReasoningTokens     int `json:"reasoning_tokens"`
 			PromptTokensDetails *struct {
 				CachedTokens int `json:"cached_tokens"`
 			} `json:"prompt_tokens_details"`
@@ -87,8 +88,9 @@ func parseOpenAIUsage(body []byte) UsageData {
 		return UsageData{}
 	}
 	u := UsageData{
-		InputTokens:  resp.Usage.PromptTokens,
-		OutputTokens: resp.Usage.CompletionTokens,
+		InputTokens:     resp.Usage.PromptTokens,
+		OutputTokens:    resp.Usage.CompletionTokens,
+		ReasoningTokens: resp.Usage.ReasoningTokens,
 	}
 	if resp.Usage.PromptTokensDetails != nil {
 		u.CachedTokens = resp.Usage.PromptTokensDetails.CachedTokens

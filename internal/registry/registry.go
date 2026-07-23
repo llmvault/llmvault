@@ -60,6 +60,17 @@ type Modalities struct {
 
 // Cost holds per-million-token pricing.
 type Cost struct {
+	Input      float64    `json:"input,omitempty"`
+	Output     float64    `json:"output,omitempty"`
+	CacheRead  float64    `json:"cache_read,omitempty"`
+	CacheWrite float64    `json:"cache_write,omitempty"`
+	Tiers      []CostTier `json:"tiers,omitempty"`
+}
+
+// CostTier overrides the base per-million-token prices once a request reaches
+// MinContext input tokens. Providers use these tiers for long-context pricing.
+type CostTier struct {
+	MinContext int64   `json:"min_context"`
 	Input      float64 `json:"input,omitempty"`
 	Output     float64 `json:"output,omitempty"`
 	CacheRead  float64 `json:"cache_read,omitempty"`

@@ -41,7 +41,12 @@ func CostUSDToCredits(cost float64) int64 {
 	if cost <= 0 {
 		return 0
 	}
-	return int64(math.Ceil(cost / CreditUSDValue))
+	credits := cost / CreditUSDValue
+	// Registry estimates add several fractional token charges. Normalize
+	// sub-nanocredit floating-point noise before rounding up so an exact
+	// whole-credit charge such as $1.20 cannot become 1,201 credits.
+	credits = math.Round(credits*1_000_000_000) / 1_000_000_000
+	return int64(math.Ceil(credits))
 }
 
 func EstimateCostUSD(reg *registry.Registry, providerID, modelID string, inputTokens, outputTokens, cachedTokens int64) (float64, error) {
@@ -69,19 +74,34 @@ func EstimateCostUSD(reg *registry.Registry, providerID, modelID string, inputTo
 	if cachedTokens > inputTokens {
 		cachedTokens = inputTokens
 	}
+	modelCost := costForInputTokens(*route.Model.Cost, inputTokens)
 	nonCachedInput := inputTokens - cachedTokens
-	inputCost := float64(nonCachedInput) * route.Model.Cost.Input / 1_000_000
-	cacheReadPrice := route.Model.Cost.CacheRead
+	inputCost := float64(nonCachedInput) * modelCost.Input / 1_000_000
+	cacheReadPrice := modelCost.CacheRead
 	if cacheReadPrice == 0 && cachedTokens > 0 {
 		discount, ok := cachedTokenDiscount[providerID]
 		if !ok {
 			discount = defaultCacheReadDiscount
 		}
-		cacheReadPrice = route.Model.Cost.Input * discount
+		cacheReadPrice = modelCost.Input * discount
 	}
 	cachedCost := float64(cachedTokens) * cacheReadPrice / 1_000_000
-	outputCost := float64(outputTokens) * route.Model.Cost.Output / 1_000_000
+	outputCost := float64(outputTokens) * modelCost.Output / 1_000_000
 	return inputCost + cachedCost + outputCost, nil
+}
+
+func costForInputTokens(base registry.Cost, inputTokens int64) registry.Cost {
+	selected := base
+	for _, tier := range base.Tiers {
+		if inputTokens < tier.MinContext {
+			continue
+		}
+		selected.Input = tier.Input
+		selected.Output = tier.Output
+		selected.CacheRead = tier.CacheRead
+		selected.CacheWrite = tier.CacheWrite
+	}
+	return selected
 }
 
 func IsKnownModel(model string) bool {
