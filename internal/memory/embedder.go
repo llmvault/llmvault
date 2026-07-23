@@ -62,29 +62,30 @@ func (s *Service) embedder(ctx context.Context) (Embedder, error) {
 	if s.cfg.DB == nil || s.cfg.CacheManager == nil {
 		return nil, fmt.Errorf("memory embedding dependencies are not configured")
 	}
-	cred, err := loadOpenRouterCredential(ctx, s.cfg.DB, s.cfg.CacheManager)
+	cred, err := loadEmbeddingCredential(ctx, s.cfg.DB, s.cfg.CacheManager)
 	if err != nil {
 		return nil, err
 	}
+	modelID := strings.TrimPrefix(s.embeddingModel(), EmbeddingProviderID+"/")
 	return embedclient.NewEmbedder(embedclient.EmbedderConfig{
 		BaseURL: cred.BaseURL,
 		APIKey:  string(cred.APIKey),
-		Model:   s.embeddingModel(),
+		Model:   modelID,
 		Dim:     s.embeddingDim(),
 	}), nil
 }
 
-func loadOpenRouterCredential(ctx context.Context, db *gorm.DB, cacheManager *cache.Manager) (*cache.DecryptedCredential, error) {
+func loadEmbeddingCredential(ctx context.Context, db *gorm.DB, cacheManager *cache.Manager) (*cache.DecryptedCredential, error) {
 	var cred model.Credential
 	if err := db.WithContext(ctx).
-		Where("org_id IS NULL AND revoked_at IS NULL AND provider_id = ?", OpenRouterProviderID).
+		Where("org_id IS NULL AND revoked_at IS NULL AND provider_id = ?", EmbeddingProviderID).
 		Order("created_at ASC").
 		First(&cred).Error; err != nil {
-		return nil, fmt.Errorf("load system OpenRouter credential: %w", err)
+		return nil, fmt.Errorf("load system embedding credential: %w", err)
 	}
 	decrypted, err := cacheManager.GetDecryptedCredentialByID(ctx, cred.ID.String())
 	if err != nil {
-		return nil, fmt.Errorf("decrypt system OpenRouter credential: %w", err)
+		return nil, fmt.Errorf("decrypt system embedding credential: %w", err)
 	}
 	return decrypted, nil
 }

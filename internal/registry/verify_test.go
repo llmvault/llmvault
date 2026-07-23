@@ -1,6 +1,8 @@
 package registry
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -75,26 +77,23 @@ func TestVerify_UnknownProvider(t *testing.T) {
 	}
 }
 
-func TestVerify_OpenRouter_Live(t *testing.T) {
+func TestVerify_OpenRouterUsesKeyEndpoint(t *testing.T) {
 	reg := Global()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/key" {
+			t.Fatalf("request = %s %s, want GET /key", r.Method, r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer image-provider-key" {
+			t.Fatalf("Authorization = %q", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(server.Close)
 
-	// Verify OpenRouter provider exists and has models
-	provider, ok := reg.GetProvider("openrouter")
-	if !ok {
-		t.Fatal("openrouter provider not found in registry")
+	result := reg.Verify(t.Context(), "openrouter", server.URL, "bearer", []byte("image-provider-key"))
+	if !result.Valid {
+		t.Fatalf("result = %#v", result)
 	}
-
-	m := cheapestModel(provider)
-	if m == nil {
-		t.Fatal("no model found for openrouter")
-	}
-	t.Logf("Cheapest OpenRouter model: %s (cost: $%.4f/1M input tokens)", m.ID, m.Cost.Input)
-
-	// Verify that the OpenRouter API URL ends with /v1 — our fix must handle this
-	if provider.API == "" {
-		t.Fatal("openrouter should have an API URL in registry")
-	}
-	t.Logf("OpenRouter API URL: %s", provider.API)
 }
 
 func TestVerify_InvalidKey_Live(t *testing.T) {

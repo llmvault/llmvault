@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Meituan">
+  <rect width="64" height="64" rx="14" fill="#FFD100"/>
+  <path d="M15 18h9l8 15 8-15h9v28h-8V31l-6 12h-6l-6-12v15h-8V18Z" fill="#111"/>
+</svg>

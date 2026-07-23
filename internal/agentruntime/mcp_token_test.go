@@ -143,11 +143,11 @@ func createCompileTokenAgent(t *testing.T, db *gorm.DB) model.Agent {
 	cred := model.Credential{
 		OrgID:        &org.ID,
 		Label:        "compile-token",
-		BaseURL:      "https://proxy.test",
+		BaseURL:      "https://api.atlascloud.ai/v1",
 		AuthScheme:   "bearer",
 		EncryptedKey: []byte("enc"),
 		WrappedDEK:   []byte("dek"),
-		ProviderID:   "openrouter",
+		ProviderID:   "atlascloud",
 	}
 	if err := db.Create(&cred).Error; err != nil {
 		t.Fatalf("create credential: %v", err)

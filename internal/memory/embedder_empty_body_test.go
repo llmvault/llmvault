@@ -24,7 +24,7 @@ func (emptyBodyEmbedder) Embed(_ context.Context, _ []string) ([][]float32, int,
 func TestEmbedContentsWrapsEmptyBodyError(t *testing.T) {
 	svc := NewService(Config{
 		Embedder:       emptyBodyEmbedder{},
-		EmbeddingModel: "qwen/qwen3-embedding-8b",
+		EmbeddingModel: DefaultEmbeddingModel,
 		EmbeddingDim:   DefaultEmbeddingDim,
 	})
 

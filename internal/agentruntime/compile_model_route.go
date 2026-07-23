@@ -86,6 +86,6 @@ func detectModelProfile(providerID, canonicalModelID, upstreamModelID, modelID s
 	case strings.Contains(haystack, "qwen"):
 		return "qwen"
 	default:
-		return "openrouter_compatible"
+		return "openai_compatible"
 	}
 }

@@ -32,6 +32,7 @@ func TestAgentSessionsImageGenerationToolsE2E(t *testing.T) {
 	agentSessionsEnsureSystemReveCredential(t)
 	agentSessionsEnsureSystemQuiverCredential(t)
 	agentSessionsEnsureSystemOpenRouterCredential(t)
+	agentSessionsEnsureSystemAtlasCloudCredential(t)
 
 	runID := strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
 	password := "agent-image-generation-e2e-password"

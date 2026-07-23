@@ -493,7 +493,7 @@ fn placeholder_model() -> ModelConfig {
         base_url: "http://127.0.0.1/unused".into(),
         model_id: "unclaimed-runtime-placeholder".into(),
         canonical_model_id: Some("unclaimed-runtime-placeholder".into()),
-        provider_id: Some("openrouter".into()),
+        provider_id: Some("atlascloud".into()),
         upstream_model_id: Some("unclaimed-runtime-placeholder".into()),
         model_profile: None,
         provider_options: Default::default(),

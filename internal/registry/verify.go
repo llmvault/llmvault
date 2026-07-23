@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/usehivy/hivy/internal/providerheaders"
 )
 
 // VerifyResult contains the outcome of a provider key verification.
@@ -26,6 +24,9 @@ func (r *Registry) Verify(ctx context.Context, providerID, baseURL, authScheme s
 	if !ok {
 		return VerifyResult{Valid: false, Error: "unknown provider"}
 	}
+	if providerID == "openrouter" {
+		return verifyOpenRouterKey(ctx, baseURL, authScheme, apiKey)
+	}
 
 	model := cheapestModel(provider)
 	if model == nil {
@@ -33,6 +34,30 @@ func (r *Registry) Verify(ctx context.Context, providerID, baseURL, authScheme s
 	}
 
 	return verifyWithInference(ctx, providerID, baseURL, authScheme, apiKey, model.ID)
+}
+
+func verifyOpenRouterKey(ctx context.Context, baseURL, authScheme string, apiKey []byte) VerifyResult {
+	url := strings.TrimRight(baseURL, "/") + "/key"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return VerifyResult{Valid: false, Error: "failed to create request"}
+	}
+	attachAuth(req, authScheme, apiKey)
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return VerifyResult{Valid: false, Error: fmt.Sprintf("request failed: %v", err)}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return VerifyResult{Valid: true}
+	}
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return VerifyResult{Valid: false, Error: "invalid API key"}
+	}
+	return VerifyResult{Valid: false, Error: fmt.Sprintf("unexpected status: %d", resp.StatusCode)}
 }
 
 // cheapestModel picks the model with the lowest input cost.
@@ -121,9 +146,6 @@ func verifyWithInference(ctx context.Context, providerID, baseURL, authScheme st
 	req.Header.Set("Content-Type", "application/json")
 	for k, v := range extraHeaders {
 		req.Header.Set(k, v)
-	}
-	if providerheaders.IsOpenRouter(providerID, baseURL) {
-		providerheaders.ApplyOpenRouter(req)
 	}
 	attachAuth(req, authScheme, apiKey)
 

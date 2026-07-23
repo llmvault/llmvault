@@ -41,7 +41,7 @@ func TestAgentProductionOpenWeightGauntletE2E(t *testing.T) {
 func productionE2EModels() []string {
 	raw := strings.TrimSpace(os.Getenv("HIVY_AGENT_PRODUCTION_E2E_MODELS"))
 	if raw == "" {
-		raw = "deepseek/deepseek-v4-flash"
+		raw = "deepseek-ai/deepseek-v4-flash"
 	}
 	items := strings.Split(raw, ",")
 	models := make([]string, 0, len(items))
@@ -52,7 +52,7 @@ func productionE2EModels() []string {
 		}
 	}
 	if len(models) == 0 {
-		models = []string{"deepseek/deepseek-v4-flash"}
+		models = []string{"deepseek-ai/deepseek-v4-flash"}
 	}
 	return models
 }

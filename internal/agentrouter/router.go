@@ -36,9 +36,9 @@ import (
 
 const (
 	// ProviderID and ModelID mirror the session-naming flow: a fast, cheap
-	// OpenRouter model with a strict JSON schema. ModelID is a canonical id
+	// direct-provider model with a strict JSON schema. ModelID is a canonical id
 	// resolved through the registry; override via Router.modelID if needed.
-	ProviderID = "openrouter"
+	ProviderID = "openai"
 	ModelID    = "gpt-4o-mini"
 
 	// ConfidenceThreshold is the minimum confidence the LLM router must report

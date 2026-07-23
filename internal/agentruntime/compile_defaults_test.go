@@ -48,7 +48,7 @@ func TestJsonArray_Nil(t *testing.T) {
 	}
 }
 
-func TestProxyModelUsesHivyOpenRouterAppName(t *testing.T) {
+func TestProxyModelUsesHivyAppName(t *testing.T) {
 	got := ProxyModelConfig(&config.Config{}, "deepseek-v4-flash", "")
 
 	if got.ExtraHeaders["HTTP-Referer"] != "https://usehivy.com" {

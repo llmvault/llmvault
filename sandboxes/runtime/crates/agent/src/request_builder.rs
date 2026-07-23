@@ -170,7 +170,7 @@ fn parts_to_content(parts: &[MessagePart], cache_policy: CacheControlPolicy) -> 
                         "type": "text",
                         "text": text,
                     });
-                    if cache_policy == CacheControlPolicy::OpenRouterGeminiEphemeral {
+                    if cache_policy == CacheControlPolicy::Ephemeral {
                         value["cache_control"] = json!({"type": "ephemeral"});
                     }
                     value
@@ -199,8 +199,8 @@ mod tests {
     use domain::ModelCapabilities;
     use std::collections::HashMap;
 
-    fn openrouter_profile() -> ModelProfile {
-        ModelProfile::detect(None, Some("openrouter"), None, None, "test", None)
+    fn openai_compatible_profile() -> ModelProfile {
+        ModelProfile::detect(None, Some("atlascloud"), None, None, "test", None)
     }
 
     fn request_with_profile(profile: ModelProfile) -> ModelRequest {
@@ -230,8 +230,8 @@ mod tests {
             temperature: None,
             max_output_tokens: None,
             reasoning_effort: None,
-            cache_policy: CacheControlPolicy::OpenRouterGeminiEphemeral,
-            profile: openrouter_profile(),
+            cache_policy: CacheControlPolicy::Ephemeral,
+            profile: openai_compatible_profile(),
             provider_options: HashMap::new(),
         };
         let body = build_openai_compatible_request(&req);
@@ -279,7 +279,7 @@ mod tests {
             max_output_tokens: None,
             reasoning_effort: None,
             cache_policy: CacheControlPolicy::Disabled,
-            profile: openrouter_profile(),
+            profile: openai_compatible_profile(),
             provider_options: HashMap::new(),
         };
         let body = build_openai_compatible_request(&req);
@@ -297,7 +297,7 @@ mod tests {
         };
         let mut req = request_with_profile(ModelProfile::detect(
             None,
-            Some("openrouter"),
+            Some("novita"),
             Some("deepseek-v4-flash"),
             Some("deepseek/deepseek-v4-flash"),
             "deepseek-v4-flash",
@@ -320,7 +320,7 @@ mod tests {
         };
         let mut req = request_with_profile(ModelProfile::detect(
             None,
-            Some("openrouter"),
+            Some("atlascloud"),
             Some("grok-4.3"),
             Some("x-ai/grok-4.3"),
             "grok-4.3",
@@ -358,9 +358,9 @@ mod tests {
 
     #[test]
     fn omits_invalid_provider_options_instead_of_forwarding_them() {
-        let mut req = request_with_profile(openrouter_profile());
+        let mut req = request_with_profile(openai_compatible_profile());
         req.provider_options
-            .insert("provider".into(), json!("openrouter"));
+            .insert("provider".into(), json!("atlascloud"));
         req.provider_options.insert("reasoning".into(), json!(true));
         req.provider_options
             .insert("usage".into(), json!({"include": true}));

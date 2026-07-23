@@ -40,9 +40,10 @@ type credentialDecryptor interface {
 
 // openRouterGenerationData is the subset of GET /api/v1/generation we consume.
 type openRouterGenerationData struct {
-	ID                     string `json:"id"`
-	NativeTokensPrompt     int    `json:"native_tokens_prompt"`
-	NativeTokensCompletion int    `json:"native_tokens_completion"`
+	ID                     string  `json:"id"`
+	TotalCost              float64 `json:"total_cost"`
+	NativeTokensPrompt     int     `json:"native_tokens_prompt"`
+	NativeTokensCompletion int     `json:"native_tokens_completion"`
 }
 
 type openRouterGenerationResponse struct {
@@ -159,14 +160,19 @@ func (h *GenerationReconcileHandler) reconcileRow(ctx context.Context, r reconci
 		return false, nil
 	}
 
-	providerID := r.ProviderID
-	if providerID == "" {
-		providerID = cred.ProviderID
-	}
-	cost, err := billing.EstimateCostUSD(nil, providerID, r.Model,
-		int64(data.NativeTokensPrompt), int64(data.NativeTokensCompletion), 0)
-	if err != nil {
-		cost = 0
+	cost := data.TotalCost
+	costSource := billing.CostSourceProvider
+	if cost <= 0 {
+		providerID := r.ProviderID
+		if providerID == "" {
+			providerID = cred.ProviderID
+		}
+		cost, err = billing.EstimateCostUSD(nil, providerID, r.Model,
+			int64(data.NativeTokensPrompt), int64(data.NativeTokensCompletion), 0)
+		if err != nil {
+			cost = 0
+		}
+		costSource = billing.CostSourceRegistry
 	}
 
 	updates := map[string]any{
@@ -175,7 +181,7 @@ func (h *GenerationReconcileHandler) reconcileRow(ctx context.Context, r reconci
 	}
 	if cost > 0 {
 		updates["cost"] = cost
-		updates["billing_cost_source"] = billing.CostSourceRegistry
+		updates["billing_cost_source"] = costSource
 	}
 	if err := h.db.WithContext(ctx).Model(&model.Generation{}).
 		Where("id = ? AND billed_at IS NULL", r.ID).

@@ -48,25 +48,23 @@ func (p *agentRuntimeModelProxy) serveHTTP(w http.ResponseWriter, r *http.Reques
 	p.calls.Add(1)
 	body, _ := io.ReadAll(r.Body)
 	p.recordBody(body)
-	p.trace.Body("model-proxy", "upstream OpenRouter request", body)
-	upstream, err := http.NewRequestWithContext(r.Context(), http.MethodPost, "https://openrouter.ai/api/v1/chat/completions", bytes.NewReader(body))
+	p.trace.Body("model-proxy", "upstream Atlas Cloud request", body)
+	upstream, err := http.NewRequestWithContext(r.Context(), http.MethodPost, "https://api.atlascloud.ai/v1/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	upstream.Header.Set("Authorization", "Bearer "+p.key)
 	upstream.Header.Set("Content-Type", r.Header.Get("Content-Type"))
-	upstream.Header.Set("HTTP-Referer", "https://usehivy.test")
-	upstream.Header.Set("X-Title", "Hivy")
 	resp, err := http.DefaultClient.Do(upstream)
 	if err != nil {
-		p.trace.Logf("model-proxy", "upstream OpenRouter error: %v", err)
+		p.trace.Logf("model-proxy", "upstream Atlas Cloud error: %v", err)
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
 	respBody, _ := io.ReadAll(resp.Body)
-	p.trace.Body("model-proxy", fmt.Sprintf("upstream OpenRouter response status=%d elapsed=%s", resp.StatusCode, time.Since(started).Truncate(time.Millisecond)), respBody)
+	p.trace.Body("model-proxy", fmt.Sprintf("upstream Atlas Cloud response status=%d elapsed=%s", resp.StatusCode, time.Since(started).Truncate(time.Millisecond)), respBody)
 	for key, values := range resp.Header {
 		for _, value := range values {
 			w.Header().Add(key, value)
@@ -92,7 +90,7 @@ func (p *agentRuntimeModelProxy) assertModelPayloads(t *testing.T, modelProfile 
 		t.Fatal("no model proxy payloads captured")
 	}
 	for i, body := range bodies {
-		if modelProfile != "openrouter_compatible" {
+		if modelProfile != "openai_compatible" {
 			if _, ok := body["reasoning_effort"]; ok {
 				t.Fatalf("payload %d forwarded generic reasoning_effort: %#v", i, body["reasoning_effort"])
 			}

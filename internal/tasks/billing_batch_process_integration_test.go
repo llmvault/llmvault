@@ -199,7 +199,7 @@ func TestBatch_ResolvesModelFromAgentWhenGenerationModelEmpty(t *testing.T) {
 
 	opts := defaultGenOpts()
 	opts.Model = ""
-	opts.ProviderID = "openrouter"
+	opts.ProviderID = "atlascloud"
 	opts.Cost = 0
 	opts.InputTokens = 5_624
 	opts.OutputTokens = 124

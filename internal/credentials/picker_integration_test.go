@@ -72,47 +72,45 @@ func TestIntegration_Picker_NoMatchReturnsSentinel(t *testing.T) {
 	}
 }
 
-func TestIntegration_Picker_PickByModelDefaultsToOpenRouterRoute(t *testing.T) {
+func TestIntegration_Picker_PickByModelUsesAtlasPrimaryRoute(t *testing.T) {
 	db := connectTestDB(t)
 	seedSystemCred(t, db, "anthropic", false)
-	openrouter := seedSystemCred(t, db, "openrouter", false)
+	atlas := seedSystemCred(t, db, "atlascloud", false)
 
 	picker := credentials.NewPicker(db)
 	got, err := picker.PickByModel(context.Background(), "claude-sonnet-4.6")
 	if err != nil {
 		t.Fatalf("PickByModel: %v", err)
 	}
-	if got.ID != openrouter.ID {
-		t.Fatalf("picked %s, want OpenRouter credential %s", got.ID, openrouter.ID)
+	if got.ID != atlas.ID {
+		t.Fatalf("picked %s, want Atlas Cloud credential %s", got.ID, atlas.ID)
 	}
 }
 
-func TestIntegration_Picker_PickByModelDefaultsToOpenRouterForOpenAIModels(t *testing.T) {
+func TestIntegration_Picker_PickByModelUsesDirectOpenAIProvider(t *testing.T) {
 	db := connectTestDB(t)
-	openrouter := seedSystemCred(t, db, "openrouter", false)
-	seedSystemCred(t, db, "openai", false)
+	openai := seedSystemCred(t, db, "openai", false)
 
 	picker := credentials.NewPicker(db)
 	got, err := picker.PickByModel(context.Background(), "gpt-4o-mini")
 	if err != nil {
 		t.Fatalf("PickByModel: %v", err)
 	}
-	if got.ID != openrouter.ID {
-		t.Fatalf("picked %s, want preferred OpenRouter credential %s", got.ID, openrouter.ID)
+	if got.ID != openai.ID {
+		t.Fatalf("picked %s, want OpenAI credential %s", got.ID, openai.ID)
 	}
 }
 
-func TestIntegration_Picker_PickByModelUsesOpenRouterWhenDirectProviderMissing(t *testing.T) {
+func TestIntegration_Picker_PickByModelUsesDirectFallbackWhenAtlasMissing(t *testing.T) {
 	db := connectTestDB(t)
-	openrouter := seedSystemCred(t, db, "openrouter", false)
-	seedSystemCred(t, db, "openai", false)
+	anthropic := seedSystemCred(t, db, "anthropic", false)
 
 	picker := credentials.NewPicker(db)
 	got, err := picker.PickByModel(context.Background(), "claude-sonnet-4.6")
 	if err != nil {
 		t.Fatalf("PickByModel: %v", err)
 	}
-	if got.ID != openrouter.ID {
-		t.Fatalf("picked %s, want openrouter credential %s", got.ID, openrouter.ID)
+	if got.ID != anthropic.ID {
+		t.Fatalf("picked %s, want Anthropic credential %s", got.ID, anthropic.ID)
 	}
 }

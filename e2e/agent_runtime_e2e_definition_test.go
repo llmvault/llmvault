@@ -37,7 +37,7 @@ func agentRuntimeE2EDefinition(t *testing.T, trace *agentRuntimeE2ETrace, fixtur
 		"base_url":           strings.TrimRight(proxyURL, "/") + "/v1",
 		"model_id":           modelID,
 		"canonical_model_id": canonicalModelID,
-		"provider_id":        "openrouter",
+		"provider_id":        "atlascloud",
 		"upstream_model_id":  modelID,
 		"model_profile":      modelProfile,
 		"capabilities": map[string]any{
@@ -125,14 +125,14 @@ func agentRuntimeE2EModelProfile(modelID string) string {
 	case strings.Contains(modelID, "qwen"):
 		return "qwen"
 	default:
-		return "openrouter_compatible"
+		return "openai_compatible"
 	}
 }
 
 func agentRuntimeE2EModelID() string {
 	modelID := strings.TrimSpace(os.Getenv("HIVY_AGENT_RUNTIME_E2E_MODEL"))
 	if modelID == "" {
-		return "deepseek/deepseek-v4-flash"
+		return "deepseek-ai/deepseek-v4-flash"
 	}
 	return modelID
 }
@@ -145,8 +145,8 @@ func TestAgentRuntimeE2EModelProfile(t *testing.T) {
 	}{
 		{modelID: "deepseek/deepseek-v4-flash", want: "deepseek"},
 		{modelID: "z-ai/glm-5", want: "glm"},
-		{modelID: "anthropic/claude-sonnet-5", want: "openrouter_compatible"},
-		{modelID: "x-ai/grok-4.5", want: "openrouter_compatible"},
+		{modelID: "anthropic/claude-sonnet-5", want: "openai_compatible"},
+		{modelID: "x-ai/grok-4.5", want: "openai_compatible"},
 	} {
 		t.Run(test.modelID, func(t *testing.T) {
 			if got := agentRuntimeE2EModelProfile(test.modelID); got != test.want {

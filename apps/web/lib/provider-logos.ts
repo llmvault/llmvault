@@ -32,6 +32,7 @@ export const PROVIDER_LOGOS = {
   kwaivgi: "/logos/kwaivgi.png",
   liquid: "/logos/liquid.png",
   "meta-llama": "/logos/meta-llama.png",
+  meituan: "/logos/meituan.svg",
   microsoft: "/logos/microsoft.svg",
   minimax: "/logos/minimax.png",
   mistralai: "/logos/mistralai.png",

@@ -94,9 +94,9 @@ func persistenceResumeRequest() map[string]any {
 func startPersistedRuntimeContainer(t *testing.T, trace *agentRuntimeE2ETrace, ctx context.Context, workspaceRoot string) *agentRuntimeE2EScenario {
 	t.Helper()
 	loadEnv(t)
-	systemModelKey := strings.TrimSpace(os.Getenv("HIVY_SYSTEM_OPENROUTER_API_KEY"))
+	systemModelKey := strings.TrimSpace(os.Getenv("HIVY_SYSTEM_ATLAST_CLOUD_API_KEY"))
 	if systemModelKey == "" {
-		t.Skip("HIVY_SYSTEM_OPENROUTER_API_KEY is not configured")
+		t.Skip("HIVY_SYSTEM_ATLAST_CLOUD_API_KEY is not configured")
 	}
 	runtimeSecret := "agent-runtime-e2e-secret" // #nosec G101 -- fixed local E2E runtime secret.
 	agentID := uuid.NewString()

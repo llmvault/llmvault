@@ -33,6 +33,7 @@ func TestAgentSessionsReadFileImageDescribeE2E(t *testing.T) {
 	requireAgentSessionsHealthy(t, ctx, apiBase, "api")
 	requireAgentSessionsHealthy(t, ctx, workerBase, "worker")
 	agentSessionsEnsureSystemOpenRouterCredential(t)
+	agentSessionsEnsureSystemAtlasCloudCredential(t)
 
 	runID := strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
 	password := "agent-read-image-e2e-password"
@@ -171,7 +172,7 @@ func waitForAgentSessionsImageDescribeGeneration(t *testing.T, ctx context.Conte
 		var gen model.Generation
 		err := db.WithContext(ctx).
 			Where("org_id = ? AND user_id = ? AND token_jti = ? AND request_path = ? AND provider_id = ? AND upstream_status = ?",
-				orgID, userID, "system:images.describe", "/v1/images/describe", "openrouter", http.StatusOK).
+				orgID, userID, "system:images.describe", "/v1/images/describe", "atlascloud", http.StatusOK).
 			Order("created_at DESC").
 			First(&gen).Error
 		if err == nil {

@@ -18,16 +18,16 @@ import (
 // Session reflection gets its own provider/model/temperature resolution,
 // separate from session naming. Every knob is env-overridable:
 //
-//	HIVY_REFLECTION_PROVIDER     provider of the org-wide system credential (default "openrouter")
-//	HIVY_REFLECTION_MODEL       canonical Hivy model ID or provider upstream ID (default "gpt-5-mini")
+//	HIVY_REFLECTION_PROVIDER     provider of the org-wide system credential (default "openai")
+//	HIVY_REFLECTION_MODEL       canonical Hivy model ID or provider upstream ID (default "gpt-4o-mini")
 //	HIVY_REFLECTION_TEMPERATURE sampling temperature (default 0.1)
 const (
 	reflectionProviderEnv    = "HIVY_REFLECTION_PROVIDER"
 	reflectionModelEnv       = "HIVY_REFLECTION_MODEL"
 	reflectionTemperatureEnv = "HIVY_REFLECTION_TEMPERATURE"
 
-	reflectionDefaultProviderID  = "openrouter"
-	reflectionDefaultModelID     = "gpt-5-mini"
+	reflectionDefaultProviderID  = "openai"
+	reflectionDefaultModelID     = "gpt-4o-mini"
 	reflectionDefaultTemperature = 0.1
 )
 
@@ -84,18 +84,14 @@ func ResolveReflectionModel(reg *registry.Registry) (providerID, upstreamModelID
 
 // resolveReflectionUpstreamModel maps the configured model to the provider's
 // upstream ID. Canonical Hivy model IDs resolve through the registry; the
-// default gpt-5-mini (not in the curated canonical catalog) maps to its
-// OpenRouter upstream ID; anything else is passed through verbatim so env
-// overrides can name any upstream model directly.
+// Anything not in the curated canonical catalog is passed through verbatim so
+// env overrides can name a provider upstream model directly.
 func resolveReflectionUpstreamModel(reg *registry.Registry, providerID, modelID string) string {
 	if reg == nil {
 		reg = registry.Global()
 	}
 	if route, ok := reg.ResolveModel(providerID, modelID); ok {
 		return route.UpstreamID
-	}
-	if providerID == reflectionDefaultProviderID && modelID == reflectionDefaultModelID {
-		return "openai/" + reflectionDefaultModelID
 	}
 	return modelID
 }

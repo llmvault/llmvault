@@ -49,11 +49,11 @@ describe("model logos", () => {
     expect(modelLogoURL("unknown-model")).toBeUndefined()
   })
 
-  it("uses OpenRouter author logos for routed model owners", () => {
+  it("uses model author logos for routed model owners", () => {
     expect(modelLogoURL("ling-2.6-1t")).toBe("/logos/inclusionai.png")
     expect(modelLogoURL("grok-4.3")).toBe("/logos/x-ai.png")
     expect(modelLogoURL("glm-5.2")).toBe("/logos/z-ai.png")
-    expect(modelLogoURL("mistral-small-4")).toBe("/logos/mistralai.png")
+    expect(modelLogoURL("nemotron-3-nano-30b-a3b")).toBe("/logos/nvidia.png")
   })
 
   it("resolves provider aliases used by settings surfaces", () => {

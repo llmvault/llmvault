@@ -859,7 +859,7 @@ mod tests {
             base_url: "http://127.0.0.1:18082/v1".to_string(),
             model_id: model_id.to_string(),
             canonical_model_id: Some(model_id.to_string()),
-            provider_id: Some("openrouter".to_string()),
+            provider_id: Some("atlascloud".to_string()),
             upstream_model_id: Some(model_id.to_string()),
             model_profile: None,
             provider_options: HashMap::new(),

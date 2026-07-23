@@ -38,7 +38,7 @@ describe("updateModelAssignments", () => {
   it("preserves existing agents while replacing only the newly assigned agent", () => {
     const withSupport = updateModelAssignments(
       {},
-      { agentID: "support", modelID: "nemotron-3-ultra-550b-a55b" }
+      { agentID: "support", modelID: "nemotron-3-nano-30b-a3b" }
     )
     const withResearch = updateModelAssignments(withSupport, {
       agentID: "research",
@@ -50,7 +50,7 @@ describe("updateModelAssignments", () => {
     })
 
     expect(withResearch).toEqual({
-      support: "nemotron-3-ultra-550b-a55b",
+      support: "nemotron-3-nano-30b-a3b",
       research: "mimo-v2.5-pro",
     })
     expect(supportReassigned).toEqual({

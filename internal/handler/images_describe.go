@@ -19,7 +19,7 @@ import (
 
 const (
 	imageDescribeCanonicalModel = "gemini-3.5-flash"
-	imageDescribeProviderID     = "openrouter"
+	imageDescribeProviderID     = "atlascloud"
 	imageDescribeTimeout        = time.Minute
 	imageDescribeMaxTokens      = 6000
 )
@@ -108,7 +108,7 @@ func (h *ImageDescribeHandler) Describe(w http.ResponseWriter, r *http.Request) 
 		return imageDescribeLogAttrs(startedAt, org.ID, userID, asset, detailLevel)
 	}
 
-	cred, err := h.openRouterSystemCredential(r.Context())
+	cred, err := h.imageDescribeSystemCredential(r.Context())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			logging.FromContext(r.Context()).ErrorContext(r.Context(), "image describe system credential unavailable",
@@ -119,7 +119,7 @@ func (h *ImageDescribeHandler) Describe(w http.ResponseWriter, r *http.Request) 
 					"error", err,
 				)...,
 			)
-			writeJSON(w, http.StatusServiceUnavailable, imageDescribeError{Error: "OpenRouter system credential unavailable", ErrorCode: "system_credential_unavailable"})
+			writeJSON(w, http.StatusServiceUnavailable, imageDescribeError{Error: "image description system credential unavailable", ErrorCode: "system_credential_unavailable"})
 			return
 		}
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "image describe system credential lookup failed",
@@ -142,7 +142,7 @@ func (h *ImageDescribeHandler) Describe(w http.ResponseWriter, r *http.Request) 
 				"credential_id", cred.ID,
 			)...,
 		)
-		writeJSON(w, http.StatusServiceUnavailable, imageDescribeError{Error: "OpenRouter system credential endpoint unavailable", ErrorCode: "system_credential_unavailable"})
+		writeJSON(w, http.StatusServiceUnavailable, imageDescribeError{Error: "image description system credential endpoint unavailable", ErrorCode: "system_credential_unavailable"})
 		return
 	}
 

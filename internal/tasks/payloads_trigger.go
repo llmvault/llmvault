@@ -47,7 +47,7 @@ type SessionNamePayload struct {
 }
 
 // NewSessionNameTask creates a task that generates an auto-name for a
-// session using the platform OpenRouter credential and the canonical
+// session using the platform OpenAI credential and the canonical
 // gpt-4o-mini route. Bulk queue — this is nice-to-have UX, not critical
 // path. MaxRetry is 3: transient provider failures are common and the
 // handler is idempotent once the session has been auto-named.

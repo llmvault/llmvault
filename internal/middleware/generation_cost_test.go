@@ -16,7 +16,7 @@ func TestCalculateCost_CachedTokensPricedAtCacheRead(t *testing.T) {
 		OutputTokens: 39079,
 	}
 
-	got := calculateCost(reg, "openrouter", "step-3.7-flash", usage)
+	got := calculateCost(reg, "novita", "step-3.7-flash", usage)
 
 	nonCached := float64(usage.InputTokens - usage.CachedTokens)
 	want := (nonCached*0.2 + float64(usage.CachedTokens)*0.04 + float64(usage.OutputTokens)*1.15) / 1_000_000
@@ -36,8 +36,8 @@ func TestCalculateCost_ReasoningTokensDoNotDoubleBill(t *testing.T) {
 	withReasoning := base
 	withReasoning.ReasoningTokens = 300
 
-	if a, b := calculateCost(reg, "openrouter", "step-3.7-flash", base),
-		calculateCost(reg, "openrouter", "step-3.7-flash", withReasoning); a != b {
+	if a, b := calculateCost(reg, "novita", "step-3.7-flash", base),
+		calculateCost(reg, "novita", "step-3.7-flash", withReasoning); a != b {
 		t.Fatalf("reasoning tokens changed cost: %.12f vs %.12f", a, b)
 	}
 }

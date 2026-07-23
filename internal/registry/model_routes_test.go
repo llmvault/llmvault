@@ -15,12 +15,8 @@ func TestResolveModel_ExplicitProviderRoutes(t *testing.T) {
 	if sonnet5Anthropic.Model.ID != "claude-sonnet-5" {
 		t.Fatalf("Sonnet 5 canonical model id = %q", sonnet5Anthropic.Model.ID)
 	}
-	sonnet5OpenRouter, ok := reg.ResolveModel("openrouter", "claude-sonnet-5")
-	if !ok {
-		t.Fatal("OpenRouter Sonnet 5 route not found")
-	}
-	if sonnet5OpenRouter.UpstreamID != "anthropic/claude-sonnet-5" {
-		t.Fatalf("OpenRouter Sonnet 5 upstream = %q, want anthropic/claude-sonnet-5", sonnet5OpenRouter.UpstreamID)
+	if _, ok := reg.ResolveModel("openrouter", "claude-sonnet-5"); ok {
+		t.Fatal("Sonnet 5 unexpectedly resolves through OpenRouter")
 	}
 
 	anthropic, ok := reg.ResolveModel("anthropic", "claude-sonnet-4.6")
@@ -34,12 +30,8 @@ func TestResolveModel_ExplicitProviderRoutes(t *testing.T) {
 		t.Fatalf("canonical model id = %q", anthropic.Model.ID)
 	}
 
-	openrouter, ok := reg.ResolveModel("openrouter", "claude-sonnet-4.6")
-	if !ok {
-		t.Fatal("openrouter route not found")
-	}
-	if openrouter.UpstreamID != "anthropic/claude-sonnet-4.6" {
-		t.Fatalf("openrouter upstream = %q, want anthropic/claude-sonnet-4.6", openrouter.UpstreamID)
+	if _, ok := reg.ResolveModel("openrouter", "claude-sonnet-4.6"); ok {
+		t.Fatal("Sonnet 4.6 unexpectedly resolves through OpenRouter")
 	}
 }
 
@@ -114,12 +106,8 @@ func TestResolveModel_GPT4OMiniRoutes(t *testing.T) {
 		t.Fatalf("openai upstream = %q, want gpt-4o-mini", openai.UpstreamID)
 	}
 
-	openrouter, ok := Global().ResolveModel("openrouter", "gpt-4o-mini")
-	if !ok {
-		t.Fatal("openrouter gpt-4o-mini route not found")
-	}
-	if openrouter.UpstreamID != "openai/gpt-4o-mini" {
-		t.Fatalf("openrouter upstream = %q, want openai/gpt-4o-mini", openrouter.UpstreamID)
+	if _, ok := Global().ResolveModel("openrouter", "gpt-4o-mini"); ok {
+		t.Fatal("gpt-4o-mini unexpectedly resolves through OpenRouter")
 	}
 }
 
@@ -155,10 +143,10 @@ func TestElevenLabsScribeV2Catalog(t *testing.T) {
 	}
 }
 
-func TestOpenRouterQwen37Catalog(t *testing.T) {
+func TestQwen37Catalog(t *testing.T) {
 	reg := Global()
 
-	maxRoute, ok := reg.ResolveModel("openrouter", "qwen3.7-max")
+	maxRoute, ok := reg.ResolveModel("novita", "qwen3.7-max")
 	if !ok {
 		t.Fatal("qwen3.7-max route not found")
 	}
@@ -172,7 +160,7 @@ func TestOpenRouterQwen37Catalog(t *testing.T) {
 		t.Fatalf("qwen3.7-max limit = %#v", maxRoute.Model.Limit)
 	}
 
-	plusRoute, ok := reg.ResolveModel("openrouter", "qwen3.7-plus")
+	plusRoute, ok := reg.ResolveModel("atlascloud", "qwen3.7-plus")
 	if !ok {
 		t.Fatal("qwen3.7-plus route not found")
 	}
@@ -182,70 +170,41 @@ func TestOpenRouterQwen37Catalog(t *testing.T) {
 	if plusRoute.Model.Cost == nil || plusRoute.Model.Cost.Input != 0.4 || plusRoute.Model.Cost.Output != 1.6 {
 		t.Fatalf("qwen3.7-plus cost = %#v", plusRoute.Model.Cost)
 	}
-	if plusRoute.Model.Limit == nil || plusRoute.Model.Limit.Context != 1000000 || plusRoute.Model.Limit.Output != 65536 {
+	if plusRoute.Model.Limit == nil || plusRoute.Model.Limit.Context != 1000000 || plusRoute.Model.Limit.Output != 67072 {
 		t.Fatalf("qwen3.7-plus limit = %#v", plusRoute.Model.Limit)
-	}
-	if !plusRoute.Model.ToolCall || !plusRoute.Model.StructuredOutput {
-		t.Fatalf("qwen3.7-plus capabilities = tool_call:%v structured:%v", plusRoute.Model.ToolCall, plusRoute.Model.StructuredOutput)
 	}
 }
 
-func TestOpenRouterGrokAndNemotronCatalog(t *testing.T) {
+func TestAtlasCloudGrokCatalog(t *testing.T) {
 	reg := Global()
 
-	grok, ok := reg.ResolveModel("openrouter", "grok-4.3")
+	grok, ok := reg.ResolveModel("atlascloud", "grok-4.3")
 	if !ok {
 		t.Fatal("grok-4.3 route not found")
 	}
-	if grok.UpstreamID != "x-ai/grok-4.3" {
-		t.Fatalf("grok-4.3 upstream = %q, want x-ai/grok-4.3", grok.UpstreamID)
-	}
-	if grok.Model.Cost == nil || grok.Model.Cost.Input != 1.25 || grok.Model.Cost.Output != 2.5 || grok.Model.Cost.CacheRead != 0.2 {
-		t.Fatalf("grok-4.3 cost = %#v", grok.Model.Cost)
-	}
-	if grok.Model.Limit == nil || grok.Model.Limit.Context != 1000000 || grok.Model.Limit.Output != 1000000 {
-		t.Fatalf("grok-4.3 limit = %#v", grok.Model.Limit)
-	}
-	if !grok.Model.ToolCall || !grok.Model.StructuredOutput || !grok.Model.Reasoning {
-		t.Fatalf("grok-4.3 capabilities = tool_call:%v structured:%v reasoning:%v", grok.Model.ToolCall, grok.Model.StructuredOutput, grok.Model.Reasoning)
-	}
-
-	nemotron, ok := reg.ResolveModel("openrouter", "nemotron-3-ultra-550b-a55b")
-	if !ok {
-		t.Fatal("nemotron-3-ultra-550b-a55b route not found")
-	}
-	if nemotron.UpstreamID != "nvidia/nemotron-3-ultra-550b-a55b" {
-		t.Fatalf("nemotron upstream = %q, want nvidia/nemotron-3-ultra-550b-a55b", nemotron.UpstreamID)
-	}
-	if nemotron.Model.Cost == nil || nemotron.Model.Cost.Input != 0.5 || nemotron.Model.Cost.Output != 2.5 || nemotron.Model.Cost.CacheRead != 0.15 {
-		t.Fatalf("nemotron cost = %#v", nemotron.Model.Cost)
-	}
-	if nemotron.Model.Limit == nil || nemotron.Model.Limit.Context != 262144 || nemotron.Model.Limit.Output != 16384 {
-		t.Fatalf("nemotron limit = %#v", nemotron.Model.Limit)
-	}
-	if !nemotron.Model.ToolCall || !nemotron.Model.StructuredOutput || !nemotron.Model.OpenWeights {
-		t.Fatalf("nemotron capabilities = tool_call:%v structured:%v open_weights:%v", nemotron.Model.ToolCall, nemotron.Model.StructuredOutput, nemotron.Model.OpenWeights)
+	if grok.UpstreamID != "xai/grok-4.3" {
+		t.Fatalf("grok-4.3 upstream = %q, want xai/grok-4.3", grok.UpstreamID)
 	}
 }
 
-func TestOpenRouterGemini31FlashLiteCatalog(t *testing.T) {
-	route, ok := Global().ResolveModel("openrouter", "gemini-3.1-flash-lite")
+func TestGoogleGemini31FlashLiteCatalog(t *testing.T) {
+	route, ok := Global().ResolveModel("google", "gemini-3.1-flash-lite")
 	if !ok {
 		t.Fatal("gemini-3.1-flash-lite route not found")
 	}
-	if route.UpstreamID != "google/gemini-3.1-flash-lite" {
-		t.Fatalf("gemini-3.1-flash-lite upstream = %q, want google/gemini-3.1-flash-lite", route.UpstreamID)
+	if route.UpstreamID != "gemini-3.1-flash-lite" {
+		t.Fatalf("gemini-3.1-flash-lite upstream = %q, want gemini-3.1-flash-lite", route.UpstreamID)
 	}
-	if route.Model.Cost == nil || route.Model.Cost.Input != 0.25 || route.Model.Cost.Output != 1.5 || route.Model.Cost.CacheRead != 0.025 || route.Model.Cost.CacheWrite != 0.083333 {
+	if route.Model.Cost == nil || route.Model.Cost.Input != 0.25 || route.Model.Cost.Output != 1.5 || route.Model.Cost.CacheRead != 0 || route.Model.Cost.CacheWrite != 0 {
 		t.Fatalf("gemini-3.1-flash-lite cost = %#v", route.Model.Cost)
 	}
-	if route.Model.Limit == nil || route.Model.Limit.Context != 1048576 || route.Model.Limit.Output != 64000 {
+	if route.Model.Limit == nil || route.Model.Limit.Context != 1048576 || route.Model.Limit.Output != 65536 {
 		t.Fatalf("gemini-3.1-flash-lite limit = %#v", route.Model.Limit)
 	}
 	if route.Model.Knowledge != "2025-01" {
 		t.Fatalf("gemini-3.1-flash-lite knowledge = %q", route.Model.Knowledge)
 	}
-	if !route.Model.ToolCall || !route.Model.StructuredOutput || !route.Model.Reasoning {
+	if !route.Model.ToolCall || route.Model.StructuredOutput || !route.Model.Reasoning {
 		t.Fatalf("gemini-3.1-flash-lite capabilities = tool_call:%v structured:%v reasoning:%v", route.Model.ToolCall, route.Model.StructuredOutput, route.Model.Reasoning)
 	}
 }
@@ -276,8 +235,8 @@ func TestCanonicalModelsForProviders_DeduplicatesExplicitRoutes(t *testing.T) {
 	if upstreamCount != 0 {
 		t.Fatalf("anthropic/claude-sonnet-4.6 upstream count = %d, want 0", upstreamCount)
 	}
-	if len(providers) != 2 || providers[0] != "anthropic" || providers[1] != "openrouter" {
-		t.Fatalf("providers = %v, want [anthropic openrouter]", providers)
+	if len(providers) != 1 || providers[0] != "anthropic" {
+		t.Fatalf("providers = %v, want [anthropic]", providers)
 	}
 }
 

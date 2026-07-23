@@ -24,7 +24,7 @@ func firstTeamID(t *testing.T, db *gorm.DB, orgID uuid.UUID) uuid.UUID {
 }
 func seedDefaultModelCredential(t *testing.T, db *gorm.DB) {
 	t.Helper()
-	cred := model.Credential{ID: uuid.New(), Label: "runtime-" + uuid.NewString()[:8], BaseURL: "https://openrouter.ai/api/v1", AuthScheme: "bearer", ProviderID: "openrouter", EncryptedKey: []byte("enc"), WrappedDEK: []byte("dek")}
+	cred := model.Credential{ID: uuid.New(), Label: "runtime-" + uuid.NewString()[:8], BaseURL: "https://api.atlascloud.ai/v1", AuthScheme: "bearer", ProviderID: "atlascloud", EncryptedKey: []byte("enc"), WrappedDEK: []byte("dek")}
 	if err := db.Create(&cred).Error; err != nil {
 		t.Fatalf("create credential: %v", err)
 	}

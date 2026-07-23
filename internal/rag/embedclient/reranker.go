@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/usehivy/hivy/internal/providerheaders"
 )
 
 type RerankerConfig struct {
@@ -71,10 +69,6 @@ func (r *Reranker) Rerank(ctx context.Context, query string, documents []string,
 			r.cfg.BaseURL+"/rerank", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+r.cfg.APIKey)
-		if providerheaders.IsOpenRouter("", r.cfg.BaseURL) {
-			providerheaders.ApplyOpenRouter(req)
-		}
-
 		resp, err := r.http.Do(req)
 		if err != nil {
 			lastErr = err

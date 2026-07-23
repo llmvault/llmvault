@@ -12,7 +12,7 @@ pub enum ModelProfileId {
     MiniMax,
     MiMo,
     Qwen,
-    OpenRouterCompatible,
+    OpenAICompatible,
 }
 
 impl ModelProfileId {
@@ -24,7 +24,7 @@ impl ModelProfileId {
             Self::MiniMax => "minimax",
             Self::MiMo => "mimo",
             Self::Qwen => "qwen",
-            Self::OpenRouterCompatible => "openrouter_compatible",
+            Self::OpenAICompatible => "openai_compatible",
         }
     }
 }
@@ -88,7 +88,7 @@ impl ModelProfile {
             Some("mimo") => ModelProfileId::MiMo,
             Some("qwen") => ModelProfileId::Qwen,
             Some("openrouter_compatible") | Some("openai_compatible") => {
-                ModelProfileId::OpenRouterCompatible
+                ModelProfileId::OpenAICompatible
             }
             _ if haystack.contains("deepseek") => ModelProfileId::DeepSeek,
             _ if haystack.contains("glm")
@@ -103,7 +103,7 @@ impl ModelProfile {
             _ if haystack.contains("minimax") => ModelProfileId::MiniMax,
             _ if haystack.contains("mimo") => ModelProfileId::MiMo,
             _ if haystack.contains("qwen") => ModelProfileId::Qwen,
-            _ => ModelProfileId::OpenRouterCompatible,
+            _ => ModelProfileId::OpenAICompatible,
         };
 
         let mut profile = match id {
@@ -167,7 +167,7 @@ impl ModelProfile {
                 max_tool_calls_per_turn: 640,
                 max_consecutive_tool_errors: 40,
             },
-            ModelProfileId::OpenRouterCompatible => Self {
+            ModelProfileId::OpenAICompatible => Self {
                 id,
                 supports_generic_reasoning_effort: false,
                 supports_parallel_tool_calls: true,
@@ -185,7 +185,7 @@ impl ModelProfile {
             }
             if let Some(reasoning) = capabilities.reasoning {
                 profile.supports_generic_reasoning_effort =
-                    reasoning && matches!(profile.id, ModelProfileId::OpenRouterCompatible);
+                    reasoning && matches!(profile.id, ModelProfileId::OpenAICompatible);
             }
         }
 
@@ -204,7 +204,7 @@ impl ModelProfile {
                     "clear_thinking": false,
                 });
             }
-            ModelProfileId::OpenRouterCompatible => {
+            ModelProfileId::OpenAICompatible => {
                 if let Some(provider) = provider_options.get("provider") {
                     if provider.is_object() {
                         body["provider"] = provider.clone();
@@ -342,7 +342,7 @@ mod tests {
             ("minimax", 480),
             ("mimo", 400),
             ("qwen", 640),
-            ("openrouter_compatible", 800),
+            ("openai_compatible", 800),
         ];
         for (profile_name, expected_tool_calls) in cases {
             let profile = ModelProfile::detect(Some(profile_name), None, None, None, "model", None);
@@ -362,7 +362,7 @@ mod tests {
         assert_eq!(
             ModelProfile::detect(
                 None,
-                Some("openrouter"),
+                Some("novita"),
                 Some("glm-5.2"),
                 Some("z-ai/glm-5.2"),
                 "glm-5.2",
@@ -374,7 +374,7 @@ mod tests {
         assert_eq!(
             ModelProfile::detect(
                 None,
-                Some("openrouter"),
+                Some("xiaomi"),
                 Some("mimo-v2.5-pro"),
                 Some("xiaomi/mimo-v2.5-pro"),
                 "mimo-v2.5-pro",
@@ -386,7 +386,7 @@ mod tests {
         assert_eq!(
             ModelProfile::detect(
                 None,
-                Some("openrouter"),
+                Some("atlascloud"),
                 Some("qwen3.7-plus"),
                 Some("qwen/qwen3.7-plus"),
                 "qwen3.7-plus",

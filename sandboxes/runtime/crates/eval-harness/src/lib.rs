@@ -431,7 +431,7 @@ fn fake_agent_definition() -> AgentDefinition {
             base_url: "http://127.0.0.1/fake".to_string(),
             model_id: "fake-model".to_string(),
             canonical_model_id: Some("fake-model".to_string()),
-            provider_id: Some("openrouter".to_string()),
+            provider_id: Some("atlascloud".to_string()),
             upstream_model_id: Some("fake-model".to_string()),
             model_profile: None,
             provider_options: Default::default(),

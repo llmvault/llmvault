@@ -28,10 +28,8 @@ const (
 	memoryConsolidationDedupMaxTokens = 800
 	memoryConsolidationSweepLimit     = 200
 
-	consolidationDefaultProviderID = "openrouter"
-	// gpt-5-mini through the OpenRouter upstream id (the registry catalog has
-	// no gpt-5-mini canonical entry, so the upstream id is used directly).
-	consolidationDefaultModelID = "openai/gpt-5-mini"
+	consolidationDefaultProviderID = "openai"
+	consolidationDefaultModelID    = "gpt-4o-mini"
 )
 
 // consolidationModelConfig holds the dedicated consolidation model knobs —

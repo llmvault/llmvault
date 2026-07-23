@@ -304,12 +304,6 @@ func TestNovitaRoutesAreDeclaredExplicitly(t *testing.T) {
 			if novitaIndex < 0 {
 				t.Fatalf("Novita route not declared: %#v", hivyModel.Routes)
 			}
-			openRouterIndex := slices.IndexFunc(hivyModel.Routes, func(route ModelRoute) bool {
-				return route.ProviderID == "openrouter"
-			})
-			if openRouterIndex >= 0 && novitaIndex > openRouterIndex {
-				t.Fatalf("Novita must precede OpenRouter: %#v", hivyModel.Routes)
-			}
 			if _, ok := Global().ResolveModel("novita", test.canonicalID); !ok {
 				t.Fatal("Novita route does not resolve")
 			}

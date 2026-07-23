@@ -571,8 +571,8 @@ fn reasoning_effort_to_string(effort: ReasoningEffort) -> String {
 }
 
 fn cache_policy_for_values(base_url: &str, _api_key_env: &str) -> CacheControlPolicy {
-    if base_url.contains("openrouter") || base_url.contains("127.0.0.1") {
-        CacheControlPolicy::OpenRouterGeminiEphemeral
+    if base_url.contains("127.0.0.1") {
+        CacheControlPolicy::Ephemeral
     } else {
         CacheControlPolicy::Disabled
     }
@@ -1039,7 +1039,7 @@ mod tests {
     }
 
     #[test]
-    fn classifies_openrouter_failures() {
+    fn classifies_provider_failures() {
         assert_eq!(
             classify_http_error(429, "rate limited", "{}"),
             ModelErrorClass::RateLimited
@@ -1133,7 +1133,7 @@ mod tests {
             base_url: server.base_url(),
             model_id: "primary-model".to_string(),
             canonical_model_id: Some("primary-model".to_string()),
-            provider_id: Some("openrouter".to_string()),
+            provider_id: Some("atlascloud".to_string()),
             upstream_model_id: Some("primary-model".to_string()),
             model_profile: None,
             provider_options: HashMap::new(),
@@ -1147,7 +1147,7 @@ mod tests {
                 base_url: server.base_url(),
                 model_id: "fallback-model".to_string(),
                 canonical_model_id: Some("fallback-model".to_string()),
-                provider_id: Some("openrouter".to_string()),
+                provider_id: Some("novita".to_string()),
                 upstream_model_id: Some("fallback-model".to_string()),
                 model_profile: None,
                 provider_options: HashMap::new(),
@@ -1177,10 +1177,7 @@ mod tests {
                 "fallback-model".to_string(),
             ]
         );
-        assert!(matches!(
-            config.cache_policy,
-            CacheControlPolicy::OpenRouterGeminiEphemeral
-        ));
+        assert!(matches!(config.cache_policy, CacheControlPolicy::Ephemeral));
         assert!(events.iter().any(|event| matches!(
             event,
             ModelStreamEvent::TextDelta(text) if text == "fallback ok"
@@ -1198,7 +1195,7 @@ mod tests {
             base_url: "https://example.com".to_string(),
             model_id: "test-model".to_string(),
             canonical_model_id: Some("test-model".to_string()),
-            provider_id: Some("openrouter".to_string()),
+            provider_id: Some("atlascloud".to_string()),
             upstream_model_id: Some("test-model".to_string()),
             model_profile: None,
             provider_options: HashMap::new(),
@@ -1229,7 +1226,7 @@ mod tests {
             base_url: "https://example.com".to_string(),
             model_id: "test-model".to_string(),
             canonical_model_id: Some("test-model".to_string()),
-            provider_id: Some("openrouter".to_string()),
+            provider_id: Some("atlascloud".to_string()),
             upstream_model_id: Some("test-model".to_string()),
             model_profile: None,
             provider_options: HashMap::new(),
@@ -1256,7 +1253,7 @@ mod tests {
             max_output_tokens: None,
             reasoning_effort: None,
             cache_policy: CacheControlPolicy::Disabled,
-            profile: ModelProfile::detect(None, Some("openrouter"), None, None, model, None),
+            profile: ModelProfile::detect(None, Some("atlascloud"), None, None, model, None),
             provider_options: HashMap::new(),
         }
     }

@@ -25,7 +25,7 @@ import (
 const messageContentMaxBytes = 2048
 
 // SessionNameHandler generates a durable auto-name for a session by calling
-// the platform OpenRouter credential with gpt-4o-mini. It's idempotent:
+// the platform OpenAI credential with gpt-4o-mini. It's idempotent:
 // once session_name_auto_generated_at is set, the handler returns nil
 // without making any external calls.
 type SessionNameHandler struct {

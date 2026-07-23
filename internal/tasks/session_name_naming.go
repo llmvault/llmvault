@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	sessionNameProviderID = "openrouter"
+	sessionNameProviderID = "openai"
 	sessionNameModelID    = "gpt-4o-mini"
 	sessionNameMaxLen     = 80
 )

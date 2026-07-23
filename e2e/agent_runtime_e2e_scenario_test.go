@@ -42,9 +42,9 @@ func startAgentRuntimeE2EScenario(
 ) *agentRuntimeE2EScenario {
 	t.Helper()
 	loadEnv(t)
-	systemModelKey := strings.TrimSpace(os.Getenv("HIVY_SYSTEM_OPENROUTER_API_KEY"))
+	systemModelKey := strings.TrimSpace(os.Getenv("HIVY_SYSTEM_ATLAST_CLOUD_API_KEY"))
 	if systemModelKey == "" {
-		t.Skip("HIVY_SYSTEM_OPENROUTER_API_KEY is not configured")
+		t.Skip("HIVY_SYSTEM_ATLAST_CLOUD_API_KEY is not configured")
 	}
 	repoRoot := repoRootFromE2E(t)
 	workspaceRoot := opts.workspaceRoot

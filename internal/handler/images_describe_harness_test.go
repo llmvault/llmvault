@@ -90,10 +90,10 @@ func newImageDescribeHarness(t *testing.T, opts ...func(*imageDescribeHarnessCon
 	db := connectTestDB(t)
 	kms := newSystemTaskKMS(t)
 	runtimeKey := testSymmetricKey(t)
-	upstreamBase := "https://openrouter.test/api/v1"
+	upstreamBase := "https://atlascloud.test/v1"
 	var cred *model.Credential
 	if cfg.seedCred {
-		cred = seedSystemCredential(t, db, kms, upstreamBase, "openrouter")
+		cred = seedSystemCredential(t, db, kms, upstreamBase, "atlascloud")
 	}
 
 	org := &model.Org{

@@ -2,7 +2,6 @@ package tasks_test
 
 import (
 	"context"
-	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 
-	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/cache"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/tasks"
@@ -94,15 +92,11 @@ func TestGenerationReconcile_BackfillsZeroUsageRow(t *testing.T) {
 		t.Errorf("output_tokens = %d, want 500", g.OutputTokens)
 	}
 
-	want, err := billing.EstimateCostUSD(nil, "openrouter", "deepseek-v4-flash", 1000, 500, 0)
-	if err != nil {
-		t.Fatalf("estimate cost: %v", err)
+	if g.Cost != 0.00042 {
+		t.Errorf("cost = %.12f, want provider-reported 0.00042", g.Cost)
 	}
-	if want <= 0 {
-		t.Fatalf("fixture setup: expected positive catalog cost, got %v", want)
-	}
-	if math.Abs(g.Cost-want) > 1e-9 {
-		t.Errorf("cost = %.12f, want %.12f", g.Cost, want)
+	if g.BillingCostSource != "provider_reported" {
+		t.Errorf("billing_cost_source = %q, want provider_reported", g.BillingCostSource)
 	}
 	if g.BilledAt != nil {
 		t.Errorf("billed_at should remain NULL so the billing batch charges the row")

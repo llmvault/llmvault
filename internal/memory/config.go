@@ -1,9 +1,9 @@
 package memory
 
 const (
-	DefaultEmbeddingModel = "qwen/qwen3-embedding-8b"
+	DefaultEmbeddingModel = "openai/text-embedding-3-small"
 	DefaultEmbeddingDim   = uint32(1024)
-	OpenRouterProviderID  = "openrouter"
+	EmbeddingProviderID   = "openai"
 
 	MaxContentLength = 2000
 	MaxTags          = 20

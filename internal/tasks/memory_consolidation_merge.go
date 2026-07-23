@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net/http"
 	"strings"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/providerheaders"
 )
 
 func (h *MemoryConsolidationHandler) mergeObservations(
@@ -87,9 +85,6 @@ func (h *MemoryConsolidationHandler) defaultComplete(
 	if cred.BaseURL != "" {
 		cfg.BaseURL = cred.BaseURL
 	}
-	if providerheaders.IsOpenRouter(cred.ProviderID, cfg.BaseURL) {
-		cfg.HTTPClient = consolidationHeaderDoer{inner: cfg.HTTPClient}
-	}
 	client := openai.NewClientWithConfig(cfg)
 
 	// go-openai omits a zero temperature; the smallest positive float is the
@@ -147,15 +142,6 @@ func loadConsolidationCredential(
 		return nil, "", fmt.Errorf("decrypt consolidation credential: %w", err)
 	}
 	return &cred, string(decrypted.APIKey), nil
-}
-
-type consolidationHeaderDoer struct {
-	inner openai.HTTPDoer
-}
-
-func (d consolidationHeaderDoer) Do(req *http.Request) (*http.Response, error) {
-	providerheaders.ApplyOpenRouter(req)
-	return d.inner.Do(req)
 }
 
 // factFromHumanActor reports whether a reflection fact was attributed to a

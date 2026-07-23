@@ -31,7 +31,7 @@ func TestAgentSessionsAudioTranscriptionE2E(t *testing.T) {
 
 	apiBase := agentSessionsBaseURL("HIVY_API_BASE_URL", "HIVY_COMPOSE_API_PORT", "8080")
 	requireAgentSessionsHealthy(t, ctx, apiBase, "api")
-	agentSessionsEnsureSystemOpenRouterCredential(t)
+	agentSessionsEnsureSystemAtlasCloudCredential(t)
 	agentSessionsEnsureSystemElevenLabsCredential(t)
 
 	runID := strings.ReplaceAll(uuid.NewString(), "-", "")[:12]

@@ -18,7 +18,7 @@ import (
 
 const imageDescribeInlineMaxBytes = 12 * 1024 * 1024
 
-func (h *ImageDescribeHandler) openRouterSystemCredential(ctx context.Context) (*model.Credential, error) {
+func (h *ImageDescribeHandler) imageDescribeSystemCredential(ctx context.Context) (*model.Credential, error) {
 	var cred model.Credential
 	if err := h.db.WithContext(ctx).
 		Where("org_id IS NULL AND revoked_at IS NULL AND provider_id = ?", imageDescribeProviderID).

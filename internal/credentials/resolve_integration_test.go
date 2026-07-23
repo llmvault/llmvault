@@ -12,8 +12,7 @@ import (
 func TestIntegration_ResolveForModelPrefersOrgCredential(t *testing.T) {
 	db := connectTestDB(t)
 	orgID := seedBYOKOrg(t, db)
-	orgCred := seedBYOKCred(t, db, orgID, "openrouter")
-	seedSystemCred(t, db, "openai", false)
+	orgCred := seedBYOKCred(t, db, orgID, "openai")
 
 	got, err := credentials.ResolveForModel(context.Background(), db, registry.Global(), orgID, "gpt-4o-mini")
 	if err != nil {

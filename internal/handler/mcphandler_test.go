@@ -103,7 +103,7 @@ func createMCPTestCredential(t *testing.T, db *gorm.DB, orgID uuid.UUID) uuid.UU
 		AuthScheme:   "bearer",
 		EncryptedKey: []byte("enc"),
 		WrappedDEK:   []byte("dek"),
-		ProviderID:   "openrouter",
+		ProviderID:   "atlascloud",
 	}
 	if err := db.Create(&cred).Error; err != nil {
 		t.Fatalf("create credential: %v", err)

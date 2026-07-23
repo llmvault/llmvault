@@ -42,11 +42,11 @@ func TestImageDescribe_OwnedImageReturnsStructuredAnalysis(t *testing.T) {
 	if !strings.Contains(resp.RenderedDescription, "Primary category: Product Ui") {
 		t.Fatalf("rendered description missing category:\n%s", resp.RenderedDescription)
 	}
-	if strings.Contains(strings.ToLower(resp.RenderedDescription), "openrouter") ||
+	if strings.Contains(strings.ToLower(resp.RenderedDescription), "atlascloud") ||
 		strings.Contains(strings.ToLower(resp.RenderedDescription), "gemini-3.5-flash") {
 		t.Fatalf("rendered description leaked backend model/provider:\n%s", resp.RenderedDescription)
 	}
-	if h.gateway.call.ProviderID != "openrouter" {
+	if h.gateway.call.ProviderID != "atlascloud" {
 		t.Fatalf("provider = %q", h.gateway.call.ProviderID)
 	}
 	if h.gateway.call.Request.Model != "google/gemini-3.5-flash" {
@@ -180,7 +180,7 @@ func TestImageDescribe_NonImageReturns422(t *testing.T) {
 	}
 }
 
-func TestImageDescribe_MissingOpenRouterCredentialReturns503(t *testing.T) {
+func TestImageDescribe_MissingAtlasCloudCredentialReturns503(t *testing.T) {
 	h := newImageDescribeHarness(t, withoutImageCredential())
 	rr := h.describe(t, h.asset.ID)
 	if rr.Code != http.StatusServiceUnavailable {

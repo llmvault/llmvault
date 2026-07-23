@@ -11,7 +11,7 @@ import (
 // implementation to invoke. Runtime selection is driven entirely by
 // the Rust rag-engine's `LLM_API_URL` / `LLM_API_KEY` / `LLM_MODEL`
 // env vars. Any provider speaking the OpenAI `/v1/embeddings` surface —
-// SiliconFlow, OpenRouter, Groq, OpenAI, Together — works with the
+// SiliconFlow, Groq, OpenAI, Together — works with the
 // same Rust code path; the label here is for display and dataset
 // namespacing only.
 

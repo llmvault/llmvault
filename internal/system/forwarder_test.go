@@ -88,33 +88,6 @@ func TestForward_NonStreaming_UpstreamErrorReturnsTyped(t *testing.T) {
 	}
 }
 
-func TestForward_OpenRouterUsesHivyAppHeaders(t *testing.T) {
-	base, cap := newFakeUpstream(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"model":"fake-model","choices":[{"message":{"content":"ok"}}]}`))
-	})
-
-	_, err := NewForwarder(nil).ForwardJSON(context.Background(), ForwardCall{
-		ProviderID: "openrouter",
-		BaseURL:    base,
-		APIKey:     "sk-fake",
-		AuthScheme: "bearer",
-		Request: &LLMRequest{
-			Model:    "fake-model",
-			Messages: []LLMMessage{{Role: "user", Content: "hi"}},
-		},
-	})
-	if err != nil {
-		t.Fatalf("forward: %v", err)
-	}
-	if cap.referer != "https://usehivy.com" {
-		t.Fatalf("HTTP-Referer = %q, want https://usehivy.com", cap.referer)
-	}
-	if cap.title != "Hivy" {
-		t.Fatalf("X-Title = %q, want Hivy", cap.title)
-	}
-}
-
 const upstreamSSE = `data: {"model":"m","choices":[{"delta":{"content":"hello "}}]}
 
 data: {"model":"m","choices":[{"delta":{"content":"world"}}]}

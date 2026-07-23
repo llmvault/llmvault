@@ -11,8 +11,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/usehivy/hivy/internal/providerheaders"
 )
 
 // (Wire types + SSE envelope live in forwarder_wire.go.)
@@ -215,9 +213,6 @@ func (f *Forwarder) do(ctx context.Context, call ForwardCall) (*http.Response, e
 	req.Header.Set("Content-Type", "application/json")
 	if call.Stream {
 		req.Header.Set("Accept", "text/event-stream")
-	}
-	if providerheaders.IsOpenRouter(call.ProviderID, call.BaseURL) {
-		providerheaders.ApplyOpenRouter(req)
 	}
 	attachAuth(req, call.AuthScheme, call.APIKey)
 	return f.HTTPClient.Do(req)

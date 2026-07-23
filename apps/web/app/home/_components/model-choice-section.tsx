@@ -41,9 +41,9 @@ const modelOptions = [
   },
   { id: "grok-4.5", name: "Grok 4.5", fit: "Deep reasoning" },
   {
-    id: "mistral-small-4",
-    name: "Mistral Small 4",
-    fit: "Efficient multilingual work",
+    id: "kat-coder-air-v2.5",
+    name: "KAT Coder Air V2.5",
+    fit: "Fast interactive coding",
   },
   {
     id: "claude-opus-4.7",
@@ -91,9 +91,9 @@ const modelOptions = [
     fit: "Large-scale reasoning",
   },
   {
-    id: "nemotron-3-ultra-550b-a55b",
-    name: "NVIDIA Nemotron 3 Ultra",
-    fit: "Complex open-model reasoning",
+    id: "nemotron-3-nano-30b-a3b",
+    name: "NVIDIA Nemotron 3 Nano",
+    fit: "Efficient open-model reasoning",
   },
 ] as const
 
@@ -133,7 +133,7 @@ const agentAssignments = [
 export const modelAssignmentSequence = [
   {
     query: "nemotron",
-    modelID: "nemotron-3-ultra-550b-a55b",
+    modelID: "nemotron-3-nano-30b-a3b",
     agentID: "support",
   },
   { query: "mimo", modelID: "mimo-v2.5-pro", agentID: "research" },

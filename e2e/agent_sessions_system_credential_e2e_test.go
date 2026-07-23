@@ -35,6 +35,17 @@ func agentSessionsEnsureSystemOpenRouterCredential(t *testing.T) {
 	})
 }
 
+func agentSessionsEnsureSystemAtlasCloudCredential(t *testing.T) {
+	t.Helper()
+	agentSessionsEnsureSystemCredential(t, agentSessionsSystemCredentialConfig{
+		env:        "HIVY_SYSTEM_ATLAST_CLOUD_API_KEY",
+		label:      "E2E System Atlas Cloud",
+		providerID: "atlascloud",
+		baseURL:    "https://api.atlascloud.ai/v1",
+		authScheme: "bearer",
+	})
+}
+
 func agentSessionsEnsureSystemTogetherCredential(t *testing.T) {
 	t.Helper()
 	agentSessionsEnsureSystemCredential(t, agentSessionsSystemCredentialConfig{

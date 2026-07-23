@@ -5,7 +5,7 @@ var coreHivyModels = append(
 		append(
 			append(
 				append([]HivyModel{}, coreHivyModelsPreferred...),
-				coreHivyModelsOpenRouter...,
+				coreHivyModelsText...,
 			),
 			quantisedHivyModels...,
 		),

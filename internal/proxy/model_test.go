@@ -240,7 +240,7 @@ func TestRewriteRoutedModel_RewritesModelPastPeekWindow(t *testing.T) {
 	}
 
 	req := makePostRequest(body)
-	modelName, rewritten, err := RewriteRoutedModel(req, "openrouter")
+	modelName, rewritten, err := RewriteRoutedModel(req, "novita")
 	if err != nil {
 		t.Fatalf("RewriteRoutedModel: %v", err)
 	}
@@ -253,8 +253,8 @@ func TestRewriteRoutedModel_RewritesModelPastPeekWindow(t *testing.T) {
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatalf("decode rewritten body: %v", err)
 	}
-	if payload["model"] != "z-ai/glm-5.2" {
-		t.Fatalf("model = %q, want z-ai/glm-5.2", payload["model"])
+	if payload["model"] != "zai-org/glm-5.2" {
+		t.Fatalf("model = %q, want zai-org/glm-5.2", payload["model"])
 	}
 	if req.ContentLength != int64(len(raw)) {
 		t.Fatalf("content length = %d, want %d", req.ContentLength, len(raw))

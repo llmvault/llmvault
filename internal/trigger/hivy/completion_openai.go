@@ -5,15 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"net/http"
 
 	openai "github.com/sashabaranov/go-openai"
-	"github.com/usehivy/hivy/internal/providerheaders"
 )
 
 // OpenAICompletionClient implements CompletionClient for OpenAI and all
-// OpenAI-compatible providers (Fireworks, OpenRouter, DeepSeek, Groq,
-// Together, xAI, Mistral, Cohere). The BaseURL on the credential determines
+// OpenAI-compatible text providers (Fireworks, Atlas Cloud, Novita, Together,
+// DeepSeek, Groq, xAI, Mistral, Cohere). The BaseURL on the credential determines
 // which upstream receives the request.
 type OpenAICompletionClient struct {
 	client *openai.Client
@@ -27,19 +25,7 @@ func NewOpenAICompletionClient(baseURL, apiKey string) *OpenAICompletionClient {
 	if baseURL != "" {
 		cfg.BaseURL = baseURL
 	}
-	if providerheaders.IsOpenRouter("", cfg.BaseURL) {
-		cfg.HTTPClient = openRouterHeaderDoer{inner: cfg.HTTPClient}
-	}
 	return &OpenAICompletionClient{client: openai.NewClientWithConfig(cfg)}
-}
-
-type openRouterHeaderDoer struct {
-	inner openai.HTTPDoer
-}
-
-func (d openRouterHeaderDoer) Do(req *http.Request) (*http.Response, error) {
-	providerheaders.ApplyOpenRouter(req)
-	return d.inner.Do(req)
 }
 
 func (c *OpenAICompletionClient) ChatCompletion(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {

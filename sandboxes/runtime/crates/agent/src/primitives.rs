@@ -96,7 +96,7 @@ pub struct ModelRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CacheControlPolicy {
     Disabled,
-    OpenRouterGeminiEphemeral,
+    Ephemeral,
 }
 
 #[derive(Debug, Clone, Default)]

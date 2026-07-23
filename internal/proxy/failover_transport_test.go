@@ -43,7 +43,10 @@ func TestShouldFailover(t *testing.T) {
 	if !shouldFailover(&http.Response{StatusCode: http.StatusOK}, nil) {
 		t.Fatal("successful response without a body must fail over")
 	}
-	if shouldMarkRouteFailure(&http.Response{StatusCode: http.StatusBadRequest}, nil) {
+	if shouldMarkRouteFailure(&http.Response{
+		StatusCode: http.StatusBadRequest,
+		Body:       io.NopCloser(strings.NewReader(`{"error":"invalid request"}`)),
+	}, nil) {
 		t.Fatal("request-specific 400 must not put the provider into shared cooldown")
 	}
 	if !shouldMarkRouteFailure(nil, errors.New("connection reset")) {
@@ -55,14 +58,14 @@ func TestShouldFailover(t *testing.T) {
 }
 
 func TestCandidatesForRoutesPreservesCatalogOrderAndSkipsMissingCredentials(t *testing.T) {
-	openRouterID := uuid.New()
+	atlasCloudID := uuid.New()
 	routes := []registry.ModelRoute{
-		{ProviderID: "openrouter", ModelID: "deepseek/default"},
+		{ProviderID: "atlascloud", ModelID: "deepseek-ai/deepseek-v4-flash"},
 		{ProviderID: "provider-a", ModelID: "deepseek/a"},
 		{ProviderID: "provider-b", ModelID: "deepseek/b"},
 	}
 	credentials := []model.Credential{
-		{ID: openRouterID, ProviderID: "openrouter"},
+		{ID: atlasCloudID, ProviderID: "atlascloud"},
 		{ID: uuid.New(), ProviderID: "provider-b"},
 	}
 
@@ -70,8 +73,8 @@ func TestCandidatesForRoutesPreservesCatalogOrderAndSkipsMissingCredentials(t *t
 	if len(candidates) != 2 {
 		t.Fatalf("candidate count = %d, want 2", len(candidates))
 	}
-	if candidates[0].ProviderID != "openrouter" ||
-		candidates[0].UpstreamID != "deepseek/default" ||
+	if candidates[0].ProviderID != "atlascloud" ||
+		candidates[0].UpstreamID != "deepseek-ai/deepseek-v4-flash" ||
 		candidates[0].CanonicalModelID != "deepseek-v4" {
 		t.Fatalf("primary candidate = %#v", candidates[0])
 	}
@@ -83,18 +86,18 @@ func TestCandidatesForRoutesPreservesCatalogOrderAndSkipsMissingCredentials(t *t
 }
 
 func TestCandidatesForRoutesPreservesFallbackCanonicalModel(t *testing.T) {
-	openRouterID := uuid.New()
+	novitaID := uuid.New()
 	routes := []registry.ModelRoute{
 		{ProviderID: "xiaomi", ModelID: "mimo-v2.5-pro-ultraspeed"},
 		{
-			ProviderID:       "openrouter",
-			ModelID:          "xiaomi/mimo-v2.5-pro",
+			ProviderID:       "novita",
+			ModelID:          "xiaomimimo/mimo-v2.5-pro",
 			CanonicalModelID: "mimo-v2.5-pro",
 		},
 	}
 	credentials := []model.Credential{
 		{ID: uuid.New(), ProviderID: "xiaomi"},
-		{ID: openRouterID, ProviderID: "openrouter"},
+		{ID: novitaID, ProviderID: "novita"},
 	}
 
 	candidates := candidatesForRoutes("mimo-v2.5-pro-ultraspeed", routes, credentials)
@@ -102,9 +105,9 @@ func TestCandidatesForRoutesPreservesFallbackCanonicalModel(t *testing.T) {
 		t.Fatalf("candidate count = %d, want 2", len(candidates))
 	}
 	fallback := candidates[1]
-	if fallback.CredentialID != openRouterID.String() ||
-		fallback.ProviderID != "openrouter" ||
-		fallback.UpstreamID != "xiaomi/mimo-v2.5-pro" ||
+	if fallback.CredentialID != novitaID.String() ||
+		fallback.ProviderID != "novita" ||
+		fallback.UpstreamID != "xiaomimimo/mimo-v2.5-pro" ||
 		fallback.CanonicalModelID != "mimo-v2.5-pro" {
 		t.Fatalf("fallback candidate = %#v", fallback)
 	}
@@ -250,8 +253,8 @@ func testStreamingRoutePlan() *routePlan {
 			},
 			{
 				CredentialID:     uuid.NewString(),
-				ProviderID:       "openrouter",
-				UpstreamID:       "xiaomi/mimo-v2.5-pro",
+				ProviderID:       "novita",
+				UpstreamID:       "xiaomimimo/mimo-v2.5-pro",
 				CanonicalModelID: "mimo-v2.5-pro",
 			},
 		},

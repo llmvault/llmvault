@@ -169,7 +169,7 @@ func humanCategory(category string) string {
 	return strings.Join(parts, " ")
 }
 
-var backendModelNamePattern = regexp.MustCompile(`(?i)\b(openrouter|google/gemini-3\.5-flash|gemini-3\.5-flash)\b`)
+var backendModelNamePattern = regexp.MustCompile(`(?i)\b(atlascloud|atlas cloud|openrouter|google/gemini-3\.5-flash|gemini-3\.5-flash)\b`)
 
 func stripBackendModelNames(raw string) string {
 	return strings.TrimSpace(backendModelNamePattern.ReplaceAllString(raw, "[redacted backend model]"))

@@ -38,7 +38,7 @@ func TestAgentRuntimeRedisSequencingE2E(t *testing.T) {
 	workerBase := agentSessionsBaseURL("HIVY_WORKER_BASE_URL", "HIVY_COMPOSE_WORKER_HEALTH_PORT", "8090")
 	requireAgentSessionsHealthy(t, ctx, apiBase, "api")
 	requireAgentSessionsHealthy(t, ctx, workerBase, "worker")
-	agentSessionsEnsureSystemOpenRouterCredential(t)
+	agentSessionsEnsureSystemAtlasCloudCredential(t)
 
 	db := agentSessionsOpenDB(t)
 	redisClient := testdb.NewRedisClient()

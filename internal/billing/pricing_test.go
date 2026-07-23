@@ -34,7 +34,7 @@ func TestCostUSDToCredits(t *testing.T) {
 }
 
 func TestEstimateCostUSD_UsesRegistryRouteAndCachedTokens(t *testing.T) {
-	cost, err := billing.EstimateCostUSD(nil, "openrouter", "deepseek-v4-flash", 5_740, 79, 5_248)
+	cost, err := billing.EstimateCostUSD(nil, "novita", "deepseek-v4-flash", 5_740, 79, 5_248)
 	if err != nil {
 		t.Fatalf("EstimateCostUSD: %v", err)
 	}
@@ -44,12 +44,12 @@ func TestEstimateCostUSD_UsesRegistryRouteAndCachedTokens(t *testing.T) {
 }
 
 func TestEstimateCostUSD_UsesRegistryCacheReadPrice(t *testing.T) {
-	cost, err := billing.EstimateCostUSD(nil, "openrouter", "deepseek-v4-flash", 1000, 500, 800)
+	cost, err := billing.EstimateCostUSD(nil, "novita", "deepseek-v4-flash", 1000, 500, 800)
 	if err != nil {
 		t.Fatalf("EstimateCostUSD: %v", err)
 	}
 
-	expected := (200*0.0983 + 800*0.0197 + 500*0.1966) / 1_000_000
+	expected := (200*0.14 + 800*0.028 + 500*0.28) / 1_000_000
 	if math.Abs(cost-expected) > 0.000000001 {
 		t.Fatalf("cost = %.12f, want %.12f", cost, expected)
 	}
@@ -57,7 +57,7 @@ func TestEstimateCostUSD_UsesRegistryCacheReadPrice(t *testing.T) {
 
 func TestEstimateCostUSD_IncidentStepFlashCacheRead(t *testing.T) {
 	const input, cached, output = 15607827, 12788976, 39079
-	cost, err := billing.EstimateCostUSD(nil, "openrouter", "step-3.7-flash", input, output, cached)
+	cost, err := billing.EstimateCostUSD(nil, "novita", "step-3.7-flash", input, output, cached)
 	if err != nil {
 		t.Fatalf("EstimateCostUSD: %v", err)
 	}
@@ -79,17 +79,14 @@ func TestEstimateCostUSD_IncidentStepFlashCacheRead(t *testing.T) {
 	}
 }
 
-func TestEstimateCostUSD_DeepseekV4ProVerifiedCacheRead(t *testing.T) {
-	cost, err := billing.EstimateCostUSD(nil, "openrouter", "deepseek-v4-pro", 52454, 105, 52224)
+func TestEstimateCostUSD_NovitaDeepseekV4ProCacheRead(t *testing.T) {
+	cost, err := billing.EstimateCostUSD(nil, "novita", "deepseek-v4-pro", 52454, 105, 52224)
 	if err != nil {
 		t.Fatalf("EstimateCostUSD: %v", err)
 	}
-	want := (230*0.435 + 52224*0.003625 + 105*0.87) / 1_000_000
+	want := (230*1.6 + 52224*0.135 + 105*3.2) / 1_000_000
 	if math.Abs(cost-want) > 1e-12 {
 		t.Fatalf("cost = %.12f, want %.12f", cost, want)
-	}
-	if math.Abs(want-0.000380712) > 1e-9 {
-		t.Fatalf("fixture drifted from provider-verified charge: %.9f", want)
 	}
 }
 
@@ -129,6 +126,48 @@ func TestEstimateCostUSD_AtlasCloudHy3UsesVerifiedCacheReadRate(t *testing.T) {
 	}
 	if math.Abs(want-0.0041416) > 1e-12 {
 		t.Fatalf("fixture cost = %.12f, want Atlas ledger value 0.0041416", want)
+	}
+}
+
+func TestEstimateCostUSD_AtlasCloudKatCoderUsesVerifiedCacheReadRate(t *testing.T) {
+	const input, cached, completion = int64(1_000), int64(800), int64(500)
+	cost, err := billing.EstimateCostUSD(
+		nil,
+		"atlascloud",
+		"kat-coder-air-v2.5",
+		input,
+		completion,
+		cached,
+	)
+	if err != nil {
+		t.Fatalf("EstimateCostUSD: %v", err)
+	}
+
+	want := (200*0.15 + 800*0.03 + 500*0.6) / 1_000_000
+	if math.Abs(cost-want) > 1e-12 {
+		t.Fatalf("cost = %.12f, want %.12f", cost, want)
+	}
+}
+
+func TestEstimateCostUSD_AtlasCloudLongCatUsesVerifiedCacheReadRate(t *testing.T) {
+	// Live Atlas response reported reasoning tokens as a breakdown within
+	// completion_tokens, so only the completion total enters billing.
+	const input, cached, completion = int64(1_000), int64(800), int64(500)
+	cost, err := billing.EstimateCostUSD(
+		nil,
+		"atlascloud",
+		"longcat-2.0",
+		input,
+		completion,
+		cached,
+	)
+	if err != nil {
+		t.Fatalf("EstimateCostUSD: %v", err)
+	}
+
+	want := (200*0.75 + 800*0.015 + 500*3) / 1_000_000
+	if math.Abs(cost-want) > 1e-12 {
+		t.Fatalf("cost = %.12f, want %.12f", cost, want)
 	}
 }
 
@@ -274,34 +313,15 @@ func TestEstimateCostUSD_NovitaUsesLongContextTier(t *testing.T) {
 }
 
 func TestEstimateCostUSD_NoCacheReadFallbackDiscount(t *testing.T) {
-	reg := registry.Global()
-	prov, ok := reg.GetProvider("openrouter")
-	if !ok {
-		t.Skip("openrouter provider not in registry")
-	}
-	var modelID string
-	var in, out float64
-	for _, m := range prov.Models {
-		if m.Cost == nil || m.Cost.CacheRead != 0 || m.Cost.Input <= 0 {
-			continue
-		}
-		if _, ok := reg.ResolveModel("openrouter", m.ID); !ok {
-			continue
-		}
-		modelID, in, out = m.ID, m.Cost.Input, m.Cost.Output
-		break
-	}
-	if modelID == "" {
-		t.Skip("no registry model without CacheRead to exercise fallback")
-	}
-
-	cost, err := billing.EstimateCostUSD(reg, "openrouter", modelID, 1000, 100, 800)
+	const modelID = "gpt-5.3-codex"
+	const in, out = 1.75, 14.0
+	cost, err := billing.EstimateCostUSD(registry.Global(), "openai", modelID, 1000, 100, 800)
 	if err != nil {
 		t.Fatalf("EstimateCostUSD: %v", err)
 	}
-	want := (200*in + 800*in*0.25 + 100*out) / 1_000_000
+	want := (200*in + 800*in*0.50 + 100*out) / 1_000_000
 	if math.Abs(cost-want) > 1e-9 {
-		t.Fatalf("cost = %.12f, want %.12f (0.25 fallback discount for %s)", cost, want, modelID)
+		t.Fatalf("cost = %.12f, want %.12f (OpenAI 0.50 cache discount for %s)", cost, want, modelID)
 	}
 	full := (1000*in + 100*out) / 1_000_000
 	if math.Abs(cost-full) < 1e-12 {
@@ -317,7 +337,7 @@ func TestEstimateCostUSD_UnknownModel(t *testing.T) {
 }
 
 func TestEstimateCostUSD_ZeroTokensZeroCost(t *testing.T) {
-	cost, err := billing.EstimateCostUSD(nil, "openrouter", "deepseek-v4-flash", 0, 0, 0)
+	cost, err := billing.EstimateCostUSD(nil, "novita", "deepseek-v4-flash", 0, 0, 0)
 	if err != nil {
 		t.Fatalf("EstimateCostUSD: %v", err)
 	}

@@ -14,9 +14,9 @@
 // Environment:
 //
 //	HIVY_DATABASE_URL           Postgres DSN (required)
-//	HIVY_REFLECTION_API_KEY     provider API key (or OPENROUTER_API_KEY); required unless -dry-run
-//	HIVY_REFLECTION_PROVIDER    same knob production reads (default "openrouter")
-//	HIVY_REFLECTION_MODEL       same knob production reads (default "gpt-5-mini")
+//	HIVY_REFLECTION_API_KEY     provider API key (or HIVY_SYSTEM_OPENAI_API_KEY); required unless -dry-run
+//	HIVY_REFLECTION_PROVIDER    same knob production reads (default "openai")
+//	HIVY_REFLECTION_MODEL       same knob production reads (default "gpt-4o-mini")
 //	HIVY_REFLECTION_TEMPERATURE same knob production reads (default 0.1)
 package main
 
@@ -47,7 +47,7 @@ func main() {
 	verbose := flag.Bool("verbose", false, "Print the raw LLM response for each session")
 	dryRun := flag.Bool("dry-run", false, "Render the transcript and system prompt without calling the LLM")
 	showTranscript := flag.Bool("transcript", false, "Print the rendered transcript for each session")
-	apiKeyFlag := flag.String("api-key", "", "Provider API key; falls back to HIVY_REFLECTION_API_KEY, then OPENROUTER_API_KEY")
+	apiKeyFlag := flag.String("api-key", "", "Provider API key; falls back to HIVY_REFLECTION_API_KEY, then HIVY_SYSTEM_OPENAI_API_KEY")
 	envFile := flag.String("env-file", ".env", "Env file to load before connecting; set empty to disable")
 	timeout := flag.Duration("timeout", 5*time.Minute, "Overall timeout")
 	flag.Parse()
@@ -79,9 +79,9 @@ func main() {
 
 	var client hivy.CompletionClient
 	if !*dryRun {
-		apiKey := firstNonEmpty(*apiKeyFlag, os.Getenv("HIVY_REFLECTION_API_KEY"), os.Getenv("OPENROUTER_API_KEY"))
+		apiKey := firstNonEmpty(*apiKeyFlag, os.Getenv("HIVY_REFLECTION_API_KEY"), os.Getenv("HIVY_SYSTEM_OPENAI_API_KEY"))
 		if apiKey == "" {
-			log.Fatal("no API key: pass -api-key, set HIVY_REFLECTION_API_KEY or OPENROUTER_API_KEY, or use -dry-run")
+			log.Fatal("no API key: pass -api-key, set HIVY_REFLECTION_API_KEY or HIVY_SYSTEM_OPENAI_API_KEY, or use -dry-run")
 		}
 		baseURL := ""
 		if provider, ok := reg.GetProvider(providerID); ok {

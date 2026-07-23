@@ -6,12 +6,11 @@ import (
 
 	"github.com/usehivy/hivy/internal/config"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/providerheaders"
 )
 
 const (
-	modelRequestHTTPReferer = providerheaders.OpenRouterHTTPReferer
-	modelRequestAppTitle    = providerheaders.OpenRouterAppTitle
+	modelRequestHTTPReferer = "https://usehivy.com"
+	modelRequestAppTitle    = "Hivy"
 )
 
 func proxyModel(cfg *config.Config, modelID string, route modelRouteMetadata) ModelConfig {

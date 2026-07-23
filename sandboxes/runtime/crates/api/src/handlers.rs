@@ -1361,7 +1361,7 @@ mod tests {
                 base_url: "http://localhost".to_string(),
                 model_id: "test".to_string(),
                 canonical_model_id: Some("test".to_string()),
-                provider_id: Some("openrouter".to_string()),
+                provider_id: Some("atlascloud".to_string()),
                 upstream_model_id: Some("test".to_string()),
                 model_profile: None,
                 provider_options: HashMap::new(),

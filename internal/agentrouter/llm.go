@@ -203,7 +203,7 @@ func collapseWhitespace(s string) string {
 
 func floatPtr(f float32) *float32 { return &f }
 
-// loadRouterCredential resolves the platform OpenRouter system credential for
+// loadRouterCredential resolves the platform OpenAI system credential for
 // the router model, mirroring the session-naming credential flow.
 func loadRouterCredential(
 	ctx context.Context,

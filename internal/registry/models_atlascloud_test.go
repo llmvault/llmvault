@@ -129,6 +129,95 @@ func TestAtlasCloudLongContextPricing(t *testing.T) {
 	}
 }
 
+func TestAtlasCloudKatCoderModels(t *testing.T) {
+	tests := []struct {
+		canonicalID          string
+		upstreamID           string
+		input, output, cache float64
+		context, maxOutput   int64
+		reasoning            bool
+	}{
+		{"kat-coder-air-v2.5", "kwaipilot/kat-coder-air-v2.5", 0.15, 0.6, 0.03, 262144, 262144, true},
+		{"kat-coder-pro-v2", "kwaipilot/kat-coder-pro-v2", 0.3, 1.2, 0.06, 262144, 144000, false},
+		{"kat-coder-pro-v2.5", "kwaipilot/kat-coder-pro-v2.5", 0.74, 2.96, 0.15, 262144, 262144, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.canonicalID, func(t *testing.T) {
+			routes := Global().ProxyRoutesForModel(test.canonicalID)
+			wantRoute := ModelRoute{ProviderID: "atlascloud", ModelID: test.upstreamID}
+			if len(routes) != 1 || routes[0] != wantRoute {
+				t.Fatalf("routes = %#v, want %#v", routes, []ModelRoute{wantRoute})
+			}
+
+			resolved, ok := Global().ResolveModel("atlascloud", test.canonicalID)
+			if !ok {
+				t.Fatal("Atlas Cloud route does not resolve")
+			}
+			if resolved.UpstreamID != test.upstreamID {
+				t.Fatalf("upstream = %q, want %q", resolved.UpstreamID, test.upstreamID)
+			}
+			if resolved.Model.Cost == nil ||
+				resolved.Model.Cost.Input != test.input ||
+				resolved.Model.Cost.Output != test.output ||
+				resolved.Model.Cost.CacheRead != test.cache {
+				t.Fatalf("cost = %#v", resolved.Model.Cost)
+			}
+			if resolved.Model.Limit == nil ||
+				resolved.Model.Limit.Context != test.context ||
+				resolved.Model.Limit.Output != test.maxOutput {
+				t.Fatalf("limits = %#v", resolved.Model.Limit)
+			}
+			if !resolved.Model.ToolCall || !resolved.Model.StructuredOutput ||
+				resolved.Model.Reasoning != test.reasoning {
+				t.Fatalf("features: reasoning=%v tools=%v structured=%v",
+					resolved.Model.Reasoning, resolved.Model.ToolCall, resolved.Model.StructuredOutput)
+			}
+		})
+	}
+}
+
+func TestAtlasCloudLongCatModel(t *testing.T) {
+	const canonicalID = "longcat-2.0"
+	wantRoute := ModelRoute{
+		ProviderID: "atlascloud",
+		ModelID:    "meituan-longcat/longcat-2.0",
+	}
+
+	routes := Global().ProxyRoutesForModel(canonicalID)
+	if len(routes) != 1 || routes[0] != wantRoute {
+		t.Fatalf("routes = %#v, want %#v", routes, []ModelRoute{wantRoute})
+	}
+
+	resolved, ok := Global().ResolveModel("atlascloud", canonicalID)
+	if !ok {
+		t.Fatal("Atlas Cloud route does not resolve")
+	}
+	if resolved.UpstreamID != wantRoute.ModelID {
+		t.Fatalf("upstream = %q, want %q", resolved.UpstreamID, wantRoute.ModelID)
+	}
+	if resolved.Model.Cost == nil ||
+		resolved.Model.Cost.Input != 0.75 ||
+		resolved.Model.Cost.Output != 3 ||
+		resolved.Model.Cost.CacheRead != 0.015 {
+		t.Fatalf("cost = %#v", resolved.Model.Cost)
+	}
+	if resolved.Model.Limit == nil ||
+		resolved.Model.Limit.Context != 1048756 ||
+		resolved.Model.Limit.Output != 262144 {
+		t.Fatalf("limits = %#v", resolved.Model.Limit)
+	}
+	if !resolved.Model.Reasoning ||
+		!resolved.Model.ToolCall ||
+		!resolved.Model.StructuredOutput {
+		t.Fatalf("features: reasoning=%v tools=%v structured=%v",
+			resolved.Model.Reasoning,
+			resolved.Model.ToolCall,
+			resolved.Model.StructuredOutput,
+		)
+	}
+}
+
 func TestAtlasCloudPrimaryRoutesAreDeclaredExplicitly(t *testing.T) {
 	tests := []struct {
 		canonicalID  string
@@ -159,9 +248,13 @@ func TestAtlasCloudPrimaryRoutesAreDeclaredExplicitly(t *testing.T) {
 		{canonicalID: "gpt-5.6-terra", atlasModelID: "openai/gpt-5.6-terra"},
 		{canonicalID: "grok-4.3", atlasModelID: "xai/grok-4.3"},
 		{canonicalID: "grok-4.5", atlasModelID: "xai/grok-4.5"},
+		{canonicalID: "kat-coder-air-v2.5", atlasModelID: "kwaipilot/kat-coder-air-v2.5"},
+		{canonicalID: "kat-coder-pro-v2", atlasModelID: "kwaipilot/kat-coder-pro-v2"},
+		{canonicalID: "kat-coder-pro-v2.5", atlasModelID: "kwaipilot/kat-coder-pro-v2.5"},
 		{canonicalID: "kimi-k2.5", atlasModelID: "moonshotai/kimi-k2.5"},
 		{canonicalID: "kimi-k2.6", atlasModelID: "moonshotai/kimi-k2.6"},
 		{canonicalID: "kimi-k2.7-code", atlasModelID: "moonshotai/kimi-k2.7-code"},
+		{canonicalID: "longcat-2.0", atlasModelID: "meituan-longcat/longcat-2.0"},
 		{canonicalID: "minimax-m2.5", atlasModelID: "minimaxai/minimax-m2.5"},
 		{canonicalID: "minimax-m2.7", atlasModelID: "minimaxai/minimax-m2.7"},
 		{canonicalID: "qwen3.6-35b-a3b", atlasModelID: "qwen/qwen3.6-35b-a3b"},
@@ -186,21 +279,12 @@ func TestAtlasCloudPrimaryRoutesAreDeclaredExplicitly(t *testing.T) {
 		}
 
 		routes := Global().ProxyRoutesForModel(test.canonicalID)
-		if len(routes) < 2 {
+		if len(routes) < 1 {
 			t.Errorf("%s routes = %#v", test.canonicalID, routes)
 			continue
 		}
 		if routes[0] != wantAtlas {
 			t.Errorf("%s primary route = %#v", test.canonicalID, routes[0])
-		}
-		openRouterIndex := slices.IndexFunc(routes, func(route ModelRoute) bool {
-			return route.ProviderID == "openrouter"
-		})
-		declaresOpenRouter := slices.ContainsFunc(hivyModel.Routes, func(route ModelRoute) bool {
-			return route.ProviderID == "openrouter"
-		})
-		if declaresOpenRouter && openRouterIndex < 1 {
-			t.Errorf("%s routes = %#v, want OpenRouter after Atlas", test.canonicalID, routes)
 		}
 		if _, ok := Global().ResolveModel("atlascloud", test.canonicalID); !ok {
 			t.Errorf("%s Atlas route does not resolve", test.canonicalID)
@@ -218,10 +302,10 @@ func TestAtlasCloudPrimaryRoutesAreDeclaredExplicitly(t *testing.T) {
 	}
 }
 
-func TestAtlasCloudDoesNotReplaceFailedOrDirectPrimaryRoutes(t *testing.T) {
+func TestAtlasCloudDoesNotReplaceDirectPrimaryRoutes(t *testing.T) {
 	routes := Global().ProxyRoutesForModel("gpt-4o-mini")
-	if len(routes) == 0 || routes[0].ProviderID != "openrouter" {
-		t.Fatalf("gpt-4o-mini routes = %#v, want OpenRouter primary", routes)
+	if len(routes) == 0 || routes[0].ProviderID != "openai" {
+		t.Fatalf("gpt-4o-mini routes = %#v, want OpenAI primary", routes)
 	}
 
 	routes = Global().ProxyRoutesForModel("mimo-v2.5-pro")

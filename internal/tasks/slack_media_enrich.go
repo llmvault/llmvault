@@ -27,7 +27,7 @@ import (
 
 const (
 	slackImageDescribeModel    = "gemini-3.5-flash"
-	slackImageDescribeProvider = "openrouter"
+	slackImageDescribeProvider = "atlascloud"
 	slackAudioModel            = "scribe-v2"
 	slackMediaMaxBytes         = 25 * 1024 * 1024
 	slackMediaMaxItems         = 6
