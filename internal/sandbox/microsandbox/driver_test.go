@@ -10,6 +10,7 @@ import (
 	"time"
 
 	msbapi "github.com/usehivy/hivy/internal/microsandbox/api"
+	"github.com/usehivy/hivy/internal/observability/correlation"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -36,12 +37,14 @@ func TestDriverPreservesCapacityExhaustedError(t *testing.T) {
 func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	var createReq map[string]any
 	var runtimeReq map[string]any
+	var createHeaders http.Header
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Authorization"); got != "Bearer test-token" {
 			t.Fatalf("Authorization = %q, want bearer token", got)
 		}
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/sandboxes":
+			createHeaders = r.Header.Clone()
 			if err := json.NewDecoder(r.Body).Decode(&createReq); err != nil {
 				t.Fatalf("decode create request: %v", err)
 			}
@@ -66,11 +69,22 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 		t.Fatalf("NewDriver: %v", err)
 	}
 
-	info, err := driver.CreateSandbox(context.Background(), sandbox.CreateSandboxOpts{
+	ctx := correlation.WithValues(context.Background(), correlation.Values{
+		SessionID:             "session-123",
+		ProvisioningAttemptID: "attempt-123",
+		TraceID:               "trace-123",
+	})
+	info, err := driver.CreateSandbox(ctx, sandbox.CreateSandboxOpts{
 		Name:        "agent-test",
 		TemplateRef: "ghcr.io/usehivy/hivy-sandboxes-runtime:latest",
-		Labels:      map[string]string{"org_id": "org_123", "agent_id": "emp_123"},
-		EnvVars:     map[string]string{"HIVY_RUNTIME_SECRET": "secret"},
+		Labels: map[string]string{
+			"org_id":                  "org_123",
+			"agent_id":                "emp_123",
+			"session_id":              "session-123",
+			"provisioning_attempt_id": "attempt-123",
+			"trace_id":                "trace-123",
+		},
+		EnvVars: map[string]string{"HIVY_RUNTIME_SECRET": "secret"},
 	})
 	if err != nil {
 		t.Fatalf("CreateSandbox: %v", err)
@@ -80,6 +94,13 @@ func TestDriverCreateSandboxAndRuntimeEndpoint(t *testing.T) {
 	}
 	if createReq["org_id"] != "org_123" {
 		t.Fatalf("org_id = %v, want org_123", createReq["org_id"])
+	}
+	if got := createHeaders.Get(correlation.HeaderSessionID); got != "session-123" {
+		t.Fatalf("session correlation header = %q", got)
+	}
+	metadata, ok := createReq["metadata"].(map[string]any)
+	if !ok || metadata["provisioning_attempt_id"] != "attempt-123" || metadata["trace_id"] != "trace-123" {
+		t.Fatalf("provisioning metadata = %#v", createReq["metadata"])
 	}
 	if _, ok := createReq["snapshot_id"]; ok {
 		t.Fatalf("snapshot_id must not be sent: %#v", createReq)

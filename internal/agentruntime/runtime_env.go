@@ -39,6 +39,11 @@ type RuntimeConfigOptions struct {
 	ModelID         string
 	ReasoningEffort string
 	MCPContext      MCPRuntimeContext
+	// SessionID, ProvisioningAttemptID, and TraceID form the observability
+	// correlation contract for session-scoped sandbox provisioning.
+	SessionID             uuid.UUID
+	ProvisioningAttemptID uuid.UUID
+	TraceID               string
 	// TeamID scopes which team env vars are injected. When Nil, the builder
 	// resolves it from the sandbox's session channel. Session creation sets it
 	// explicitly because the session↔sandbox link is not yet persisted at the
@@ -79,6 +84,15 @@ func BuildAgentRuntimeConfigUpdateWithProxyTokenOptions(ctx context.Context, dep
 	env, err := BuildRuntimeEnvWithProxyToken(ctx, deps, runtimeAgent, sb, runtimeSecret, token, teamID)
 	if err != nil {
 		return ConfigUpdateRequest{}, err
+	}
+	if opts.SessionID != uuid.Nil {
+		env[AgentEnvSessionID] = opts.SessionID.String()
+	}
+	if opts.ProvisioningAttemptID != uuid.Nil {
+		env[AgentEnvProvisioningAttemptID] = opts.ProvisioningAttemptID.String()
+	}
+	if traceID := strings.TrimSpace(opts.TraceID); traceID != "" {
+		env[AgentEnvTraceID] = traceID
 	}
 	phaseLog.log("build runtime env", "env_key_count", len(env))
 	opts.TeamID = teamID

@@ -13,6 +13,7 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/observability/correlation"
 	"github.com/usehivy/hivy/internal/orgtier"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
@@ -89,6 +90,10 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	logPhase("validate runtime options", "org_id", org.ID, "agent_id", agent.ID)
 	session := h.newSessionRecord(r, org.ID, agent.TeamID, agent, req, userID)
+	provisioning := correlation.NewProvisioning(session.ID)
+	provisioning.OrgID = org.ID.String()
+	provisioning.AgentID = agent.ID.String()
+	ctx = correlation.WithValues(ctx, provisioning)
 	mcpContext := agentruntime.MCPRuntimeContextForSession(session, userID)
 	if mcpContext.AllowsPersonalServers() {
 		session.RuntimeMCPActorUserID = mcpContext.ActorUserID
@@ -109,22 +114,38 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		logPhase("hydrate initial message attachments", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID)
 	}
 	var sessionSandbox *model.Sandbox
+	provisionStarted := time.Now()
 	effectiveSandboxSize, err := orgtier.EffectiveSandboxSize(ctx, h.db, org.ID, agent.SandboxSize, agent.SandboxTemplateID)
 	if err != nil {
-		logging.FromContext(ctx).ErrorContext(ctx, "resolve effective sandbox size for session create", "agent_id", agent.ID, "error", err)
+		logging.FromContext(ctx).ErrorContext(ctx, "resolve effective sandbox size for session create",
+			"event", "session provisioning",
+			"phase", "resolve capacity",
+			"status", "error",
+			"duration_ms", time.Since(provisionStarted).Milliseconds(),
+			"agent_id", agent.ID,
+			"error", err,
+		)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to validate sandbox capacity"})
 		return
 	}
 	err = orgtier.WithSessionCreate(ctx, h.db, org.ID, effectiveSandboxSize, func() error {
 		var provisionErr error
-		sessionSandbox, provisionErr = h.provisionSessionSandbox(ctx, &agent, agent.TeamID, session.Model, session.ReasoningEffort, mcpContext)
+		sessionSandbox, provisionErr = h.provisionSessionSandbox(ctx, session.ID, &agent, agent.TeamID, session.Model, session.ReasoningEffort, mcpContext)
 		return provisionErr
 	})
 	if err != nil {
 		if writeOrgTierError(w, err) {
 			return
 		}
-		logging.FromContext(ctx).ErrorContext(ctx, "provision session sandbox for session create failed", "agent_id", agent.ID, "error", err)
+		logging.FromContext(ctx).ErrorContext(ctx, "provision session sandbox for session create failed",
+			"event", "session provisioning",
+			"phase", "provision sandbox",
+			"status", "error",
+			"duration_ms", time.Since(provisionStarted).Milliseconds(),
+			"session_id", session.ID,
+			"agent_id", agent.ID,
+			"error", err,
+		)
 		logging.Capture(ctx, err)
 		if errors.Is(err, sandbox.ErrCapacityExhausted) {
 			w.Header().Set("Retry-After", "5")
@@ -135,6 +156,14 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	session.SandboxID = &sessionSandbox.ID
+	logging.FromContext(ctx).InfoContext(ctx, "session provisioning complete",
+		"event", "session provisioning",
+		"phase", "complete",
+		"status", "success",
+		"duration_ms", time.Since(provisionStarted).Milliseconds(),
+		"provisioning_path", "session_create",
+		"sandbox_id", sessionSandbox.ID,
+	)
 	logPhase("provision session sandbox", "org_id", org.ID, "agent_id", agent.ID, "session_id", session.ID, "sandbox_id", sessionSandbox.ID, "external_id", sessionSandbox.ExternalID)
 	queued := false
 	var event *model.SessionEvent

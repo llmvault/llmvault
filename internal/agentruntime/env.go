@@ -23,6 +23,9 @@ const (
 	AgentEnvTunnelPassword             = "HIVY_TUNNEL_PASSWORD"
 	AgentEnvSandboxID                  = "HIVY_SANDBOX_ID"
 	AgentEnvOrgID                      = "HIVY_ORG_ID"
+	AgentEnvSessionID                  = "HIVY_SESSION_ID"
+	AgentEnvProvisioningAttemptID      = "HIVY_PROVISIONING_ATTEMPT_ID"
+	AgentEnvTraceID                    = "HIVY_TRACE_ID"
 	AgentEnvGitUsername                = "HIVY_GIT_USERNAME"
 	AgentEnvGitEmail                   = "HIVY_GIT_EMAIL"
 	AgentEnvGitCredentialsURL          = "HIVY_GIT_CREDENTIALS_URL" // #nosec G101 -- environment variable name, not a credential value.
@@ -98,6 +101,9 @@ var agentEnvCatalog = []AgentEnvSpec{
 	{Key: AgentEnvTunnelPassword, Source: AgentEnvSourceControlPlaneInjected, Sensitive: true},
 	{Key: AgentEnvSandboxID, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvOrgID, Source: AgentEnvSourceControlPlaneInjected},
+	{Key: AgentEnvSessionID, Source: AgentEnvSourceControlPlaneInjected, Optional: true},
+	{Key: AgentEnvProvisioningAttemptID, Source: AgentEnvSourceControlPlaneInjected, Optional: true},
+	{Key: AgentEnvTraceID, Source: AgentEnvSourceControlPlaneInjected, Optional: true},
 	{Key: AgentEnvGitUsername, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvGitEmail, Source: AgentEnvSourceControlPlaneInjected},
 	{Key: AgentEnvGitCredentialsURL, Source: AgentEnvSourceControlPlaneInjected},

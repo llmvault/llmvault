@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	msbapi "github.com/usehivy/hivy/internal/microsandbox/api"
+	"github.com/usehivy/hivy/internal/observability/correlation"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -33,6 +34,7 @@ func (d *Driver) postTemplateStream(ctx context.Context, in any, onLog func(stri
 	}
 	req.Header.Set("Authorization", "Bearer "+d.apiToken)
 	req.Header.Set("Content-Type", "application/json")
+	correlation.InjectHeaders(ctx, req.Header)
 	resp, err := d.http.Do(req)
 	if err != nil {
 		return "", err
@@ -92,6 +94,7 @@ func (d *Driver) do(ctx context.Context, method, path string, in, out any) error
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+d.apiToken)
+	correlation.InjectHeaders(ctx, req.Header)
 	if in != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

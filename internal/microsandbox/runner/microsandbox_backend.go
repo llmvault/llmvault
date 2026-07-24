@@ -109,9 +109,10 @@ func (m *MicrosandboxBackend) Reconcile(ctx context.Context) (*ReconcileReport, 
 	return report, nil
 }
 
-func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandboxRequest) (*CreateSandboxResponse, error) {
+func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandboxRequest) (result *CreateSandboxResponse, resultErr error) {
 	totalStarted := time.Now()
 	phaseStarted := totalStarted
+	lastPhase := "start"
 	logPhase := func(phase string, attrs ...any) {
 		attrs = append(attrs,
 			"total_ms", time.Since(totalStarted).Milliseconds(),
@@ -120,7 +121,21 @@ func (m *MicrosandboxBackend) CreateSandbox(ctx context.Context, req CreateSandb
 		)
 		logging.LogPhase(ctx, "microsandbox runner create phase", phase, phaseStarted, attrs...)
 		phaseStarted = time.Now()
+		lastPhase = phase
 	}
+	defer func() {
+		if resultErr != nil {
+			logging.FromContext(ctx).ErrorContext(ctx, "microsandbox runner creation failed",
+				"event", "microsandbox runner create phase",
+				"status", "error",
+				"last_completed_phase", lastPhase,
+				"duration_ms", time.Since(phaseStarted).Milliseconds(),
+				"total_ms", time.Since(totalStarted).Milliseconds(),
+				"sandbox_id", req.ID,
+				"error", resultErr,
+			)
+		}
+	}()
 	logPhase("start",
 		"preview_port_count", len(req.PreviewPorts),
 		"env_key_count", len(req.Env),

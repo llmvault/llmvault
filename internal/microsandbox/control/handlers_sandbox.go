@@ -17,6 +17,7 @@ import (
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
 	"github.com/usehivy/hivy/internal/microsandbox/model"
 	"github.com/usehivy/hivy/internal/microsandbox/security"
+	"github.com/usehivy/hivy/internal/observability/correlation"
 )
 
 type createSandboxRequest struct {
@@ -62,6 +63,10 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusBadRequest, api.ErrorResponse{Error: "org_id and image_ref or template_id are required"})
 		return
 	}
+	correlationValues := correlation.FromHeaders(r.Header)
+	correlationValues = correlation.Merge(correlationValues, correlation.FromLabels(stringMetadataLabels(req.Metadata)))
+	correlationValues.OrgID = req.OrgID
+	ctx = correlation.WithValues(ctx, correlationValues)
 	size := resolveSize(req)
 	id, err := security.ShortID("sbx")
 	if err != nil {
@@ -92,7 +97,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	}
 	logPhase("validate request", "sandbox_id", id, "org_id", req.OrgID, "preview_port_count", len(req.PreviewPorts), "health_check_count", len(healthChecks))
 	if req.TemplateID != "" {
-		template, err := s.loadTemplateByID(r.Context(), req.TemplateID)
+		template, err := s.loadTemplateByID(ctx, req.TemplateID)
 		if err != nil {
 			httpx.JSON(w, http.StatusNotFound, api.ErrorResponse{Error: "template not found"})
 			return
@@ -110,7 +115,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	logPhase("resolve template", "sandbox_id", id, "org_id", req.OrgID, "has_template_id", strings.TrimSpace(req.TemplateID) != "")
 	metadata, _ := json.Marshal(req.Metadata)
 
-	password, err := s.ensureOrgPassword(r.Context(), req.OrgID, req.PreviewPassword)
+	password, err := s.ensureOrgPassword(ctx, req.OrgID, req.PreviewPassword)
 	if err != nil {
 		httpx.JSON(w, http.StatusInternalServerError, api.ErrorResponse{Error: "failed to prepare preview password"})
 		return
@@ -125,6 +130,15 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Env["HIVY_MICROSANDBOX_ID"] = id
 	req.Env["HIVY_MICROSANDBOX_ACTIVITY_TOKEN"] = activityToken
+	if correlationValues.SessionID != "" {
+		req.Env["HIVY_SESSION_ID"] = correlationValues.SessionID
+	}
+	if correlationValues.ProvisioningAttemptID != "" {
+		req.Env["HIVY_PROVISIONING_ATTEMPT_ID"] = correlationValues.ProvisioningAttemptID
+	}
+	if correlationValues.TraceID != "" {
+		req.Env["HIVY_TRACE_ID"] = correlationValues.TraceID
+	}
 	if strings.TrimSpace(s.cfg.ControlURL) != "" {
 		req.Env["HIVY_MICROSANDBOX_CONTROL_URL"] = strings.TrimRight(s.cfg.ControlURL, "/")
 	}
@@ -135,7 +149,7 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 
 	var sb model.Sandbox
 	var runner model.Runner
-	runner, err = reserveRunnerForPlacement(r.Context(), s.db, size, s.cfg.SchedulerPlacementTimeout, func(tx *gorm.DB, selected model.Runner) error {
+	runner, err = reserveRunnerForPlacement(ctx, s.db, size, s.cfg.SchedulerPlacementTimeout, func(tx *gorm.DB, selected model.Runner) error {
 		sb = model.Sandbox{
 			ID: id, OrgID: req.OrgID, RunnerID: selected.ID, Name: req.Name, ImageRef: req.ImageRef,
 			Status: model.SandboxStatusCreating, CPU: size.CPU, MemoryMB: size.MemoryMB,
@@ -166,12 +180,16 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	)
 
 	var createResp runnerCreateSandboxResponse
-	err = s.client.Post(r.Context(), runner.APIURL, "/v1/sandboxes", runnerCreateSandboxRequest{
+	runnerLabels := stringMetadataLabels(req.Metadata)
+	correlationValues.SandboxID = sb.ID
+	correlationValues.OrgID = sb.OrgID
+	correlation.ApplyLabels(runnerLabels, correlationValues)
+	err = s.client.Post(ctx, runner.APIURL, "/v1/sandboxes", runnerCreateSandboxRequest{
 		ID: sb.ID, Name: sb.Name, ImageRef: sb.ImageRef,
 		CPU: sb.CPU, MemoryMB: sb.MemoryMB, DiskGB: sb.DiskGB, Env: req.Env,
 		PreviewPorts: req.PreviewPorts,
 		Init:         req.Init,
-		Labels:       map[string]string{"org_id": sb.OrgID, "sandbox_id": sb.ID},
+		Labels:       runnerLabels,
 	}, &createResp)
 	if err != nil {
 		_ = s.db.Transaction(func(tx *gorm.DB) error {
@@ -210,12 +228,23 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 	sb.SleepAfterAt = sleepAfterAt
 	sb.LastWakeAt = &now
 	logPhase("persist ports", "sandbox_id", sb.ID, "org_id", req.OrgID, "runner_id", runner.ID, "port_count", len(ports), "sleep_after_at", sleepAfterAt)
-	s.syncPreviewRoute(r.Context(), sb, runner, ports)
+	s.syncPreviewRoute(ctx, sb, runner, ports)
 	logPhase("sync preview route", "sandbox_id", sb.ID, "org_id", req.OrgID, "runner_id", runner.ID, "port_count", len(ports))
 	resp := sandboxResponse{Sandbox: sb, Ports: ports, PreviewURLs: s.previewURLs(sb.ID, ports)}
 	resp.PreviewPassword = password
 	httpx.JSON(w, http.StatusCreated, resp)
 	logPhase("complete", "sandbox_id", sb.ID, "org_id", req.OrgID, "runner_id", runner.ID, "port_count", len(ports))
+}
+
+func stringMetadataLabels(metadata map[string]any) map[string]string {
+	labels := make(map[string]string, len(metadata))
+	for key, value := range metadata {
+		text, ok := value.(string)
+		if ok && strings.TrimSpace(text) != "" {
+			labels[key] = strings.TrimSpace(text)
+		}
+	}
+	return labels
 }
 
 func (s *Server) listSandboxes(w http.ResponseWriter, r *http.Request) {

@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
+	"github.com/usehivy/hivy/internal/observability/correlation"
 )
 
 func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
@@ -18,13 +19,16 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
 		return
 	}
+	values := correlation.Merge(correlation.FromHeaders(r.Header), correlation.FromLabels(req.Labels))
+	values.SandboxID = req.ID
+	ctx := correlation.WithValues(r.Context(), values)
 	if err := s.addSandboxLogIngestEnv(&req); err != nil {
 		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": "sandbox log ingestion is not configured"})
 		return
 	}
 	done := s.trackStartingOperation()
 	defer done()
-	resp, err := s.backend.CreateSandbox(r.Context(), req)
+	resp, err := s.backend.CreateSandbox(ctx, req)
 	if err != nil {
 		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return

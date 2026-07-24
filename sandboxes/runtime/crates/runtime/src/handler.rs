@@ -1517,6 +1517,22 @@ impl DurableAgentStream {
                     .await;
             }
             AgentEvent::ToolCall { id, tool, args } => {
+                info!(
+                    event_type = "tool_call",
+                    session_id = %context.durable_session_id.as_str(),
+                    trace_id = context
+                        .metadata
+                        .and_then(|metadata| metadata.trace_id.as_deref())
+                        .unwrap_or(""),
+                    turn_id = context
+                        .metadata
+                        .and_then(|metadata| metadata.turn_id.as_deref())
+                        .unwrap_or(""),
+                    tool_call_id = %id,
+                    tool_name = %tool,
+                    tool_status = "started",
+                    "agent tool call started"
+                );
                 self.tool_calls.insert(
                     id.clone(),
                     DurableToolCall {
@@ -1535,12 +1551,53 @@ impl DurableAgentStream {
                 } else {
                     "completed"
                 };
+                let tool_name = call
+                    .as_ref()
+                    .map(|call| call.tool.as_str())
+                    .unwrap_or("unknown");
+                let duration_ms = call
+                    .as_ref()
+                    .map(|call| (Utc::now() - call.started_at).num_milliseconds());
+                if status == "errored" {
+                    warn!(
+                        event_type = "tool_result",
+                        session_id = %context.durable_session_id.as_str(),
+                        trace_id = context
+                            .metadata
+                            .and_then(|metadata| metadata.trace_id.as_deref())
+                            .unwrap_or(""),
+                        turn_id = context
+                            .metadata
+                            .and_then(|metadata| metadata.turn_id.as_deref())
+                            .unwrap_or(""),
+                        tool_call_id = %id,
+                        tool_name,
+                        tool_status = status,
+                        duration_ms,
+                        "agent tool call failed"
+                    );
+                } else {
+                    info!(
+                        event_type = "tool_result",
+                        session_id = %context.durable_session_id.as_str(),
+                        trace_id = context
+                            .metadata
+                            .and_then(|metadata| metadata.trace_id.as_deref())
+                            .unwrap_or(""),
+                        turn_id = context
+                            .metadata
+                            .and_then(|metadata| metadata.turn_id.as_deref())
+                            .unwrap_or(""),
+                        tool_call_id = %id,
+                        tool_name,
+                        tool_status = status,
+                        duration_ms,
+                        "agent tool call completed"
+                    );
+                }
                 let mut payload = json!({
                     "id": id,
-                    "tool": call
-                        .as_ref()
-                        .map(|call| call.tool.as_str())
-                        .unwrap_or("unknown"),
+                    "tool": tool_name,
                     "status": status,
                 });
                 if let Some(call) = call.as_ref() {

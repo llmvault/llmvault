@@ -15,6 +15,7 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/observability/correlation"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -122,6 +123,7 @@ func (h *SessionMessageDeliverHandler) Handle(ctx context.Context, task *asynq.T
 }
 
 func (h *SessionMessageDeliverHandler) DispatchNext(ctx context.Context, sessionID uuid.UUID) (*agentruntime.HTTPMessageResponse, error) {
+	ctx = correlation.WithValues(ctx, correlation.Values{SessionID: sessionID.String()})
 	queue, err := h.claimNext(ctx, sessionID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
@@ -186,6 +188,15 @@ func (h *SessionMessageDeliverHandler) DeliverCommand(ctx context.Context, sessi
 	if session.ID == uuid.Nil {
 		return nil, fmt.Errorf("session message delivery: session is required")
 	}
+	values := correlation.Values{
+		SessionID: session.ID.String(),
+		OrgID:     session.OrgID.String(),
+		AgentID:   session.AgentID.String(),
+	}
+	if session.SandboxID != nil {
+		values.SandboxID = session.SandboxID.String()
+	}
+	ctx = correlation.WithValues(ctx, values)
 	var agent model.Agent
 	if err := h.db.WithContext(ctx).
 		Where("id = ? AND org_id = ? AND status <> ?", session.AgentID, session.OrgID, "archived").

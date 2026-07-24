@@ -437,7 +437,7 @@
           },
           "direction": "desc",
           "editorMode": "code",
-          "expr": "source:~\"runner|sandbox\" runner_id:~\"$runner\" _msg:~\"$search\" | fields _time, level, source, runner_id, sandbox_id, org_id, agent_id, _SYSTEMD_UNIT, _msg | limit 1000",
+          "expr": "source:~\"runner|sandbox\" runner_id:~\"$runner\" _msg:~\"$search\" | fields _time, level, source, runner_id, sandbox_id, session_id, provisioning_attempt_id, trace_id, org_id, agent_id, _SYSTEMD_UNIT, _msg | limit 1000",
           "maxLines": 1000,
           "queryType": "instant",
           "refId": "A"

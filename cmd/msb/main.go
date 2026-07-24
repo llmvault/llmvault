@@ -43,7 +43,12 @@ func main() {
 	slog.Info("starting msb", "version", version, "commit", commit, "command", cmd)
 
 	if cfg.SentryDSN != "" {
-		if err := sentry.Init(sentry.ClientOptions{Dsn: cfg.SentryDSN, Environment: cfg.Environment}); err != nil {
+		if err := sentry.Init(sentry.ClientOptions{
+			Dsn:              cfg.SentryDSN,
+			Environment:      cfg.Environment,
+			EnableTracing:    cfg.SentryTracesSampleRate > 0,
+			TracesSampleRate: cfg.SentryTracesSampleRate,
+		}); err != nil {
 			slog.Error("sentry init failed", "error", err)
 			os.Exit(1)
 		}

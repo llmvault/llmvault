@@ -52,9 +52,12 @@ func TestSandboxLogIngestForwardsTrustedIdentity(t *testing.T) {
 	_, err := backend.CreateSandbox(context.Background(), CreateSandboxRequest{
 		ID: "sandbox-1",
 		Labels: map[string]string{
-			"org_id":   "org-1",
-			"agent_id": "agent-1",
-			"harness":  "agent-runtime",
+			"org_id":                  "org-1",
+			"agent_id":                "agent-1",
+			"session_id":              "session-1",
+			"provisioning_attempt_id": "attempt-1",
+			"trace_id":                "trace-1",
+			"harness":                 "agent-runtime",
 		},
 	})
 	if err != nil {
@@ -90,6 +93,9 @@ func TestSandboxLogIngestForwardsTrustedIdentity(t *testing.T) {
 		"sandbox_id=sandbox-1",
 		"org_id=org-1",
 		"agent_id=agent-1",
+		"session_id=session-1",
+		"provisioning_attempt_id=attempt-1",
+		"trace_id=trace-1",
 		"service=agent-runtime",
 	} {
 		if !strings.Contains(extraFields, want) {

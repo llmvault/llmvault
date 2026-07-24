@@ -16,6 +16,7 @@ type Config struct {
 	Addr                      string
 	DatabaseDSN               string
 	SentryDSN                 string
+	SentryTracesSampleRate    float64
 	DatabaseMaxOpenConns      int
 	DatabaseMaxIdleConns      int
 	DatabaseConnMaxLifetime   time.Duration
@@ -68,6 +69,7 @@ func Load() Config {
 		Addr:                        get("HIVY_MICROSANDBOX_ADDR", ":8080"),
 		DatabaseDSN:                 os.Getenv("HIVY_MICROSANDBOX_DATABASE_DSN"),
 		SentryDSN:                   os.Getenv("HIVY_MICROSANDBOX_SENTRY_DSN"),
+		SentryTracesSampleRate:      float("HIVY_MICROSANDBOX_SENTRY_TRACES_SAMPLE_RATE", 1),
 		DatabaseMaxOpenConns:        integer("HIVY_MICROSANDBOX_DATABASE_MAX_OPEN_CONNS", 32),
 		DatabaseMaxIdleConns:        integer("HIVY_MICROSANDBOX_DATABASE_MAX_IDLE_CONNS", 16),
 		DatabaseConnMaxLifetime:     duration("HIVY_MICROSANDBOX_DATABASE_CONN_MAX_LIFETIME", 30*time.Minute),

@@ -145,13 +145,16 @@ func (s *Server) ingestSandboxJournal(w http.ResponseWriter, r *http.Request) {
 
 func trustedLogHeaders(environment, runnerName, sandboxID string, labels map[string]string) (string, string) {
 	fields := map[string]string{
-		"source":      "sandbox",
-		"environment": environment,
-		"runner_id":   runnerName,
-		"sandbox_id":  sandboxID,
-		"org_id":      labels["org_id"],
-		"agent_id":    labels["agent_id"],
-		"service":     labels["harness"],
+		"source":                  "sandbox",
+		"environment":             environment,
+		"runner_id":               runnerName,
+		"sandbox_id":              sandboxID,
+		"org_id":                  labels["org_id"],
+		"agent_id":                labels["agent_id"],
+		"session_id":              labels["session_id"],
+		"provisioning_attempt_id": labels["provisioning_attempt_id"],
+		"trace_id":                labels["trace_id"],
+		"service":                 labels["harness"],
 	}
 	if fields["service"] == "" {
 		fields["service"] = "sandbox"

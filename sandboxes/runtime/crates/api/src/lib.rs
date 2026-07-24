@@ -69,6 +69,7 @@ mod openapi {
             crate::repos::get_repo_diff,
             crate::observability_handlers::get_trace_events,
             crate::observability_handlers::get_trace_summary,
+            crate::observability_handlers::get_session_events,
         ),
         components(schemas(
             domain::AgentDefinition,
@@ -224,6 +225,10 @@ pub fn build_router(state: ApiState) -> Router {
         .route(
             "/observability/traces/:trace_id/summary",
             get(observability_handlers::get_trace_summary),
+        )
+        .route(
+            "/observability/sessions/:session_id/events",
+            get(observability_handlers::get_session_events),
         )
         .route("/repos", get(repos::list_repos))
         .route("/repos/:repo_id/tree", get(repos::get_repo_tree))
@@ -403,6 +408,7 @@ mod openapi_tests {
             "/control/drain/cancel".to_string(),
             "/canvas/preview/{path}".to_string(),
             "/healthz".to_string(),
+            "/observability/sessions/{session_id}/events".to_string(),
             "/observability/traces/{trace_id}/events".to_string(),
             "/observability/traces/{trace_id}/summary".to_string(),
             "/readyz".to_string(),

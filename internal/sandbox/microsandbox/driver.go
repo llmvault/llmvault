@@ -9,6 +9,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/agentruntime"
 	msbapi "github.com/usehivy/hivy/internal/microsandbox/api"
+	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -43,7 +44,7 @@ func NewDriver(cfg Config) (*Driver, error) {
 		defaultPreviewPorts: msbapi.DefaultPreviewPorts(),
 		runtimePort:         runtimePort,
 		runtimeImage:        strings.TrimSpace(cfg.RuntimeImage),
-		http:                &http.Client{Timeout: 35 * time.Minute},
+		http:                sentryobs.WrapClient(&http.Client{Timeout: 35 * time.Minute}),
 	}, nil
 }
 

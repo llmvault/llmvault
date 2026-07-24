@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 )
 
 type Client struct {
@@ -110,8 +112,8 @@ func NewClientWithTimeout(baseURL, apiKey string, timeout time.Duration) *Client
 	return &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		apiKey:  apiKey,
-		http:    &http.Client{Timeout: timeout},
-		stream:  newStreamingHTTPClient(),
+		http:    sentryobs.WrapClient(&http.Client{Timeout: timeout}),
+		stream:  sentryobs.WrapClient(newStreamingHTTPClient()),
 	}
 }
 

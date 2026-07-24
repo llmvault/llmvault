@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/observability/correlation"
 )
 
 func (c *Client) doVoid(ctx context.Context, method, path string, body any) error {
@@ -97,6 +98,7 @@ func (c *Client) newRequest(ctx context.Context, method, rawURL string, data []b
 	if data != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	correlation.InjectHeaders(ctx, req.Header)
 	return req, nil
 }
 

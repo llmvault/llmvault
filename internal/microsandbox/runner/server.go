@@ -18,6 +18,8 @@ import (
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
+	"github.com/usehivy/hivy/internal/observability/correlation"
+	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 )
 
 type Server struct {
@@ -68,6 +70,9 @@ func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	r.Use(sentryobs.Middleware())
+	r.Use(correlation.Middleware)
+	r.Use(sentryobs.Capture5xxResponses())
 	r.Use(middleware.Recoverer)
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)

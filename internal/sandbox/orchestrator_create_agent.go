@@ -6,9 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/observability/correlation"
 )
 
 const (
@@ -22,16 +25,41 @@ func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agen
 	return o.CreateAgentSandboxWithRuntimeOptions(ctx, agent, secrets, agentruntime.RuntimeConfigOptions{})
 }
 
-func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context, agent *model.Agent, secrets *agentruntime.StartupSecrets, runtimeOptions agentruntime.RuntimeConfigOptions) (*model.Sandbox, error) {
+func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context, agent *model.Agent, secrets *agentruntime.StartupSecrets, runtimeOptions agentruntime.RuntimeConfigOptions) (result *model.Sandbox, resultErr error) {
+	correlationValues := correlation.FromContext(ctx)
+	if runtimeOptions.SessionID != uuid.Nil {
+		correlationValues.SessionID = runtimeOptions.SessionID.String()
+	}
+	if runtimeOptions.ProvisioningAttemptID != uuid.Nil {
+		correlationValues.ProvisioningAttemptID = runtimeOptions.ProvisioningAttemptID.String()
+	}
+	if traceID := strings.TrimSpace(runtimeOptions.TraceID); traceID != "" {
+		correlationValues.TraceID = traceID
+	}
+	ctx = correlation.WithValues(ctx, correlationValues)
 	totalStarted := time.Now()
 	phaseStarted := totalStarted
+	lastPhase := "start"
 	logPhase := func(phase string, attrs ...any) {
 		attrs = append(attrs,
 			"total_ms", time.Since(totalStarted).Milliseconds(),
 		)
 		logging.LogPhase(ctx, "agent sandbox create phase", phase, phaseStarted, attrs...)
 		phaseStarted = time.Now()
+		lastPhase = phase
 	}
+	defer func() {
+		if resultErr != nil {
+			logging.FromContext(ctx).ErrorContext(ctx, "agent sandbox creation failed",
+				"event", "agent sandbox create phase",
+				"status", "error",
+				"last_completed_phase", lastPhase,
+				"duration_ms", time.Since(phaseStarted).Milliseconds(),
+				"total_ms", time.Since(totalStarted).Milliseconds(),
+				"error", resultErr,
+			)
+		}
+	}()
 	if agent == nil || agent.OrgID == nil {
 		return nil, fmt.Errorf("CreateAgentSandbox: agent must have org_id")
 	}
@@ -122,11 +150,21 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 	if err := o.db.Create(&sb).Error; err != nil {
 		return nil, fmt.Errorf("saving sandbox: %w", err)
 	}
+	ctx = correlation.WithSandboxID(ctx, sb.ID.String())
 	logPhase("save sandbox row", "sandbox_id", sb.ID, "agent_id", agent.ID, "org_id", orgID)
 
 	bugsinkDashboardURL := agentruntime.BugsinkDashboardBaseURL(ctx, o.db, orgID, *agent)
 	glitchTipDashboardURL := agentruntime.GlitchTipDashboardBaseURL(ctx, o.db, orgID, *agent)
 	envVars := agentSandboxEnvVars(ctx, o.db, o.cfg, runtimeSecret, &sb, orgID, agent, secrets, gitIdentity, bugsinkDashboardURL, glitchTipDashboardURL)
+	if runtimeOptions.SessionID != uuid.Nil {
+		envVars[agentruntime.AgentEnvSessionID] = runtimeOptions.SessionID.String()
+	}
+	if runtimeOptions.ProvisioningAttemptID != uuid.Nil {
+		envVars[agentruntime.AgentEnvProvisioningAttemptID] = runtimeOptions.ProvisioningAttemptID.String()
+	}
+	if traceID := strings.TrimSpace(runtimeOptions.TraceID); traceID != "" {
+		envVars[agentruntime.AgentEnvTraceID] = traceID
+	}
 	labels := map[string]string{
 		"org_id":        orgID.String(),
 		"sandbox_id":    sb.ID.String(),
@@ -135,6 +173,10 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 		"sandbox_size":  sandboxSize,
 		"sandbox_image": sandboxImage,
 	}
+	correlationValues.SandboxID = sb.ID.String()
+	correlationValues.OrgID = orgID.String()
+	correlationValues.AgentID = agent.ID.String()
+	correlation.ApplyLabels(labels, correlationValues)
 	logPhase("build provider request",
 		"sandbox_id", sb.ID,
 		"agent_id", agent.ID,
@@ -159,6 +201,13 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 			logging.FromContext(ctx).InfoContext(ctx, "agent sandbox claimed from warm pool",
 				"sandbox_id", sb.ID, "external_id", sb.ExternalID, "agent_id", agent.ID,
 				"sandbox_image", sandboxImage, "sandbox_size", sandboxSize)
+			logPhase("complete",
+				"sandbox_id", sb.ID,
+				"external_id", sb.ExternalID,
+				"agent_id", agent.ID,
+				"org_id", orgID,
+				"provisioning_path", "warm_pool",
+			)
 			return &sb, nil
 		}
 		logging.FromContext(ctx).InfoContext(ctx, "agent sandbox warm pool empty; creating directly",

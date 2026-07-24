@@ -11,9 +11,10 @@ import (
 	"github.com/usehivy/hivy/internal/agentruntime"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/observability/correlation"
 )
 
-func (h *SessionHandler) provisionSessionSandbox(ctx context.Context, agent *model.Agent, teamID uuid.UUID, modelID string, reasoningEffort string, mcpContext agentruntime.MCPRuntimeContext) (*model.Sandbox, error) {
+func (h *SessionHandler) provisionSessionSandbox(ctx context.Context, sessionID uuid.UUID, agent *model.Agent, teamID uuid.UUID, modelID string, reasoningEffort string, mcpContext agentruntime.MCPRuntimeContext) (result *model.Sandbox, resultErr error) {
 	if h == nil || h.orchestrator == nil {
 		return nil, fmt.Errorf("session sandbox provisioning is not configured")
 	}
@@ -22,15 +23,32 @@ func (h *SessionHandler) provisionSessionSandbox(ctx context.Context, agent *mod
 	}
 	totalStarted := time.Now()
 	phaseStarted := totalStarted
+	lastPhase := "start"
 	logPhase := func(phase string, attrs ...any) {
 		attrs = append(attrs,
 			"total_ms", time.Since(totalStarted).Milliseconds(),
 		)
 		logging.LogPhase(ctx, "session sandbox provision phase", phase, phaseStarted, attrs...)
 		phaseStarted = time.Now()
+		lastPhase = phase
 	}
+	defer func() {
+		if resultErr != nil {
+			logging.FromContext(ctx).ErrorContext(ctx, "session sandbox provisioning failed",
+				"event", "session sandbox provision phase",
+				"status", "error",
+				"last_completed_phase", lastPhase,
+				"duration_ms", time.Since(phaseStarted).Milliseconds(),
+				"total_ms", time.Since(totalStarted).Milliseconds(),
+				"error", resultErr,
+			)
+		}
+	}()
 	runtimeAgent := sessionSandboxRuntimeAgent(agent, modelID)
+	correlationValues := correlation.FromContext(ctx)
+	attemptID, _ := uuid.Parse(correlationValues.ProvisioningAttemptID)
 	logPhase("start",
+		"session_id", sessionID,
 		"agent_id", runtimeAgent.ID,
 		"org_id", runtimeAgent.OrgID,
 		"model", strings.TrimSpace(runtimeAgent.Model),
@@ -42,15 +60,19 @@ func (h *SessionHandler) provisionSessionSandbox(ctx context.Context, agent *mod
 	}
 	logPhase("prepare startup", "agent_id", runtimeAgent.ID, "org_id", runtimeAgent.OrgID, "proxy_expires_at", secrets.ProxyExpires)
 	sb, err := h.orchestrator.CreateAgentSandboxWithRuntimeOptions(ctx, &runtimeAgent, secrets, agentruntime.RuntimeConfigOptions{
-		ModelID:         runtimeAgent.Model,
-		ReasoningEffort: reasoningEffort,
-		TeamID:          teamID,
-		MCPContext:      mcpContext,
+		ModelID:               runtimeAgent.Model,
+		ReasoningEffort:       reasoningEffort,
+		TeamID:                teamID,
+		MCPContext:            mcpContext,
+		SessionID:             sessionID,
+		ProvisioningAttemptID: attemptID,
+		TraceID:               correlationValues.TraceID,
 	})
 	if err != nil {
 		h.revokeSessionStartupToken(ctx, &runtimeAgent, secrets.ProxyTokenJTI)
 		return nil, fmt.Errorf("create agent sandbox: %w", err)
 	}
+	ctx = correlation.WithSandboxID(ctx, sb.ID.String())
 	logPhase("create agent sandbox", "agent_id", runtimeAgent.ID, "org_id", runtimeAgent.OrgID, "sandbox_id", sb.ID, "external_id", sb.ExternalID)
 	if err := agentruntime.AttachProxyTokenToSandbox(ctx, h.compileDeps, &runtimeAgent, sb.ID, secrets.ProxyTokenJTI); err != nil {
 		h.cleanupSessionSandbox(ctx, sb)

@@ -10,6 +10,9 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/usehivy/hivy/internal/observability/correlation"
+	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 )
 
 type RunnerClient struct {
@@ -20,7 +23,7 @@ type RunnerClient struct {
 func NewRunnerClient(token string) *RunnerClient {
 	return &RunnerClient{
 		token:  token,
-		client: &http.Client{Timeout: 5 * time.Minute},
+		client: sentryobs.WrapClient(&http.Client{Timeout: 5 * time.Minute}),
 	}
 }
 
@@ -46,6 +49,7 @@ func (c *RunnerClient) do(ctx context.Context, method, baseURL, path string, in,
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
+	correlation.InjectHeaders(ctx, req.Header)
 	if in != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -83,6 +87,7 @@ func (c *RunnerClient) doGet(ctx context.Context, baseURL, path string, handle f
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
+	correlation.InjectHeaders(ctx, req.Header)
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
@@ -109,6 +114,7 @@ func (c *RunnerClient) PostStream(ctx context.Context, baseURL, path string, in 
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
+	correlation.InjectHeaders(ctx, req.Header)
 	if in != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

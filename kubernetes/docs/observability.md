@@ -33,7 +33,8 @@ sandbox-specific, HMAC-signed upload URL when it creates the sandbox and accepts
 that URL only while the sandbox still exists. The receiver replaces all
 caller-supplied identity headers with labels obtained from the runner backend,
 then sends the journal through the runner-local VLAgent. This gives sandbox
-records trusted `runner_id`, `sandbox_id`, `org_id`, `agent_id`, `harness`, and
+records trusted `runner_id`, `sandbox_id`, `session_id`,
+`provisioning_attempt_id`, `trace_id`, `org_id`, `agent_id`, `harness`, and
 `source=sandbox` fields without exposing the central telemetry credential to a
 sandbox.
 
@@ -84,6 +85,15 @@ state, error volume by source and runner, and a searchable error log table.
 The dashboard variables narrow the view to an environment, runner, sandbox, org,
 agent, harness, or service. Runner system journals use `source=runner`; sandbox
 journals use `source=sandbox`.
+
+Use **Hivy / Session Forensics** when a session UUID is known. Paste the exact
+UUID into **Session ID**. The dashboard joins structured fields and legacy raw
+messages across API, worker, microsandbox control, runner, and runtime streams.
+It shows total provisioning duration, every successful provisioning phase,
+warnings and errors, sanitized tool-call lifecycle records and durations, and
+the complete chronological session timeline. `provisioning_attempt_id`
+distinguishes retries for the same session; `trace_id` links the provisioning
+request across HTTP service boundaries.
 
 ## Find a failed request or session
 

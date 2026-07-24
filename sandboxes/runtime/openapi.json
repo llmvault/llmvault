@@ -273,6 +273,45 @@
         ]
       }
     },
+    "/observability/sessions/{session_id}/events": {
+      "get": {
+        "tags": [
+          "crate::observability_handlers"
+        ],
+        "operationId": "get_session_events",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Session identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session observability events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ObservabilityEvent"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/observability/traces/{trace_id}/events": {
       "get": {
         "tags": [

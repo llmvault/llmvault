@@ -149,7 +149,13 @@ func sentryClientOptions(cfg *config.Config, environment, release, hostname stri
 	}
 }
 
-func Enabled() bool { return initialized.Load() }
+// Enabled also recognizes services that initialize sentry-go directly (the
+// standalone microsandbox control and runner binaries). This keeps HTTP trace
+// propagation and middleware active without forcing those binaries through the
+// API server's larger config type.
+func Enabled() bool {
+	return initialized.Load() || sentrygo.CurrentHub().Client() != nil
+}
 
 func Flush(timeout time.Duration) bool {
 	if !Enabled() {

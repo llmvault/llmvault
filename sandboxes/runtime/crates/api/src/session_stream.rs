@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::{broadcast, Mutex};
 use tokio::time::Duration;
+use tracing::{info, warn};
 
 mod replay;
 
@@ -270,6 +271,15 @@ impl SessionStreamBroker {
                 "stream_id": stream_id,
                 "input_text_len": text_len,
             }),
+        );
+        info!(
+            event_type = "turn_started",
+            session_id,
+            trace_id,
+            turn_id,
+            run_id = %context.run_id,
+            input_text_len = text_len,
+            "agent session turn started"
         );
         Some((trace_id, turn_id))
     }
@@ -634,6 +644,44 @@ impl SessionStreamBroker {
             _ => {}
         }
 
+        match event.event_type {
+            ObservabilityEventType::Error => warn!(
+                event_type = stream_event,
+                session_id = %context.session_id,
+                trace_id = %context.trace_id,
+                turn_id = %context.turn_id,
+                run_id = %context.run_id,
+                duration_ms = event.timings.duration_ms,
+                "agent session event failed"
+            ),
+            ObservabilityEventType::RunCompleted | ObservabilityEventType::TurnCompleted => info!(
+                event_type = stream_event,
+                session_id = %context.session_id,
+                trace_id = %context.trace_id,
+                turn_id = %context.turn_id,
+                run_id = %context.run_id,
+                duration_ms = event.timings.duration_ms,
+                "agent session event completed"
+            ),
+            ObservabilityEventType::ModelUsage => {
+                if let Some(model) = event.model.as_ref() {
+                    info!(
+                        event_type = stream_event,
+                        session_id = %context.session_id,
+                        trace_id = %context.trace_id,
+                        turn_id = %context.turn_id,
+                        run_id = %context.run_id,
+                        provider = model.provider.as_deref().unwrap_or(""),
+                        model = model.model.as_deref().unwrap_or(""),
+                        prompt_tokens = model.prompt_tokens,
+                        completion_tokens = model.completion_tokens,
+                        total_tokens = model.total_tokens,
+                        "agent model usage recorded"
+                    );
+                }
+            }
+            _ => {}
+        }
         self.observability.append(event);
     }
 

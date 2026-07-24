@@ -23,6 +23,22 @@ pub async fn get_trace_events(
 
 #[cfg_attr(feature = "openapi", utoipa::path(
     get,
+    path = "/observability/sessions/{session_id}/events",
+    params(("session_id" = String, Path, description = "Session identifier")),
+    responses(
+        (status = 200, description = "Session observability events", body = Vec<observability::ObservabilityEvent>)
+    ),
+    security(("bearer" = []))
+))]
+pub async fn get_session_events(
+    State(state): State<ApiState>,
+    Path(session_id): Path<String>,
+) -> Json<Vec<observability::ObservabilityEvent>> {
+    Json(state.observability.list_by_session(&session_id))
+}
+
+#[cfg_attr(feature = "openapi", utoipa::path(
+    get,
     path = "/observability/traces/{trace_id}/summary",
     params(("trace_id" = String, Path, description = "Trace identifier")),
     responses(

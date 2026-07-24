@@ -112,7 +112,13 @@ pub fn init_sentry() -> Option<sentry::ClientInitGuard> {
 
 pub fn init_tracing(sentry_enabled: bool) {
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    let fmt_layer = tracing_subscriber::fmt::layer();
+    // JSON keeps runtime, session, turn, and tool identifiers queryable after
+    // journald forwards the sandbox stream to VictoriaLogs.
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .json()
+        .flatten_event(true)
+        .with_current_span(true)
+        .with_span_list(false);
     let subscriber = tracing_subscriber::registry()
         .with(env_filter)
         .with(fmt_layer);
@@ -296,6 +302,15 @@ fn runtime_sentry_tags() -> Vec<(&'static str, String)> {
     }
     if let Some(sandbox_id) = non_empty_env("HIVY_SANDBOX_ID") {
         tags.push(("sandbox_id", sandbox_id));
+    }
+    if let Some(session_id) = non_empty_env("HIVY_SESSION_ID") {
+        tags.push(("session_id", session_id));
+    }
+    if let Some(attempt_id) = non_empty_env("HIVY_PROVISIONING_ATTEMPT_ID") {
+        tags.push(("provisioning_attempt_id", attempt_id));
+    }
+    if let Some(trace_id) = non_empty_env("HIVY_TRACE_ID") {
+        tags.push(("provisioning_trace_id", trace_id));
     }
     for (env_key, tag_key) in [
         ("RAILWAY_PROJECT_ID", "railway.project_id"),
