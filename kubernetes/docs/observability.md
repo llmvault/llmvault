@@ -21,6 +21,22 @@ inside the `observability` namespace.
 | VMAlert and Alertmanager | Evaluate the chart's default rules every 20 seconds | Alerts appear in the UI; no external receiver is configured |
 | Grafana | Reads both stores and serves dashboards | Configuration on a 2 GiB Longhorn PVC |
 
+Bare-metal runners use the same stores without joining Kubernetes. Ansible
+installs a node exporter, VMAgent, VLAgent, and systemd journal uploader on
+every runner. The agents bind only to loopback, buffer on the runner's local
+disk, and write over the private network to `telemetry.usehivy.com`. A
+two-replica VMAuth service checks a write-only bearer token before routing
+metrics to VictoriaMetrics and journals to VictoriaLogs.
+
+Every sandbox image runs `systemd-journal-upload`. The runner injects a
+sandbox-specific, HMAC-signed upload URL when it creates the sandbox and accepts
+that URL only while the sandbox still exists. The receiver replaces all
+caller-supplied identity headers with labels obtained from the runner backend,
+then sends the journal through the runner-local VLAgent. This gives sandbox
+records trusted `runner_id`, `sandbox_id`, `org_id`, `agent_id`, `harness`, and
+`source=sandbox` fields without exposing the central telemetry credential to a
+sandbox.
+
 K3s embeds the controller manager, scheduler, etcd, and kube-proxy replacement,
 so the chart's scrapers for those standalone components are disabled. Cilium
 replaces kube-proxy. API server and CoreDNS scraping remain enabled.
@@ -61,6 +77,13 @@ On **Hivy / Service Details**:
 The storage graph is namespace-wide, not service-specific. Stateless API,
 worker, and web Pods don't own a PVC, while PostgreSQL, Redis, Qdrant, Grafana,
 VictoriaMetrics, and VictoriaLogs do.
+
+Use **Hivy / Runners and Sandboxes** for the bare-metal fleet. It includes runner
+availability, filesystem and memory pressure, telemetry queue depth, service
+state, error volume by source and runner, and a searchable error log table.
+The dashboard variables narrow the view to an environment, runner, sandbox, org,
+agent, harness, or service. Runner system journals use `source=runner`; sandbox
+journals use `source=sandbox`.
 
 ## Find a failed request or session
 
@@ -190,3 +213,16 @@ The dashboard sidecar watches ConfigMaps labeled `grafana_dashboard=1`, so an
 updated checked-in dashboard normally appears without restarting Grafana.
 After changing retention or storage requests, inspect the relevant PVC and
 custom resource before assuming Helm resized it.
+
+The ignored central ingest credential is generated alongside the Grafana
+credential:
+
+```sh
+kubernetes/observability/generate-secrets.sh
+kubectl apply -k kubernetes/observability
+```
+
+To rotate it, replace `token=` in
+`kubernetes/config/env/observability/telemetry-ingest.env`, apply the Kustomize
+directory, and rerun `ansible-playbook playbooks/runner-observability.yml` from
+`ansible/`. The runner agents restart only when their credential file changes.

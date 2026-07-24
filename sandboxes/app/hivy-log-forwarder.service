@@ -1,0 +1,19 @@
+[Unit]
+Description=Forward sandbox journal to the Hivy runner
+Documentation=https://docs.victoriametrics.com/victorialogs/data-ingestion/journald/
+After=network-online.target systemd-journald.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/hivy-log-forwarder
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/systemd/journal-upload
+
+[Install]
+WantedBy=multi-user.target

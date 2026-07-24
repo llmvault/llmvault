@@ -51,6 +51,12 @@ type Config struct {
 	RunnerDNSNameserver         string
 	RunnerPrivateEgressCIDR     string
 	RunnerPrivateEgressPorts    string
+	RunnerLogIngestAddr         string
+	RunnerLogIngestPublicURL    string
+	RunnerLogIngestSigningKey   string
+	RunnerLogForwardURL         string
+	RunnerLogIngestMaxBodyBytes int
+	RunnerLogIngestMaxStreams   int
 	ImageRegistry               string
 }
 
@@ -94,6 +100,12 @@ func Load() Config {
 		RunnerDNSNameserver:         strings.TrimSpace(os.Getenv("HIVY_MICROSANDBOX_RUNNER_DNS_NAMESERVER")),
 		RunnerPrivateEgressCIDR:     strings.TrimSpace(os.Getenv("HIVY_MICROSANDBOX_RUNNER_PRIVATE_EGRESS_CIDR")),
 		RunnerPrivateEgressPorts:    strings.TrimSpace(os.Getenv("HIVY_MICROSANDBOX_RUNNER_PRIVATE_EGRESS_PORTS")),
+		RunnerLogIngestAddr:         strings.TrimSpace(os.Getenv("HIVY_MICROSANDBOX_RUNNER_LOG_INGEST_ADDR")),
+		RunnerLogIngestPublicURL:    strings.TrimRight(os.Getenv("HIVY_MICROSANDBOX_RUNNER_LOG_INGEST_PUBLIC_URL"), "/"),
+		RunnerLogIngestSigningKey:   strings.TrimSpace(os.Getenv("HIVY_MICROSANDBOX_LOG_INGEST_SIGNING_KEY")),
+		RunnerLogForwardURL:         get("HIVY_MICROSANDBOX_RUNNER_LOG_FORWARD_URL", "http://127.0.0.1:9429/insert/journald/upload"),
+		RunnerLogIngestMaxBodyBytes: integer("HIVY_MICROSANDBOX_RUNNER_LOG_INGEST_MAX_BODY_BYTES", 16<<20),
+		RunnerLogIngestMaxStreams:   integer("HIVY_MICROSANDBOX_RUNNER_LOG_INGEST_MAX_STREAMS_PER_SANDBOX", 2),
 		ImageRegistry:               get("HIVY_MICROSANDBOX_IMAGE_REGISTRY", "10.80.0.3:5000"),
 	}
 }

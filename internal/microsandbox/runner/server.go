@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -28,6 +29,12 @@ type Server struct {
 	http               *http.Client
 	pressure           *hostPressureSampler
 	startingOperations atomic.Int64
+	logForwardURL      *url.URL
+	logStreamsMu       sync.Mutex
+	logStreams         map[string]int
+	logAccepted        atomic.Uint64
+	logRejected        atomic.Uint64
+	logUpstreamErrors  atomic.Uint64
 }
 
 func NewServer(ctx context.Context, cfg config.Config) (*Server, error) {
@@ -42,9 +49,18 @@ func NewServer(ctx context.Context, cfg config.Config) (*Server, error) {
 		}
 		backend = msb
 	}
+	var logForwardURL *url.URL
+	if raw := strings.TrimSpace(cfg.RunnerLogForwardURL); raw != "" {
+		parsed, err := url.Parse(raw)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			return nil, fmt.Errorf("invalid HIVY_MICROSANDBOX_RUNNER_LOG_FORWARD_URL")
+		}
+		logForwardURL = parsed
+	}
 	return &Server{
 		cfg: cfg, backend: backend, http: &http.Client{Timeout: 2 * time.Minute},
-		pressure: newHostPressureSampler(),
+		pressure: newHostPressureSampler(), logForwardURL: logForwardURL,
+		logStreams: map[string]int{},
 	}, nil
 }
 

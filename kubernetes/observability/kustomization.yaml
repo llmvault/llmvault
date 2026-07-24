@@ -9,12 +9,15 @@ resources:
   - routes.yaml
   - network-policy.yaml
   - redis-backup-rules.yaml
+  - telemetry-ingest.yaml
+  - runner-alerts.yaml
 
 configMapGenerator:
   - name: hivy-grafana-dashboards
     files:
       - dashboards/hivy-overview.json
       - dashboards/hivy-service-details.json
+      - dashboards/hivy-runners-sandboxes.json
     options:
       disableNameSuffixHash: true
       labels:

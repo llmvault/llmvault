@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+if [ -z "${HIVY_LOG_INGEST_URL:-}" ]; then
+  echo "HIVY_LOG_INGEST_URL is not configured; sandbox journal forwarding is disabled" >&2
+  exit 0
+fi
+
+exec /usr/lib/systemd/systemd-journal-upload \
+  --url="$HIVY_LOG_INGEST_URL" \
+  --save-state=/var/lib/systemd/journal-upload/state

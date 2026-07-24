@@ -11,11 +11,17 @@ import (
 type MockBackend struct {
 	mu        sync.Mutex
 	sandboxes map[string]*CreateSandboxResponse
+	labels    map[string]map[string]string
+	lastEnv   map[string]string
 	allocator *portAllocator
 }
 
 func NewMockBackend() *MockBackend {
-	return &MockBackend{sandboxes: map[string]*CreateSandboxResponse{}, allocator: newDefaultPortAllocator()}
+	return &MockBackend{
+		sandboxes: map[string]*CreateSandboxResponse{},
+		labels:    map[string]map[string]string{},
+		allocator: newDefaultPortAllocator(),
+	}
 }
 
 func (m *MockBackend) Reconcile(context.Context) (*ReconcileReport, error) {
@@ -48,6 +54,8 @@ func (m *MockBackend) CreateSandbox(_ context.Context, req CreateSandboxRequest)
 	}
 	resp := &CreateSandboxResponse{ID: req.ID, Ports: ports}
 	m.sandboxes[req.ID] = resp
+	m.labels[req.ID] = cloneStringMap(req.Labels)
+	m.lastEnv = cloneStringMap(req.Env)
 	return resp, nil
 }
 
@@ -90,6 +98,7 @@ func (m *MockBackend) DeleteSandbox(_ context.Context, sandboxID string) error {
 		m.allocator.release(hostPorts)
 	}
 	delete(m.sandboxes, sandboxID)
+	delete(m.labels, sandboxID)
 	return nil
 }
 
@@ -100,6 +109,13 @@ func (m *MockBackend) Exec(_ context.Context, _ string, command string, _ int) (
 func (m *MockBackend) Logs(_ context.Context, sandboxID string, w io.Writer) error {
 	_, err := fmt.Fprintf(w, "mock logs for %s\n", sandboxID)
 	return err
+}
+
+func (m *MockBackend) SandboxLabels(sandboxID string) (map[string]string, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	labels, ok := m.labels[sandboxID]
+	return cloneStringMap(labels), ok
 }
 
 func (m *MockBackend) Proxy(context.Context, string, int, io.Writer, io.Reader) error { return nil }

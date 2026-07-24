@@ -1,0 +1,240 @@
+---
+- name: Validate runner observability inputs
+  ansible.builtin.assert:
+    that:
+      - runner_name | default('') | trim | length > 0
+      - runner_telemetry_hostname | trim | length > 0
+      - runner_telemetry_environment | trim | length > 0
+      - runner_vlagent_archive_checksum is match('^sha256:[0-9a-f]{64}$')
+      - runner_vmagent_archive_checksum is match('^sha256:[0-9a-f]{64}$')
+      - runner_node_exporter_archive_checksum is match('^sha256:[0-9a-f]{64}$')
+
+- name: Check local runner telemetry environment exists
+  ansible.builtin.stat:
+    path: "{{ runner_telemetry_env_file }}"
+  delegate_to: localhost
+  become: false
+  register: runner_telemetry_env_file_stat
+
+- name: Require local runner telemetry environment
+  ansible.builtin.assert:
+    that:
+      - runner_telemetry_env_file_stat.stat.exists
+      - runner_telemetry_env_file_stat.stat.isreg
+    fail_msg: "Create kubernetes/config/env/observability/telemetry-ingest.env before configuring runner observability."
+
+- name: Read local runner telemetry environment
+  ansible.builtin.set_fact:
+    runner_telemetry_env_lines: "{{ lookup('ansible.builtin.file', runner_telemetry_env_file).splitlines() }}"
+  no_log: true
+
+- name: Parse local runner telemetry environment
+  ansible.builtin.set_fact:
+    runner_telemetry_env: "{{ runner_telemetry_env | default({}) | combine({(item.split('=', 1)[0] | trim): (item.split('=', 1)[1] | trim | regex_replace('^\"(.*)\"$', '\\1') | regex_replace(\"^'(.*)'$\", '\\1'))}) }}"
+  loop: "{{ runner_telemetry_env_lines }}"
+  when: item is match('^\s*[A-Za-z_][A-Za-z0-9_]*=')
+  no_log: true
+
+- name: Require runner telemetry token
+  ansible.builtin.assert:
+    that:
+      - runner_telemetry_env.token is defined
+      - runner_telemetry_env.token | trim | length >= 32
+    fail_msg: "The telemetry ingest token must be present and at least 32 characters."
+  no_log: true
+
+- name: Install runner observability system packages
+  ansible.builtin.apt:
+    name:
+      - systemd-journal-remote
+    state: present
+    update_cache: true
+
+- name: Create runner observability group
+  ansible.builtin.group:
+    name: "{{ runner_observability_group }}"
+    system: true
+
+- name: Create runner observability user
+  ansible.builtin.user:
+    name: "{{ runner_observability_user }}"
+    group: "{{ runner_observability_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create runner observability directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ runner_observability_install_root }}"
+      owner: root
+      group: root
+      mode: "0755"
+    - path: "{{ runner_observability_cache_root }}"
+      owner: root
+      group: root
+      mode: "0755"
+    - path: /var/lib/hivy-vlagent
+      owner: "{{ runner_observability_user }}"
+      group: "{{ runner_observability_group }}"
+      mode: "0750"
+    - path: /var/lib/hivy-vmagent
+      owner: "{{ runner_observability_user }}"
+      group: "{{ runner_observability_group }}"
+      mode: "0750"
+    - path: /etc/systemd/journal-upload.conf.d
+      owner: root
+      group: root
+      mode: "0755"
+
+- name: Download pinned VLAgent utilities
+  ansible.builtin.get_url:
+    url: "{{ runner_vlagent_archive_url }}"
+    dest: "{{ runner_observability_cache_root }}/vlutils-{{ runner_vlagent_version }}.tar.gz"
+    checksum: "{{ runner_vlagent_archive_checksum }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Unpack pinned VLAgent utilities
+  ansible.builtin.unarchive:
+    src: "{{ runner_observability_cache_root }}/vlutils-{{ runner_vlagent_version }}.tar.gz"
+    dest: "{{ runner_observability_install_root }}"
+    remote_src: true
+    creates: "{{ runner_observability_install_root }}/vlagent-prod"
+
+- name: Install pinned VLAgent binary
+  ansible.builtin.copy:
+    src: "{{ runner_observability_install_root }}/vlagent-prod"
+    dest: /usr/local/bin/vlagent
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart runner VLAgent
+
+- name: Download pinned VMAgent utilities
+  ansible.builtin.get_url:
+    url: "{{ runner_vmagent_archive_url }}"
+    dest: "{{ runner_observability_cache_root }}/vmutils-{{ runner_vmagent_version }}.tar.gz"
+    checksum: "{{ runner_vmagent_archive_checksum }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Unpack pinned VMAgent utilities
+  ansible.builtin.unarchive:
+    src: "{{ runner_observability_cache_root }}/vmutils-{{ runner_vmagent_version }}.tar.gz"
+    dest: "{{ runner_observability_install_root }}"
+    remote_src: true
+    creates: "{{ runner_observability_install_root }}/vmagent-prod"
+
+- name: Install pinned VMAgent binary
+  ansible.builtin.copy:
+    src: "{{ runner_observability_install_root }}/vmagent-prod"
+    dest: /usr/local/bin/vmagent
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart runner VMAgent
+
+- name: Download pinned node exporter
+  ansible.builtin.get_url:
+    url: "{{ runner_node_exporter_archive_url }}"
+    dest: "{{ runner_observability_cache_root }}/node-exporter-{{ runner_node_exporter_version }}.tar.gz"
+    checksum: "{{ runner_node_exporter_archive_checksum }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Unpack pinned node exporter
+  ansible.builtin.unarchive:
+    src: "{{ runner_observability_cache_root }}/node-exporter-{{ runner_node_exporter_version }}.tar.gz"
+    dest: "{{ runner_observability_install_root }}"
+    remote_src: true
+    creates: "{{ runner_observability_install_root }}/node_exporter-{{ runner_node_exporter_version }}.linux-amd64/node_exporter"
+
+- name: Install pinned node exporter binary
+  ansible.builtin.copy:
+    src: "{{ runner_observability_install_root }}/node_exporter-{{ runner_node_exporter_version }}.linux-amd64/node_exporter"
+    dest: /usr/local/bin/node_exporter
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart runner node exporter
+
+- name: Install runner telemetry token
+  ansible.builtin.copy:
+    dest: "{{ runner_telemetry_token_path }}"
+    content: "{{ runner_telemetry_env.token | trim }}\n"
+    owner: "{{ runner_observability_user }}"
+    group: "{{ runner_observability_group }}"
+    mode: "0400"
+  notify:
+    - Restart runner VLAgent
+    - Restart runner VMAgent
+  no_log: true
+
+- name: Install runner VMAgent scrape configuration
+  ansible.builtin.template:
+    src: vmagent-scrape.yml.j2
+    dest: /etc/hivy/vmagent-scrape.yml
+    owner: root
+    group: "{{ runner_observability_group }}"
+    mode: "0640"
+  notify: Restart runner VMAgent
+
+- name: Install runner VLAgent service
+  ansible.builtin.template:
+    src: hivy-vlagent.service.j2
+    dest: /etc/systemd/system/hivy-vlagent.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart runner VLAgent
+
+- name: Install runner VMAgent service
+  ansible.builtin.template:
+    src: hivy-vmagent.service.j2
+    dest: /etc/systemd/system/hivy-vmagent.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart runner VMAgent
+
+- name: Install runner node exporter service
+  ansible.builtin.template:
+    src: hivy-node-exporter.service.j2
+    dest: /etc/systemd/system/hivy-node-exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart runner node exporter
+
+- name: Install runner journal upload configuration
+  ansible.builtin.template:
+    src: journal-upload.conf.j2
+    dest: /etc/systemd/journal-upload.conf.d/hivy.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart runner journal upload
+
+- name: Enable and start runner observability services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - hivy-node-exporter
+    - hivy-vlagent
+    - hivy-vmagent
+    - systemd-journal-upload

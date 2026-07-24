@@ -9,3 +9,4 @@
     - runner-api-caddy-absent
     - runner-haproxy
     - runner-coredns
+    - runner-observability

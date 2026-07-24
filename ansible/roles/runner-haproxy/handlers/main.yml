@@ -3,3 +3,11 @@
   ansible.builtin.systemd:
     name: "{{ runner_haproxy_service_name }}"
     state: reloaded
+
+- name: Restart runner telemetry agents after DNS change
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - hivy-vlagent
+    - hivy-vmagent

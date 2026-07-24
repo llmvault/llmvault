@@ -18,6 +18,10 @@ func (s *Server) createSandbox(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
 		return
 	}
+	if err := s.addSandboxLogIngestEnv(&req); err != nil {
+		httpx.JSON(w, http.StatusInternalServerError, map[string]string{"error": "sandbox log ingestion is not configured"})
+		return
+	}
 	done := s.trackStartingOperation()
 	defer done()
 	resp, err := s.backend.CreateSandbox(r.Context(), req)

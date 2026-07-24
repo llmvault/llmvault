@@ -5,5 +5,9 @@ secretGenerator:
     envs:
       - grafana-admin.env
     type: Opaque
+  - name: observability-telemetry-ingest
+    envs:
+      - telemetry-ingest.env
+    type: Opaque
 generatorOptions:
   disableNameSuffixHash: true

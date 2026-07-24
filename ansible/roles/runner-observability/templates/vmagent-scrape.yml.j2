@@ -1,0 +1,33 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    cluster: usehivy
+    environment: {{ runner_telemetry_environment | quote }}
+    node_type: runner
+    runner_id: {{ runner_name | quote }}
+
+scrape_configs:
+  - job_name: runner-node
+    static_configs:
+      - targets:
+          - "{{ runner_node_exporter_listen_addr }}"
+        labels:
+          instance: {{ runner_name | quote }}
+          service: node-exporter
+
+  - job_name: runner-vlagent
+    static_configs:
+      - targets:
+          - "{{ runner_vlagent_listen_addr }}"
+        labels:
+          instance: {{ runner_name | quote }}
+          service: vlagent
+
+  - job_name: runner-vmagent
+    static_configs:
+      - targets:
+          - "{{ runner_vmagent_listen_addr }}"
+        labels:
+          instance: {{ runner_name | quote }}
+          service: vmagent

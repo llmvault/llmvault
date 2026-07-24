@@ -1,0 +1,24 @@
+---
+- name: Restart runner VLAgent
+  ansible.builtin.systemd:
+    name: hivy-vlagent
+    state: restarted
+    daemon_reload: true
+
+- name: Restart runner VMAgent
+  ansible.builtin.systemd:
+    name: hivy-vmagent
+    state: restarted
+    daemon_reload: true
+
+- name: Restart runner node exporter
+  ansible.builtin.systemd:
+    name: hivy-node-exporter
+    state: restarted
+    daemon_reload: true
+
+- name: Restart runner journal upload
+  ansible.builtin.systemd:
+    name: systemd-journal-upload
+    state: restarted
+    daemon_reload: true

@@ -59,6 +59,7 @@
     owner: root
     group: root
     mode: "0644"
+  notify: Restart runner telemetry agents after DNS change
 
 - name: Allow runner host to reach its local registry HAProxy
   ansible.builtin.command: "ufw allow from {{ runner_private_ip }} to {{ runner_private_ip }} port {{ runner_haproxy_registry_frontend_port }} proto tcp"

@@ -1,0 +1,85 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: hivy-runner-metrics
+  labels:
+    app.kubernetes.io/part-of: hivy-observability
+spec:
+  groups:
+    - name: hivy-runner-metrics
+      interval: 30s
+      rules:
+        - alert: HivyRunnerTelemetryMissing
+          expr: |
+            (
+              max_over_time(up{node_type="runner"}[5m]) < 1
+            )
+            or
+            (
+              time() - max_over_time(timestamp(up{node_type="runner"})[24h]) > 300
+            )
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Runner telemetry is missing for {{ $labels.runner_id }}"
+            description: "The {{ $labels.job }} target on runner {{ $labels.runner_id }} has not produced a successful scrape for ten minutes."
+        - alert: HivyRunnerTelemetryBufferGrowing
+          expr: |
+            (
+              vmagent_remotewrite_pending_data_bytes{node_type="runner"} > 536870912
+            )
+            or
+            (
+              vlagent_remotewrite_pending_data_bytes{node_type="runner"} > 1073741824
+            )
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Telemetry buffer is growing on {{ $labels.runner_id }}"
+            description: "A runner cannot keep up with the central telemetry endpoint and has accumulated a large on-disk queue."
+        - alert: HivyRunnerServiceDown
+          expr: |
+            node_systemd_unit_state{
+              node_type="runner",
+              name=~"microsandbox-runner.service|hivy-vlagent.service|hivy-vmagent.service|hivy-node-exporter.service",
+              state="active"
+            } != 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Runner service {{ $labels.name }} is down on {{ $labels.runner_id }}"
+            description: "The required runner service is not active."
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: hivy-runner-sandbox-logs
+  labels:
+    app.kubernetes.io/part-of: hivy-observability
+spec:
+  groups:
+    - name: hivy-runner-sandbox-logs
+      type: vlogs
+      interval: 1m
+      rules:
+        - alert: HivyRunnerErrors
+          expr: |
+            source:runner level:~"error|fatal|panic" | stats by (runner_id, _SYSTEMD_UNIT) count() as errors | filter errors:>0
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Errors on runner {{ $labels.runner_id }}"
+            description: "{{ $value }} error-level journal entries were recorded by {{ $labels._SYSTEMD_UNIT }}."
+        - alert: HivySandboxErrors
+          expr: |
+            source:sandbox level:~"error|fatal|panic" | stats by (runner_id, sandbox_id, org_id, agent_id) count() as errors | filter errors:>0
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Errors in sandbox {{ $labels.sandbox_id }}"
+            description: "{{ $value }} error-level journal entries were recorded for org {{ $labels.org_id }} and agent {{ $labels.agent_id }}."

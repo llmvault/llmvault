@@ -48,6 +48,7 @@ RUN apt-get update \
     dbus \
     systemd \
     systemd-sysv \
+    systemd-journal-remote \
     tini \
   && systemctl mask \
     dev-hugepages.mount \
@@ -66,14 +67,18 @@ COPY --from=build /out/hivy-appd /usr/local/bin/hivy-appd
 COPY docker/app/entrypoint /usr/local/bin/hivy-app-entrypoint
 COPY docker/app/hivy-appd.service /etc/systemd/system/hivy-appd.service
 COPY docker/app/hivy-app.service /etc/systemd/system/hivy-app.service
+COPY docker/app/hivy-log-forwarder.service /etc/systemd/system/hivy-log-forwarder.service
+COPY docker/app/hivy-log-forwarder /usr/local/bin/hivy-log-forwarder
 COPY docker/app/hivy-sandbox-env-generator /usr/lib/systemd/system-generators/hivy-sandbox-env-generator
 
 RUN chmod +x /usr/local/bin/hivy-appd \
   && chmod +x /usr/local/bin/hivy-app-entrypoint \
+  && chmod +x /usr/local/bin/hivy-log-forwarder \
   && chmod +x /usr/lib/systemd/system-generators/hivy-sandbox-env-generator \
-  && mkdir -p /workspace/app/releases /workspace/app/tmp /workspace/logs /var/run \
+  && mkdir -p /workspace/app/releases /workspace/app/tmp /workspace/logs /var/run /var/lib/systemd/journal-upload \
   && systemctl enable hivy-appd.service \
-  && systemctl enable hivy-app.service
+  && systemctl enable hivy-app.service \
+  && systemctl enable hivy-log-forwarder.service
 
 ENV HOME=/workspace
 ENV HIVY_APPD_PORT=7080

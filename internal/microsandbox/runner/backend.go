@@ -16,6 +16,7 @@ type Backend interface {
 	DeleteSandbox(ctx context.Context, sandboxID string) error
 	Exec(ctx context.Context, sandboxID, command string, timeoutSeconds int) (*ExecResponse, error)
 	Logs(ctx context.Context, sandboxID string, w io.Writer) error
+	SandboxLabels(sandboxID string) (map[string]string, bool)
 	Proxy(ctx context.Context, sandboxID string, guestPort int, w io.Writer, r io.Reader) error
 	ProxyURL(ctx context.Context, sandboxID string, guestPort int) (string, error)
 	CreateTemplate(ctx context.Context, req CreateTemplateRequest, onEvent func(TemplateBuildEvent)) (*CreateTemplateResponse, error)

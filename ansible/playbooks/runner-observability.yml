@@ -1,0 +1,7 @@
+---
+- name: Configure observability on Microsandbox runners
+  hosts: runners
+  become: true
+  gather_facts: true
+  roles:
+    - runner-observability

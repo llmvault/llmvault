@@ -19,6 +19,7 @@ spec:
     - usehivy.com
     - staging.usehivy.com
     - monitor.usehivy.com
+    - telemetry.usehivy.com
   issuerRef:
     name: letsencrypt-production-vercel
     kind: ClusterIssuer

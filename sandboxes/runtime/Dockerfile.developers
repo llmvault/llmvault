@@ -367,7 +367,7 @@ ENTRYPOINT ["/usr/local/bin/hivy-daytona-entrypoint"]
 FROM runtime-base AS microsandbox
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends systemd systemd-sysv \
+  && apt-get install -y --no-install-recommends systemd systemd-sysv systemd-journal-remote \
   && systemctl mask \
     dev-hugepages.mount \
     sys-fs-fuse-connections.mount \
@@ -382,10 +382,15 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY docker/runtime/hivy-runtime.service /etc/systemd/system/hivy-runtime.service
+COPY docker/runtime/hivy-log-forwarder.service /etc/systemd/system/hivy-log-forwarder.service
+COPY docker/runtime/hivy-log-forwarder /usr/local/bin/hivy-log-forwarder
 COPY docker/runtime/hivy-sandbox-env-generator /usr/lib/systemd/system-generators/hivy-sandbox-env-generator
 
-RUN chmod +x /usr/lib/systemd/system-generators/hivy-sandbox-env-generator \
-  && systemctl enable hivy-runtime.service
+RUN chmod +x /usr/local/bin/hivy-log-forwarder \
+  /usr/lib/systemd/system-generators/hivy-sandbox-env-generator \
+  && mkdir -p /var/lib/systemd/journal-upload \
+  && systemctl enable hivy-runtime.service \
+  && systemctl enable hivy-log-forwarder.service
 
 STOPSIGNAL SIGRTMIN+4
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/hivy-runtime-entrypoint", "/usr/local/bin/hivy-sandboxes-runtime"]

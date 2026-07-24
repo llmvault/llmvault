@@ -11,6 +11,15 @@
           register: microsandbox_service_status
           changed_when: false
 
+        - name: Check runner observability services are active
+          ansible.builtin.command: "systemctl is-active {{ item }}"
+          changed_when: false
+          loop:
+            - hivy-node-exporter
+            - hivy-vlagent
+            - hivy-vmagent
+            - systemd-journal-upload
+
         - name: Check local runner health
           ansible.builtin.uri:
             url: "http://{{ runner_private_ip }}:{{ runner_api_port | default(8081) }}/health"
@@ -29,6 +38,26 @@
             timeout: 15
           register: microsandbox_configured_health
 
+        - name: Check authenticated sandbox log receiver health
+          ansible.builtin.uri:
+            url: "http://{{ runner_private_ip }}:{{ runner_log_ingest_port | default(9430) }}/health"
+            method: GET
+            return_content: true
+            status_code: 200
+            timeout: 10
+          register: runner_log_ingest_health
+
+        - name: Check local telemetry agent health
+          ansible.builtin.uri:
+            url: "{{ item }}"
+            method: GET
+            status_code: 200
+            timeout: 10
+          loop:
+            - http://127.0.0.1:9100/metrics
+            - http://127.0.0.1:9429/health
+            - http://127.0.0.1:8429/health
+
         - name: Read runner firewall status
           ansible.builtin.command: ufw status
           register: microsandbox_ufw_status
@@ -39,6 +68,7 @@
             that:
               - microsandbox_ufw_status.stdout_lines | select('search', '^' ~ runner_api_port ~ '/tcp') | select('search', 'ALLOW') | select('search', runner_kubernetes_private_cidr | regex_escape) | list | length == 1
               - microsandbox_ufw_status.stdout_lines | select('search', '^' ~ runner_preview_port_range_start ~ ':' ~ runner_preview_port_range_end ~ '/tcp') | select('search', 'ALLOW') | select('search', runner_kubernetes_private_cidr | regex_escape) | list | length == 1
+              - microsandbox_ufw_status.stdout_lines | select('search', (runner_private_ip ~ ' ' ~ runner_log_ingest_port ~ '/tcp') | regex_escape) | select('search', 'ALLOW') | select('search', runner_sandbox_guest_cidr | regex_escape) | list | length == 1
             fail_msg: "Runner firewall does not allow the complete Kubernetes vSwitch subnet."
 
         - name: Verify every Kubernetes server can reach the runner API
@@ -67,6 +97,7 @@
               - "Runner {{ runner_name }} is active."
               - "Local health: {{ microsandbox_local_health.content | default('') | trim }}"
               - "Configured private health: {{ microsandbox_configured_health.content | default('') | trim }}"
+              - "Sandbox log receiver: {{ runner_log_ingest_health.content | default('') | trim }}"
 
       rescue:
         - name: Print runner journal tail

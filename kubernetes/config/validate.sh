@@ -9,6 +9,7 @@ required_env_files=(
   env/infrastructure/backend-overrides.env
   env/infrastructure/hetzner-s3.env
   env/observability/grafana-admin.env
+  env/observability/telemetry-ingest.env
   env/platform-engineering/platform-engineering-agent.env
   env/production/backend.env
   env/production/microsandbox-control.env

@@ -1,0 +1,26 @@
+[Unit]
+Description=Hivy runner Prometheus node exporter
+Documentation=https://github.com/prometheus/node_exporter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ runner_observability_user }}
+Group={{ runner_observability_group }}
+ExecStart=/usr/local/bin/node_exporter \
+  --web.listen-address={{ runner_node_exporter_listen_addr }} \
+  --collector.systemd \
+  --collector.systemd.unit-include=(microsandbox-runner|hivy-vlagent|hivy-vmagent|hivy-node-exporter|haproxy|hivy-coredns|buildkit)[.]service
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target

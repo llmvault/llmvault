@@ -1,0 +1,4 @@
+[Upload]
+URL=http://{{ runner_vlagent_listen_addr }}/insert/journald
+Header=VL-Extra-Fields: source=runner,environment={{ runner_telemetry_environment }},runner_id={{ runner_name }}
+Header=VL-Ignore-Fields: authorization,Authorization,cookie,Cookie,password,token,access_token,refresh_token

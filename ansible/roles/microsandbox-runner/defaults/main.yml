@@ -5,6 +5,7 @@ runner_memory_overcommit: 1
 runner_disk_overcommit: 4
 runner_preview_port_range_start: 30000
 runner_preview_port_range_end: 60999
+runner_log_ingest_port: 9430
 
 microsandbox_binary_remote_path: /usr/local/bin/microsandbox
 microsandbox_env_file: "{{ playbook_dir }}/../.env"
@@ -16,3 +17,4 @@ microsandbox_required_env:
   - HIVY_MICROSANDBOX_CONTROL_URL
   - HIVY_MICROSANDBOX_RUNNER_JOIN_SECRET
   - HIVY_MICROSANDBOX_RUNNER_API_TOKEN
+  - HIVY_MICROSANDBOX_LOG_INGEST_SIGNING_KEY

@@ -1,0 +1,29 @@
+[Unit]
+Description=Hivy runner VictoriaMetrics agent
+Documentation=https://docs.victoriametrics.com/victoriametrics/vmagent/
+After=network-online.target haproxy.service hivy-node-exporter.service hivy-vlagent.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ runner_observability_user }}
+Group={{ runner_observability_group }}
+ExecStart=/usr/local/bin/vmagent \
+  -httpListenAddr={{ runner_vmagent_listen_addr }} \
+  -promscrape.config=/etc/hivy/vmagent-scrape.yml \
+  -remoteWrite.url=https://{{ runner_telemetry_hostname }}/api/v1/write \
+  -remoteWrite.bearerTokenFile={{ runner_telemetry_token_path }} \
+  -remoteWrite.tmpDataPath=/var/lib/hivy-vmagent \
+  -remoteWrite.maxDiskUsagePerURL={{ runner_vmagent_buffer_size }} \
+  -remoteWrite.showURL=false
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/hivy-vmagent
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target

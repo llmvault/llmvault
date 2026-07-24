@@ -52,6 +52,8 @@ mkdir -p "$CONTEXT/docker/app"
 cp "$HERE/entrypoint" \
   "$HERE/hivy-appd.service" \
   "$HERE/hivy-app.service" \
+  "$HERE/hivy-log-forwarder" \
+  "$HERE/hivy-log-forwarder.service" \
   "$HERE/hivy-sandbox-env-generator" \
   "$CONTEXT/docker/app/"
 

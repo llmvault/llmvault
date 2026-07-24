@@ -1,0 +1,27 @@
+---
+runner_telemetry_environment: production
+runner_telemetry_hostname: telemetry.usehivy.com
+runner_telemetry_env_file: "{{ inventory_dir }}/../../kubernetes/config/env/observability/telemetry-ingest.env"
+runner_telemetry_token_path: /etc/hivy/telemetry-ingest-token
+
+runner_vlagent_version: v1.52.0
+runner_vlagent_archive_url: "https://github.com/VictoriaMetrics/VictoriaLogs/releases/download/{{ runner_vlagent_version }}/vlutils-linux-amd64-{{ runner_vlagent_version }}.tar.gz"
+runner_vlagent_archive_checksum: "sha256:caa315764df0d11a77ba61d4ee96b783ddb98455b167da8326940dda62914bc9"
+runner_vlagent_listen_addr: 127.0.0.1:9429
+runner_vlagent_buffer_size: 5GB
+
+runner_vmagent_version: v1.147.0
+runner_vmagent_archive_url: "https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/{{ runner_vmagent_version }}/vmutils-linux-amd64-{{ runner_vmagent_version }}.tar.gz"
+runner_vmagent_archive_checksum: "sha256:1e5da38c3d8d7af9c4fc0daa8a2103f2578c40ed81752d21f20a3bd6d0506b3f"
+runner_vmagent_listen_addr: 127.0.0.1:8429
+runner_vmagent_buffer_size: 2GB
+
+runner_node_exporter_version: 1.11.1
+runner_node_exporter_archive_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ runner_node_exporter_version }}/node_exporter-{{ runner_node_exporter_version }}.linux-amd64.tar.gz"
+runner_node_exporter_archive_checksum: "sha256:9f5ea48e5bc7b656f8a91a32e7d7deb89f70f73dabd0d974418aca15f37d6810"
+runner_node_exporter_listen_addr: 127.0.0.1:9100
+
+runner_observability_install_root: /opt/hivy/observability
+runner_observability_cache_root: /var/cache/hivy/observability
+runner_observability_user: hivy-observability
+runner_observability_group: hivy-observability

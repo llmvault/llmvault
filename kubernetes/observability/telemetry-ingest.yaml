@@ -1,0 +1,88 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAuth
+metadata:
+  name: hivy-telemetry
+  labels:
+    app.kubernetes.io/name: vmauth
+    app.kubernetes.io/instance: hivy-telemetry
+    app.kubernetes.io/part-of: hivy-observability
+spec:
+  port: "8427"
+  replicaCount: 2
+  userSelector:
+    matchLabels:
+      hivy.usehivy.com/telemetry-writer: "true"
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMUser
+metadata:
+  name: hivy-telemetry-writer
+  labels:
+    app.kubernetes.io/name: vmauth
+    app.kubernetes.io/instance: hivy-telemetry
+    app.kubernetes.io/part-of: hivy-observability
+    hivy.usehivy.com/telemetry-writer: "true"
+spec:
+  tokenRef:
+    name: observability-telemetry-ingest
+    key: token
+  max_concurrent_requests: 32
+  targetRefs:
+    - paths:
+        - /insert/.*
+      static:
+        url: http://vlsingle-obs-victoria-metrics-k8s-stack.observability.svc.cluster.local:9428
+    - paths:
+        - /api/v1/write
+      static:
+        url: http://vmsingle-obs-victoria-metrics-k8s-stack.observability.svc.cluster.local:8428
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: telemetry-ingest
+  labels:
+    app.kubernetes.io/name: vmauth
+    app.kubernetes.io/instance: hivy-telemetry
+    app.kubernetes.io/part-of: hivy-observability
+spec:
+  parentRefs:
+    - name: public
+      namespace: ingress-public
+      sectionName: private-https
+  hostnames:
+    - telemetry.usehivy.com
+  rules:
+    - backendRefs:
+        - name: vmauth-hivy-telemetry
+          port: 8427
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: telemetry-ingest
+  labels:
+    app.kubernetes.io/name: vmauth
+    app.kubernetes.io/instance: hivy-telemetry
+    app.kubernetes.io/part-of: hivy-observability
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: vmauth
+      app.kubernetes.io/instance: hivy-telemetry
+  ingress:
+    - fromEntities:
+        - ingress
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "8427"
+              protocol: TCP

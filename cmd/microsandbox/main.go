@@ -83,6 +83,9 @@ func runControl(ctx context.Context, cfg config.Config) error {
 }
 
 func runRunner(ctx context.Context, cfg config.Config) error {
+	if cfg.RunnerLogIngestAddr == "" || cfg.RunnerLogIngestPublicURL == "" || cfg.RunnerLogIngestSigningKey == "" {
+		return fmt.Errorf("HIVY_MICROSANDBOX_RUNNER_LOG_INGEST_ADDR, HIVY_MICROSANDBOX_RUNNER_LOG_INGEST_PUBLIC_URL, and HIVY_MICROSANDBOX_LOG_INGEST_SIGNING_KEY are required")
+	}
 	app, err := runner.NewServer(ctx, cfg)
 	if err != nil {
 		return err
@@ -90,25 +93,52 @@ func runRunner(ctx context.Context, cfg config.Config) error {
 	goroutine.Go(ctx, func(ctx context.Context) {
 		app.RegisterAndHeartbeat(ctx)
 	})
-	return serve(ctx, cfg.Addr, app.Routes())
+	return serveMany(ctx,
+		httpEndpoint{name: "runner API", addr: cfg.Addr, handler: app.Routes()},
+		httpEndpoint{name: "sandbox log ingestion", addr: cfg.RunnerLogIngestAddr, handler: app.LogRoutes()},
+	)
 }
 
 func serve(ctx context.Context, addr string, h http.Handler) error {
-	srv := &http.Server{
-		Addr:              addr,
-		Handler:           h,
-		ReadHeaderTimeout: 10 * time.Second,
+	return serveMany(ctx, httpEndpoint{name: "HTTP", addr: addr, handler: h})
+}
+
+type httpEndpoint struct {
+	name    string
+	addr    string
+	handler http.Handler
+}
+
+func serveMany(ctx context.Context, endpoints ...httpEndpoint) error {
+	if len(endpoints) == 0 {
+		return fmt.Errorf("at least one HTTP endpoint is required")
 	}
-	errCh := make(chan error, 1)
-	goroutine.Go(ctx, func(context.Context) {
-		slog.Info("server listening", "addr", addr)
-		errCh <- srv.ListenAndServe()
-	})
+	servers := make([]*http.Server, 0, len(endpoints))
+	errCh := make(chan error, len(endpoints))
+	for _, endpoint := range endpoints {
+		srv := &http.Server{
+			Addr:              endpoint.addr,
+			Handler:           endpoint.handler,
+			ReadHeaderTimeout: 10 * time.Second,
+		}
+		servers = append(servers, srv)
+		name := endpoint.name
+		goroutine.Go(ctx, func(context.Context) {
+			slog.Info("server listening", "service", name, "addr", srv.Addr)
+			errCh <- srv.ListenAndServe()
+		})
+	}
 	select {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		defer cancel()
-		return srv.Shutdown(shutdownCtx)
+		var shutdownErr error
+		for _, srv := range servers {
+			if err := srv.Shutdown(shutdownCtx); err != nil {
+				shutdownErr = errors.Join(shutdownErr, err)
+			}
+		}
+		return shutdownErr
 	case err := <-errCh:
 		return err
 	}

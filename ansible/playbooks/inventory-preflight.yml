@@ -10,6 +10,7 @@
     inventory_ingress_hosts: "{{ groups['k3s_ingress'] | default([]) }}"
     inventory_runner_ips: "{{ inventory_runner_hosts | map('extract', hostvars, 'runner_private_ip') | list }}"
     inventory_k3s_ips: "{{ inventory_k3s_hosts | map('extract', hostvars, 'k3s_node_ip') | list }}"
+    inventory_k3s_bootstrap_host: "{{ hostvars[inventory_k3s_hosts | first].k3s_bootstrap_host | default('') }}"
   tasks:
     - name: Require complete inventory groups
       ansible.builtin.assert:
@@ -18,7 +19,7 @@
           - inventory_k3s_hosts | length > 0
           - inventory_ingress_hosts | length > 0
           - inventory_ingress_hosts | difference(inventory_k3s_hosts) | length == 0
-          - k3s_bootstrap_host in inventory_k3s_hosts
+          - inventory_k3s_bootstrap_host in inventory_k3s_hosts
         fail_msg: "runners, k3s_servers, k3s_ingress, and the bootstrap host must form a complete inventory."
 
     - name: Require unique private addresses

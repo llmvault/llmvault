@@ -88,6 +88,13 @@ Fill `kubernetes/config/env/ansible/runners.env` with the private Kubernetes
 control URL, runner secrets, and the private Zot registry host used for template
 images.
 
+Generate the local credentials if they do not already exist:
+
+```sh
+ansible/scripts/ensure-runner-secrets.sh
+kubernetes/observability/generate-secrets.sh
+```
+
 Update `ansible/inventory/hosts.yml` with each runner host:
 
 ```yaml
@@ -103,6 +110,18 @@ runners:
 
 ## Phases
 
+The normal reconciliation entry point is one playbook:
+
+```sh
+ansible-playbook playbooks/site.yml
+```
+
+Add new hosts to `inventory/hosts.yml`, run that command again, and Ansible
+installs or reconciles every K3s node and runner. The inventory preflight rejects
+missing or duplicate private addresses before touching a host. `k3s_ingress`
+membership remains the source of truth for the runner HAProxy pool, and the
+subnet-wide UFW rules automatically cover new K3s nodes.
+
 Run phases from the `ansible/` directory:
 
 ```sh
@@ -112,16 +131,18 @@ ansible-playbook playbooks/phase3-deploy.yml
 ansible-playbook playbooks/phase4-validate.yml
 ```
 
-Phase 1 prepares Ubuntu 26.04 amd64 hosts, installs Microsandbox with the official installer, removes the retired runner API Caddy proxy, configures UFW, creates `/etc/hivy`, and installs runner-local HAProxy and CoreDNS. CoreDNS resolves the production and staging API and LLM proxy hostnames to that runner's private HAProxy listener. HAProxy passes TLS through to healthy nodes listed in the explicit `k3s_ingress` inventory group. Runner hosts and sandbox DNS proxies use the same resolver on standard DNS port 53.
+Phase 1 prepares Ubuntu 26.04 amd64 hosts, installs Microsandbox with the official installer, removes the retired runner API Caddy proxy, configures UFW, creates `/etc/hivy`, and installs runner-local HAProxy, CoreDNS, node exporter, VMAgent, VLAgent, and journal upload. CoreDNS resolves the production and staging API and LLM proxy hostnames to that runner's private HAProxy listener. HAProxy passes TLS through to healthy nodes listed in the explicit `k3s_ingress` inventory group. Runner hosts and sandbox DNS proxies use the same resolver on standard DNS port 53. The telemetry agents use disk-backed queues and write metrics and journals through the private `telemetry.usehivy.com` route.
 
 To reconcile only runner firewall rules, including after changing the private
 vSwitch subnet, run `ansible-playbook playbooks/runner-firewall.yml`.
 
 Phase 2 copies `dist/microsandbox-linux-amd64` to `/usr/local/bin/microsandbox`.
 
-Phase 3 renders `/etc/hivy/microsandbox-runner.env`, installs `microsandbox-runner.service`, and starts the runner. The runner binds to its private vSwitch address on port `8081`; the Kubernetes control plane reaches it directly over the private network.
+Phase 3 renders `/etc/hivy/microsandbox-runner.env`, installs `microsandbox-runner.service`, and starts the runner. The runner binds its API to its private vSwitch address on port `8081` and its authenticated sandbox journal receiver on port `9430`; the Kubernetes control plane and sandbox guests reach those listeners directly over the private network.
 
-Phase 4 validates systemd, private health, and that port `8081` is not publicly reachable.
+Phase 4 validates the runner and all four telemetry services, local health
+endpoints, subnet-scoped firewall rules, Kubernetes-to-runner connectivity, and
+that port `8081` is not publicly reachable.
 
 Every Kubernetes node that should accept private Gateway traffic must be a
 member of the `k3s_ingress` inventory group and define `k3s_node_ip`. That one
@@ -156,8 +177,10 @@ The control plane must accept runner registration at `/v1/runners/register`.
 ## Runner Network Ports
 
 Runner APIs bind to their private vSwitch addresses on port `8081`; UFW allows
-that port only from the Kubernetes bare-metal vSwitch subnet. UFW opens SSH,
-HTTP, and HTTPS, then denies other inbound traffic.
+that port only from the Kubernetes bare-metal vSwitch subnet. The signed
+sandbox log receiver binds to the private address on port `9430` and accepts
+traffic only from that runner's sandbox guest CIDR. Telemetry exporters remain
+loopback-only. UFW opens SSH, HTTP, and HTTPS, then denies other inbound traffic.
 
 Preview traffic is separate. Each runner publishes sandbox guest ports onto
 host ports in `30000-60999`, and UFW allows that range only from the Kubernetes

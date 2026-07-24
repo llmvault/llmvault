@@ -248,6 +248,16 @@ func (m *MicrosandboxBackend) StopSandbox(ctx context.Context, sandboxID string)
 	return m.stopSandboxLocked(ctx, sandboxID)
 }
 
+func (m *MicrosandboxBackend) SandboxLabels(sandboxID string) (map[string]string, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	state, ok := m.sandboxes[sandboxID]
+	if !ok {
+		return nil, false
+	}
+	return cloneStringMap(state.Labels), true
+}
+
 func (m *MicrosandboxBackend) EnsureReady(ctx context.Context, sandboxID string, req EnsureReadyRequest) (*EnsureReadyResponse, error) {
 	unlock := m.lifecycle.Lock(sandboxID)
 	defer unlock()
