@@ -145,7 +145,7 @@ jobs:
   deploy-production:
     name: deploy production application images
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 90
     if: needs.prepare.outputs.prerelease != 'true'
     needs:
       - prepare
@@ -173,10 +173,27 @@ jobs:
           K8S_TUNNEL_KNOWN_HOSTS_B64: ${{ secrets.K8S_TUNNEL_KNOWN_HOSTS_B64 }}
           K8S_TUNNEL_HOSTS: ${{ vars.K8S_TUNNEL_HOSTS }}
           K8S_TUNNEL_USER: ${{ vars.K8S_TUNNEL_USER }}
+          HIVY_MICROSANDBOX_RUNNER_FORWARD_TARGETS: ${{ vars.HIVY_MICROSANDBOX_RUNNER_FORWARD_TARGETS }}
         run: |
           export KUBECONFIG="${RUNNER_TEMP}/hivy-kubeconfig"
           bash ./scripts/deploy/setup-kubernetes-tunnel.sh
           echo "KUBECONFIG=${KUBECONFIG}" >> "${GITHUB_ENV}"
+
+      - name: Warm sandbox images on every production runner
+        env:
+          HIVY_MICROSANDBOX_RUNNER_API_TOKEN: ${{ secrets.HIVY_MICROSANDBOX_RUNNER_API_TOKEN }}
+          HIVY_SANDBOXES_RUNTIME_IMAGE_ARCH_SUFFIX: amd64
+          HIVY_SANDBOXES_APP_IMAGE_ARCH_SUFFIX: amd64
+        run: |
+          : "${HIVY_MICROSANDBOX_RUNNER_URLS:?production runner forwards are required}"
+          bash ./scripts/release/write-manifest.sh \
+            "${{ needs.prepare.outputs.tag }}" \
+            "${RUNNER_TEMP}/release-manifest.json" \
+            "${{ needs.prepare.outputs.commit }}"
+          read -r -a runner_urls <<<"${HIVY_MICROSANDBOX_RUNNER_URLS}"
+          bash ./scripts/release/warm-microsandbox-runner-images.sh \
+            "${RUNNER_TEMP}/release-manifest.json" \
+            "${runner_urls[@]}"
 
       - name: Deploy the release tuple and wait for rollout
         run: bash ./scripts/deploy/kubernetes-images.sh

@@ -66,9 +66,14 @@ when an operator supplies a tag through `workflow_dispatch`. Tags must match
 A stable `vX.Y.Z` release builds backend and web images tagged with the full
 tag, version without `v`, and `latest`. It also builds the corresponding amd64
 sandbox runtime, developers-runtime, and app images. The `deploy-production`
-job cannot start until all four deployable image jobs succeed. It patches
-production with the application digests and `vX.Y.Z-amd64` sandbox tags, then
-waits using the same procedure as staging.
+job cannot start until all four deployable image jobs succeed. Before changing
+the live tuple, it opens SSH forwards that are restricted to the private runner
+API addresses and boots then deletes one throwaway sandbox for each new sandbox
+image on every production runner. This leaves the Microsandbox image layers in
+each runner's local cache. A pull failure on any runner aborts the release
+without changing the production Deployments. After all runner caches are warm,
+the job patches production with the application digests and `vX.Y.Z-amd64`
+sandbox tags, then waits using the same procedure as staging.
 
 A tag containing a suffix, such as `v7.3.0-rc.1`, counts as a prerelease and
 does not deploy production. The decision comes from the tag string, not the
@@ -127,6 +132,14 @@ Set these entries in both GitHub Environments:
 | `K8S_TUNNEL_KNOWN_HOSTS_B64` | Secret | Base64 pinned SSH host-key file for every tunnel host |
 | `K8S_TUNNEL_HOSTS` | Variable | Space-separated K3s server public addresses, in failover order |
 | `K8S_TUNNEL_USER` | Variable | `hivy-deploy-staging` or `hivy-deploy-production` |
+| `HIVY_MICROSANDBOX_RUNNER_FORWARD_TARGETS` | Production variable | Space-separated `LOCAL_PORT:PRIVATE_RUNNER_IP:8081` mappings |
+| `HIVY_MICROSANDBOX_RUNNER_API_TOKEN` | Production secret | Shared runner control token used only through the restricted private forwards |
+
+The production tunnel account has explicit `permitopen` entries for the
+Kubernetes API and each configured runner API. Staging and other tunnel accounts
+remain restricted to the Kubernetes API. Adding a production runner requires
+updating both the Ansible account's `permitopen` list and the production
+`HIVY_MICROSANDBOX_RUNNER_FORWARD_TARGETS` variable before the next release.
 
 The local source files live under `kubernetes/config/kubeconfigs/github-actions/`
 and `kubernetes/config/credentials/github-actions/`. They are ignored by Git.

@@ -182,8 +182,8 @@ func TestRedactingJournalBodyRedactsBinaryEnvironmentMessage(t *testing.T) {
 		t.Fatalf("binary environment value was not redacted")
 	}
 	gotLength := binary.LittleEndian.Uint64(got[len("MESSAGE\n") : len("MESSAGE\n")+8])
-	wantLength := len("    HIVY_DRIVE_UPLOAD_BEARER=[REDACTED]")
-	if gotLength != uint64(wantLength) {
+	const wantLength = uint64(len("    HIVY_DRIVE_UPLOAD_BEARER=[REDACTED]"))
+	if gotLength != wantLength {
 		t.Fatalf("binary message length = %d, want %d", gotLength, wantLength)
 	}
 }

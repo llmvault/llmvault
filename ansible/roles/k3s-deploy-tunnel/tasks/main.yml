@@ -9,6 +9,15 @@
   loop_control:
     label: "{{ item.name }}"
 
+- name: Validate Kubernetes deployment tunnel forwarding targets
+  ansible.builtin.assert:
+    that:
+      - item.1 is match('^[A-Za-z0-9.-]+:[0-9]+$')
+    fail_msg: "Deployment tunnel permitopen targets must use HOST:PORT syntax."
+  loop: "{{ k3s_deploy_tunnel_accounts | subelements('permitopen', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.name }} -> {{ item.1 }}"
+
 - name: Create Kubernetes deployment tunnel users
   ansible.builtin.user:
     name: "{{ item.name }}"

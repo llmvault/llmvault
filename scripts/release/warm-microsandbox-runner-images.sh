@@ -36,13 +36,11 @@ images=(
 runner_urls=("$@")
 
 if [[ "${#runner_urls[@]}" -eq 0 ]]; then
-  echo "no runner URLs provided; skipping runner image cache warm-up"
-  exit 0
+  echo "at least one runner URL is required" >&2
+  exit 1
 fi
 
 : "${HIVY_MICROSANDBOX_RUNNER_API_TOKEN:?HIVY_MICROSANDBOX_RUNNER_API_TOKEN is required}"
-
-created=()
 
 sandbox_hash() {
   if command -v sha256sum >/dev/null; then
@@ -72,12 +70,18 @@ cleanup_created() {
     delete_sandbox "${runner_url}" "${sandbox_id}" || true
   done
 }
-trap cleanup_created EXIT
 
-for runner_url in "${runner_urls[@]}"; do
+warm_runner() (
+  set -euo pipefail
+  local runner_url="${1%/}"
+  local image image_hash sandbox_id payload
+  created=()
+  trap cleanup_created EXIT
+
   runner_url="${runner_url%/}"
   if [[ -z "${runner_url}" ]]; then
-    continue
+    echo "runner URL cannot be empty" >&2
+    exit 1
   fi
 
   for image in "${images[@]}"; do
@@ -116,6 +120,24 @@ for runner_url in "${runner_urls[@]}"; do
       --data "${payload}" >/dev/null
     delete_sandbox "${runner_url}" "${sandbox_id}"
   done
+
+  trap - EXIT
+  echo "Warmed ${#images[@]} images on ${runner_url}"
+)
+
+pids=()
+for runner_url in "${runner_urls[@]}"; do
+  warm_runner "${runner_url}" &
+  pids+=("$!")
 done
 
-trap - EXIT
+failed=false
+for pid in "${pids[@]}"; do
+  if ! wait "${pid}"; then
+    failed=true
+  fi
+done
+if [[ "${failed}" == "true" ]]; then
+  echo "one or more runner image cache warm-ups failed" >&2
+  exit 1
+fi

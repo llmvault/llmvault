@@ -57,5 +57,9 @@ k3s_deploy_tunnel_accounts:
     public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOu8MvS467LVqnLrkkpUvxSdIouQ4nRSb0VX2TZ3N29F"
   - name: hivy-deploy-production
     public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAUglWsTVoJwimV+M3svIfhad0TT8q+PzYrpoUZsYQk+"
+    permitopen:
+      - "127.0.0.1:6443"
+      - "10.80.1.2:8081"
+      - "10.80.1.3:8081"
   - name: hivy-deploy-platform-engineering-agent
     public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6KIpVfK/Ugi/49kzGF6u9v96lCvhsHqOkZtaWXUwzZ"

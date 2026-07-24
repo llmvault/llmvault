@@ -1,1 +1,1 @@
-restrict,port-forwarding,permitopen="127.0.0.1:6443" {{ item.public_key }} {{ item.name }}
+restrict,port-forwarding{% for target in item.permitopen | default(['127.0.0.1:6443']) %},permitopen="{{ target }}"{% endfor %} {{ item.public_key }} {{ item.name }}
