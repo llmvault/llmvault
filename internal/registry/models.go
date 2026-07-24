@@ -15,6 +15,8 @@ var curatedProviders = []Provider{
 	atlasCloudProvider,
 	engyProvider,
 	novitaProvider,
+	theGridProvider,
+	theseanProvider,
 	togetherProvider,
 	{ // anthropic — Anthropic
 		ID:   "anthropic",

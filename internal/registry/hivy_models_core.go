@@ -4,12 +4,15 @@ var coreHivyModels = append(
 	append(
 		append(
 			append(
-				append([]HivyModel{}, coreHivyModelsPreferred...),
-				coreHivyModelsText...,
+				append(
+					append([]HivyModel{}, coreHivyModelsPreferred...),
+					coreHivyModelsText...,
+				),
+				quantisedHivyModels...,
 			),
-			quantisedHivyModels...,
+			engyHivyModels...,
 		),
-		engyHivyModels...,
+		theseanHivyModels...,
 	),
-	togetherHivyModels...,
+	append(togetherHivyModels, theGridHivyModels...)...,
 )

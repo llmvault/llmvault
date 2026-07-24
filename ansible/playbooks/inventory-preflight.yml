@@ -1,0 +1,51 @@
+---
+- name: Validate the complete Hivy bare-metal inventory
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  vars:
+    inventory_runner_hosts: "{{ groups['runners'] | default([]) }}"
+    inventory_k3s_hosts: "{{ groups['k3s_servers'] | default([]) }}"
+    inventory_ingress_hosts: "{{ groups['k3s_ingress'] | default([]) }}"
+    inventory_runner_ips: "{{ inventory_runner_hosts | map('extract', hostvars, 'runner_private_ip') | list }}"
+    inventory_k3s_ips: "{{ inventory_k3s_hosts | map('extract', hostvars, 'k3s_node_ip') | list }}"
+  tasks:
+    - name: Require complete inventory groups
+      ansible.builtin.assert:
+        that:
+          - inventory_runner_hosts | length > 0
+          - inventory_k3s_hosts | length > 0
+          - inventory_ingress_hosts | length > 0
+          - inventory_ingress_hosts | difference(inventory_k3s_hosts) | length == 0
+          - k3s_bootstrap_host in inventory_k3s_hosts
+        fail_msg: "runners, k3s_servers, k3s_ingress, and the bootstrap host must form a complete inventory."
+
+    - name: Require unique private addresses
+      ansible.builtin.assert:
+        that:
+          - inventory_runner_ips | length == inventory_runner_ips | unique | length
+          - inventory_k3s_ips | length == inventory_k3s_ips | unique | length
+          - inventory_runner_ips | intersect(inventory_k3s_ips) | length == 0
+        fail_msg: "Runner and K3s private addresses must be present, unique, and non-overlapping."
+
+    - name: Validate runner inventory entries
+      ansible.builtin.assert:
+        that:
+          - hostvars[item].runner_name | default('') | trim | length > 0
+          - hostvars[item].runner_private_ip | default('') is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+          - hostvars[item].runner_public_url | default('') | trim | length > 0
+          - hostvars[item].runner_preview_base_url | default('') | trim | length > 0
+      loop: "{{ inventory_runner_hosts }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Validate K3s inventory entries
+      ansible.builtin.assert:
+        that:
+          - hostvars[item].k3s_node_name | default('') | trim | length > 0
+          - hostvars[item].k3s_node_ip | default('') is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+          - hostvars[item].k3s_private_interface | default('') | trim | length > 0
+      loop: "{{ inventory_k3s_hosts }}"
+      loop_control:
+        label: "{{ item }}"

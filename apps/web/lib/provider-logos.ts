@@ -59,6 +59,7 @@ export const PROVIDER_LOGOS = {
   "stepfun-ai": "/logos/stepfun-ai.png",
   switchpoint: "/logos/switchpoint.png",
   tencent: "/logos/tencent.png",
+  thegrid: "/logos/thegrid.svg",
   thedrummer: "/logos/thedrummer.png",
   together: "/logos/together.png",
   writer: "/logos/writer.png",

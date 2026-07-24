@@ -72,10 +72,11 @@ func parseStreamingChunk(providerID string, data []byte) UsageData {
 func parseOpenAIUsage(providerID string, body []byte) UsageData {
 	var resp struct {
 		Usage *struct {
-			PromptTokens        int `json:"prompt_tokens"`
-			CompletionTokens    int `json:"completion_tokens"`
-			CachedTokens        int `json:"cached_tokens"`
-			ReasoningTokens     int `json:"reasoning_tokens"`
+			PromptTokens        int     `json:"prompt_tokens"`
+			CompletionTokens    int     `json:"completion_tokens"`
+			CachedTokens        int     `json:"cached_tokens"`
+			ReasoningTokens     int     `json:"reasoning_tokens"`
+			EstimatedCost       float64 `json:"estimated_cost"`
 			PromptTokensDetails *struct {
 				CachedTokens int `json:"cached_tokens"`
 			} `json:"prompt_tokens_details"`
@@ -101,6 +102,9 @@ func parseOpenAIUsage(providerID string, body []byte) UsageData {
 		}
 		if resp.Usage.CompletionTokensDetails != nil {
 			u.ReasoningTokens = resp.Usage.CompletionTokensDetails.ReasoningTokens
+		}
+		if providerID == "thegrid" && resp.Usage.EstimatedCost > 0 {
+			u.ProviderCostUSD = resp.Usage.EstimatedCost
 		}
 	}
 	if providerID == "engy" && resp.Engy != nil && resp.Engy.ChargedMicro > 0 {

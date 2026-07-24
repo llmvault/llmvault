@@ -245,6 +245,8 @@ func applyUsageAccounting(req *http.Request, providerID, baseURL, endUserID stri
 		providerID == "atlascloud" ||
 		providerID == "novita" ||
 		providerID == "engy" ||
+		providerID == "thesean" ||
+		providerID == "thegrid" ||
 		providerID == "together" {
 		return EnsureOpenAICompatibleUsage(req)
 	}

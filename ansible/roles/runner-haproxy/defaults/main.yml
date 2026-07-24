@@ -9,3 +9,4 @@ runner_haproxy_backend_group: k3s_ingress
 runner_haproxy_guest_ipv4_cidr: "172.16.0.0/12"
 runner_haproxy_health_sni: preview.usehivy.com
 runner_haproxy_registry_health_sni: registry.usehivy.com
+runner_telemetry_hostname: telemetry.usehivy.com

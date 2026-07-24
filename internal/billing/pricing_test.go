@@ -226,3 +226,59 @@ func TestEstimateCostUSD_EngyUsesLiveDirectoryPricing(t *testing.T) {
 		})
 	}
 }
+
+func TestEstimateCostUSD_TheseanUsesLiveDirectoryPricing(t *testing.T) {
+	tests := []struct {
+		model                               string
+		input, output, cached               int64
+		inputPrice, outputPrice, cachePrice float64
+	}{
+		{"thesean-claude-haiku-4.5", 17, 32, 5, 0.5, 2.5, 0.05},
+		{"thesean-claude-opus-4.8", 17, 32, 5, 2.5, 12.5, 0.25},
+		{"thesean-claude-sonnet-5", 17, 32, 5, 1, 5, 0.1},
+		{"thesean-gpt-5.6-sol", 17, 32, 5, 2.5, 15, 0.25},
+	}
+
+	for _, test := range tests {
+		t.Run(test.model, func(t *testing.T) {
+			cost, err := billing.EstimateCostUSD(
+				nil,
+				"thesean",
+				test.model,
+				test.input,
+				test.output,
+				test.cached,
+			)
+			if err != nil {
+				t.Fatalf("EstimateCostUSD: %v", err)
+			}
+			fresh := test.input - test.cached
+			want := (float64(fresh)*test.inputPrice +
+				float64(test.cached)*test.cachePrice +
+				float64(test.output)*test.outputPrice) / 1_000_000
+			if math.Abs(cost-want) > 1e-12 {
+				t.Fatalf("cost = %.12f, want %.12f", cost, want)
+			}
+		})
+	}
+}
+
+func TestEstimateCostUSD_TheGridUsesPublishedInstrumentFallback(t *testing.T) {
+	const input, cached, completion = int64(60), int64(10), int64(16)
+	cost, err := billing.EstimateCostUSD(
+		nil,
+		"thegrid",
+		"text-standard",
+		input,
+		completion,
+		cached,
+	)
+	if err != nil {
+		t.Fatalf("EstimateCostUSD: %v", err)
+	}
+
+	want := float64(input+completion) * 0.035 / 1_000_000
+	if math.Abs(cost-want) > 1e-12 {
+		t.Fatalf("cost = %.12f, want %.12f", cost, want)
+	}
+}

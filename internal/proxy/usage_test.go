@@ -97,6 +97,25 @@ func TestParseUsageNonStreaming_EngyProviderCharge(t *testing.T) {
 	}
 }
 
+func TestParseUsageNonStreaming_TheGridEstimatedCost(t *testing.T) {
+	body := []byte(`{
+		"model": "openai/gpt-oss-120b",
+		"usage": {
+			"prompt_tokens": 60,
+			"completion_tokens": 16,
+			"total_tokens": 76,
+			"estimated_cost": 0.00000494,
+			"completion_tokens_details": {"reasoning_tokens": 13}
+		}
+	}`)
+
+	u := ParseUsageNonStreaming("thegrid", body)
+	assertUsage(t, u, 60, 16, 0, 13)
+	if math.Abs(u.ProviderCostUSD-0.00000494) > 1e-12 {
+		t.Fatalf("ProviderCostUSD = %.12f, want 0.00000494", u.ProviderCostUSD)
+	}
+}
+
 func TestParseUsageNonStreaming_Anthropic(t *testing.T) {
 	body := []byte(`{
 		"id": "msg_123",

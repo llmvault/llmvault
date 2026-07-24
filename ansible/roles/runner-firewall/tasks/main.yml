@@ -7,6 +7,8 @@
       - runner_api_port | int > 0
       - runner_preview_port_range_start | int > 0
       - runner_preview_port_range_end | int >= runner_preview_port_range_start | int
+      - runner_sandbox_guest_cidr is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$')
+      - runner_log_ingest_port | int > 0
     fail_msg: "Configure the private Kubernetes vSwitch CIDR and valid runner ports before enabling UFW."
 
 - name: Allow SSH through UFW
@@ -34,6 +36,14 @@
     rule: allow
     from_ip: "{{ runner_kubernetes_private_cidr }}"
     port: "{{ runner_preview_port_range_start }}:{{ runner_preview_port_range_end }}"
+    proto: tcp
+
+- name: Allow sandbox guests to reach the authenticated log receiver
+  community.general.ufw:
+    rule: allow
+    from_ip: "{{ runner_sandbox_guest_cidr }}"
+    to_ip: "{{ runner_private_ip }}"
+    port: "{{ runner_log_ingest_port }}"
     proto: tcp
 
 - name: Remove retired per-host runner API rules

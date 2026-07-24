@@ -3,9 +3,11 @@ package proxy
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -43,7 +45,7 @@ func (ct *CaptureTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		}
 	}
 
-	resp, err := ct.Inner.RoundTrip(req)
+	resp, err := ct.roundTrip(req, captured)
 	if err != nil {
 		totalMs := int(time.Since(start).Milliseconds())
 		if hasCaptured {
@@ -114,6 +116,75 @@ func (ct *CaptureTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 
 	return resp, nil
+}
+
+const maxTheGridRedirects = 5
+
+func (ct *CaptureTransport) roundTrip(
+	req *http.Request,
+	captured *observe.CapturedData,
+) (*http.Response, error) {
+	if captured == nil || captured.ProviderID != "thegrid" {
+		return ct.Inner.RoundTrip(req)
+	}
+
+	current := req
+	for redirects := 0; ; redirects++ {
+		resp, err := ct.Inner.RoundTrip(current)
+		if err != nil || resp == nil || resp.StatusCode != http.StatusTemporaryRedirect {
+			return resp, err
+		}
+		if redirects >= maxTheGridRedirects {
+			closeResponseBody(resp)
+			return nil, errors.New("thegrid redirect limit exceeded")
+		}
+
+		location, err := resp.Location()
+		if err != nil {
+			closeResponseBody(resp)
+			return nil, fmt.Errorf("thegrid redirect location: %w", err)
+		}
+		if !validTheGridRedirectURL(location) {
+			closeResponseBody(resp)
+			return nil, errors.New("thegrid redirect destination is not allowed")
+		}
+		closeResponseBody(resp)
+
+		next := current.Clone(current.Context())
+		next.URL = location
+		next.Host = location.Host
+		next.Header = current.Header.Clone()
+		if current.Body != nil {
+			if current.GetBody == nil {
+				return nil, errors.New("thegrid redirect cannot replay request body")
+			}
+			next.Body, err = current.GetBody()
+			if err != nil {
+				return nil, fmt.Errorf("thegrid redirect body: %w", err)
+			}
+			next.GetBody = current.GetBody
+		}
+		current = next
+	}
+}
+
+func closeResponseBody(resp *http.Response) {
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+}
+
+func validTheGridRedirectURL(location *url.URL) bool {
+	if location == nil || location.Scheme != "https" ||
+		(location.Port() != "" && location.Port() != "443") {
+		return false
+	}
+	switch strings.ToLower(location.Hostname()) {
+	case "api.thegrid.ai", "synapse.thegrid.ai":
+		return true
+	default:
+		return false
+	}
 }
 
 func (ct *CaptureTransport) captureNonStreaming(resp *http.Response, captured *observe.CapturedData, start time.Time) {

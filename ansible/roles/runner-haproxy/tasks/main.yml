@@ -51,6 +51,15 @@
     group: root
     mode: "0644"
 
+- name: Route telemetry name to runner-local HAProxy
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: "(^|\\s){{ runner_telemetry_hostname | regex_escape }}(\\s|$)"
+    line: "{{ runner_private_ip }} {{ runner_telemetry_hostname }}"
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Allow runner host to reach its local registry HAProxy
   ansible.builtin.command: "ufw allow from {{ runner_private_ip }} to {{ runner_private_ip }} port {{ runner_haproxy_registry_frontend_port }} proto tcp"
   register: runner_haproxy_ufw_registry

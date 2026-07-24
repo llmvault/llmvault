@@ -3,9 +3,14 @@ import { providerLogoURL } from "@/lib/provider-logos"
 // Keep in sync with canonical model IDs in internal/registry/hivy_models.go.
 // Values are canonical model owner slugs, resolved to local assets.
 const MODEL_LOGO_PROVIDERS = {
+  "agent-max": "thegrid",
+  "agent-prime": "thegrid",
+  "agent-standard": "thegrid",
+  "bytedance-pro-latest": "thegrid",
   "claude-opus-4.7": "anthropic",
   "claude-opus-4.6": "anthropic",
   "claude-opus-4.5": "anthropic",
+  "claude-opus-latest": "thegrid",
   "claude-sonnet-5": "anthropic",
   "claude-sonnet-4.6": "anthropic",
   "claude-sonnet-4.5": "anthropic",
@@ -67,10 +72,21 @@ const MODEL_LOGO_PROVIDERS = {
   "quantised-qwen3.5-9b": "qwen",
   "engy-glm-5.2": "z-ai",
   "engy-qwen3.6-35b-a3b": "qwen",
+  "thesean-claude-haiku-4.5": "anthropic",
+  "thesean-claude-opus-4.8": "anthropic",
+  "thesean-claude-sonnet-5": "anthropic",
+  "thesean-gpt-5.6-sol": "openai",
   "minimax-m3": "minimax",
   "nemotron-3-nano-30b-a3b": "nvidia",
   "nemotron-3-ultra-550b-a55b": "nvidia",
   cobuddy: "baidu",
+  "code-max": "thegrid",
+  "code-prime": "thegrid",
+  "code-standard": "thegrid",
+  "deepseek-pro-latest": "thegrid",
+  "gemini-pro-latest": "thegrid",
+  "glm-latest": "thegrid",
+  "gpt-sol-latest": "thegrid",
   "kat-coder-air-v2.5": "kwaipilot",
   "kat-coder-pro-v2": "kwaipilot",
   "kat-coder-pro-v2.5": "kwaipilot",
@@ -85,6 +101,11 @@ const MODEL_LOGO_PROVIDERS = {
   "glm-4.7-flash": "z-ai",
   "minimax-m2.5": "minimax",
   "kimi-k2.5": "moonshotai",
+  "kimi-latest": "thegrid",
+  "minimax-latest": "thegrid",
+  "text-max": "thegrid",
+  "text-prime": "thegrid",
+  "text-standard": "thegrid",
 } as const
 
 type KnownModelID = keyof typeof MODEL_LOGO_PROVIDERS

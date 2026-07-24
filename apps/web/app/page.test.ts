@@ -3,8 +3,8 @@ import { renderToString } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import HomePage from "./page"
 
-describe("HomePage", () => {
-  it("renders the complete landing-page entry point", () => {
+describe("RootPage", () => {
+  it("renders the complete landing page at the canonical root entry point", () => {
     const html = renderToString(React.createElement(HomePage))
 
     expect(html).toContain("Productive ai agents for your entire team.")

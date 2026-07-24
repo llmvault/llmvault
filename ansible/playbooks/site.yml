@@ -1,0 +1,8 @@
+---
+- import_playbook: inventory-preflight.yml
+- import_playbook: k3s/install.yml
+- import_playbook: phase1-prepare.yml
+- import_playbook: phase2-install.yml
+- import_playbook: phase3-deploy.yml
+- import_playbook: k3s/validate.yml
+- import_playbook: phase4-validate.yml

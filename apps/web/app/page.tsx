@@ -1,100 +1,154 @@
-import { Button, Link } from "@heroui/react"
-import { AppIcon } from "@/components/icon"
+import type { Metadata } from "next"
 import Image from "next/image"
-import { AuthLogo } from "@/app/auth/_components/shared"
-import { WatchDemo } from "@/components/watch-demo"
+import { Chip } from "@heroui/react"
+import { HomeFeatureStories } from "./home/_components/home-feature-stories"
+import { ModelChoiceSection } from "./home/_components/model-choice-section"
+import {
+  FeatureCopy,
+  LandingCta,
+  LandingFooter,
+  LandingHero,
+  ProductPlaceholder,
+  features,
+} from "./home/_components/landing-shared"
 
-const GITHUB_URL = "https://github.com/usehivy/hivy"
-// Waitlist CTA target. Runtime-configurable via the HIVY_* server env pattern
-// (see lib/config/public-config.ts) so a prebuilt image can point at any
-// Tally/Typeform/etc. form without a rebuild. This is a server component, so it
-// reads the env at request time. When unset, the CTA is hidden rather than
-// rendered as a dead "#" link.
-const WAITLIST_URL = (process.env.HIVY_WAITLIST_URL ?? "").trim()
+export const metadata: Metadata = {
+  title: "AI workspace for building agents",
+  description:
+    "Build, deploy, and manage AI agents visually, conversationally, or with code.",
+}
 
-const integrations = [
-  { icon: "github", name: "GitHub" },
-  { icon: "slack", name: "Slack" },
-  { icon: "linear", name: "Linear" },
-  { icon: "notion", name: "Notion" },
-  { icon: "vercel", name: "Vercel" },
-  { icon: "railway", name: "Railway" },
-  { icon: "postgresql", name: "Postgres" },
-  { icon: "redis", name: "Redis" },
-]
+const homeFeatures = features.filter(
+  (feature) => feature.title !== "Watch every run, end to end."
+)
 
-export default function RootPage() {
+const featureScreenshots = {
+  Integrate: {
+    light: "/images/marketing/connections-light-mode.png",
+    dark: "/images/marketing/connections-dark-mode.png",
+    alt: "Hivy connection catalog with databases and company integrations",
+  },
+  Context: {
+    light: "/images/marketing/knowledge-base-light-mode.png",
+    dark: "/images/marketing/knowledge-base-dark-mode.png",
+    alt: "Hivy knowledge source setup with GitHub, Notion, Slack, Linear, and website sources",
+  },
+} as const
+
+function FeatureScreenshot({
+  screenshot,
+  side,
+}: {
+  screenshot: (typeof featureScreenshots)[keyof typeof featureScreenshots]
+  side: "left" | "right"
+}) {
+  const frameClassName =
+    side === "left"
+      ? "absolute top-16 right-16 bottom-0 left-0 overflow-hidden rounded-tr-sm border-t border-r border-border bg-background"
+      : "absolute top-16 right-0 bottom-0 left-16 overflow-hidden rounded-tl-sm border-t border-l border-border bg-background"
+  const imageClassName =
+    side === "left"
+      ? "object-contain object-left-bottom"
+      : "object-contain object-right-bottom"
+
   return (
-    <main className="relative flex h-screen flex-col overflow-hidden">
-      {/* Soft background graphic */}
-      <div className="pointer-events-none absolute inset-0 -z-10">
+    <div className="relative h-full min-h-80 overflow-hidden bg-surface-secondary md:min-h-0">
+      <div className={frameClassName}>
         <Image
-          src="/hero-mountains-background.png"
+          src={screenshot.light}
+          alt={screenshot.alt}
+          fill
+          sizes="(min-width: 1300px) 850px, (min-width: 768px) 66vw, 100vw"
+          className={`${imageClassName} dark:hidden`}
+        />
+        <Image
+          src={screenshot.dark}
           alt=""
           fill
-          priority
-          sizes="100vw"
-          className="object-cover opacity-30"
+          sizes="(min-width: 1300px) 850px, (min-width: 768px) 66vw, 100vw"
+          className={`hidden ${imageClassName} dark:block`}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/85 to-background" />
       </div>
+    </div>
+  )
+}
 
-      {/* Top bar */}
-      <header className="flex items-center justify-between px-5 py-5 sm:px-8">
-        <AuthLogo className="h-9 w-9" />
-        <Link
-          href={GITHUB_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/70 px-4 py-2 text-sm font-medium text-foreground backdrop-blur transition-colors hover:bg-surface-secondary"
-        >
-          <AppIcon icon="github" className="h-4 w-4" />
-          <span className="hidden sm:inline">Star on GitHub</span>
-        </Link>
-      </header>
+export default function HomePage() {
+  return (
+    <main className="marketing-link-scope min-h-screen bg-background text-foreground">
+      <LandingHero />
+      <ModelChoiceSection />
 
-      {/* Left-aligned hero, flush to the browser edge, anchored to the bottom */}
-      <div className="flex w-full flex-1 flex-col items-start justify-end px-5 pb-10 text-left sm:px-8 sm:pb-14">
-        {/* Large graphic */}
-        <AuthLogo className="h-24 w-24 drop-shadow-xl sm:h-32 sm:w-32" />
+      <HomeFeatureStories />
 
-        <h1 className="mt-8 max-w-4xl text-5xl leading-[0.95] font-medium tracking-tight text-balance text-foreground sm:text-7xl">
-          Productive AI agents for your entire team.
-        </h1>
+      <section className="mx-auto mt-44 w-[calc(100%-2rem)] max-w-[1300px] space-y-32">
+        {homeFeatures.map((feature, index) => {
+          const imageSide = index % 2 === 0 ? "left" : "right"
+          const screenshot =
+            feature.label === "Integrate" || feature.label === "Context"
+              ? featureScreenshots[feature.label]
+              : undefined
 
-        <p className="mt-6 max-w-2xl text-lg leading-8 text-balance text-foreground/70 sm:text-xl">
-          Hivy gives every team AI teammates that work in real cloud workspaces —
-          using your tools, your data, and your context to do real work, not just
-          chat.
-        </p>
-
-        <div className="mt-9 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {WAITLIST_URL ? (
-            <Link href={WAITLIST_URL} target="_blank" rel="noreferrer">
-              <Button size="lg">Join the waitlist</Button>
-            </Link>
-          ) : null}
-          <WatchDemo />
-        </div>
-
-        {/* Integrations */}
-        <div className="mt-14">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">
-            Works with the tools your team already uses
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-x-8 gap-y-4">
-            {integrations.map((tool) => (
-              <span
-                key={tool.name}
-                className="inline-flex items-center gap-2 text-foreground/55 transition-colors hover:text-foreground"
+          return (
+            <article
+              key={feature.label}
+              className="relative min-h-[520px] overflow-hidden rounded-sm border border-border bg-surface"
+            >
+              <Chip
+                size="sm"
+                className={`absolute top-3 z-10 ${imageSide === "left" ? "right-3" : "left-3"}`}
               >
-                <AppIcon icon={tool.icon} className="h-6 w-6" />
-                <span className="text-sm font-medium">{tool.name}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
+                {feature.label}
+              </Chip>
+              <div
+                className={`grid min-h-[520px] ${
+                  imageSide === "left"
+                    ? "md:grid-cols-[2fr_1fr]"
+                    : "md:grid-cols-[1fr_2fr]"
+                }`}
+              >
+                {imageSide === "left" ? (
+                  <>
+                    <FeatureCopy
+                      title={feature.title}
+                      description={feature.description}
+                      action={feature.action}
+                      className="px-7 py-14 md:order-2 md:px-10 lg:px-12"
+                    />
+                    <div className="h-full md:order-1">
+                      {screenshot ? (
+                        <FeatureScreenshot
+                          screenshot={screenshot}
+                          side="left"
+                        />
+                      ) : (
+                        <ProductPlaceholder label={feature.placeholder} />
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <FeatureCopy
+                      title={feature.title}
+                      description={feature.description}
+                      action={feature.action}
+                      className="px-7 py-14 md:px-10 lg:px-12"
+                    />
+                    {screenshot ? (
+                      <FeatureScreenshot screenshot={screenshot} side="right" />
+                    ) : (
+                      <ProductPlaceholder label={feature.placeholder} />
+                    )}
+                  </>
+                )}
+              </div>
+            </article>
+          )
+        })}
+      </section>
+
+      <LandingCta />
+      <LandingFooter />
     </main>
   )
 }

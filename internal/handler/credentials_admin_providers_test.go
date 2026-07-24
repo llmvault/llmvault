@@ -118,6 +118,25 @@ func TestBuildSystemCredentialDefaultsEngyProvider(t *testing.T) {
 	}
 }
 
+func TestBuildSystemCredentialDefaultsTheseanProvider(t *testing.T) {
+	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
+
+	cred, err := h.buildCredential(context.Background(), nil, createCredentialRequest{
+		Label:      "system-thesean",
+		ProviderID: "thesean",
+		APIKey:     "thesean-test-key",
+	})
+	if err != nil {
+		t.Fatalf("buildCredential returned error: %v", err)
+	}
+	if cred.BaseURL != "https://api.thesean.ai/v1" {
+		t.Fatalf("BaseURL = %q", cred.BaseURL)
+	}
+	if cred.AuthScheme != "bearer" {
+		t.Fatalf("AuthScheme = %q", cred.AuthScheme)
+	}
+}
+
 func TestBuildSystemCredentialDefaultsTogetherProvider(t *testing.T) {
 	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
 
@@ -130,6 +149,25 @@ func TestBuildSystemCredentialDefaultsTogetherProvider(t *testing.T) {
 		t.Fatalf("buildCredential returned error: %v", err)
 	}
 	if cred.BaseURL != "https://api.together.ai/v1" {
+		t.Fatalf("BaseURL = %q", cred.BaseURL)
+	}
+	if cred.AuthScheme != "bearer" {
+		t.Fatalf("AuthScheme = %q", cred.AuthScheme)
+	}
+}
+
+func TestBuildSystemCredentialDefaultsTheGridProvider(t *testing.T) {
+	h := NewCredentialHandler(nil, newCredentialProviderTestKMS(t), nil, nil)
+
+	cred, err := h.buildCredential(context.Background(), nil, createCredentialRequest{
+		Label:      "system-thegrid",
+		ProviderID: "thegrid",
+		APIKey:     "thegrid-test-key",
+	})
+	if err != nil {
+		t.Fatalf("buildCredential returned error: %v", err)
+	}
+	if cred.BaseURL != "https://api.thegrid.ai/v1" {
 		t.Fatalf("BaseURL = %q", cred.BaseURL)
 	}
 	if cred.AuthScheme != "bearer" {

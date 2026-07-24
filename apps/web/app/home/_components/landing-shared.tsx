@@ -359,7 +359,7 @@ export function LandingFooter() {
       >
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[0.8fr_repeat(3,1fr)]">
           <Link
-            href="/home"
+            href="/"
             className="h-fit text-lg font-semibold tracking-[-0.05em] text-foreground"
           >
             hivy

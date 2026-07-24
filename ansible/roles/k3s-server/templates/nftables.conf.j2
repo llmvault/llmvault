@@ -27,11 +27,11 @@ table inet hivy_filter {
     iifname "{{ k3s_private_interface }}" ip saddr {{ k3s_load_balancer_private_ip }} tcp dport { {{ k3s_gateway_http_port }}, {{ k3s_gateway_https_port }} } accept
 {% endif %}
     iifname "{{ k3s_private_interface }}" ip saddr {{ k3s_private_network_cidr }} tcp dport {{ k3s_private_gateway_https_port }} accept
-{% for client_ip in k3s_private_registry_clients | default([]) %}
-    iifname "{{ k3s_private_interface }}" ip saddr {{ client_ip }} tcp dport {{ k3s_private_registry_node_port }} accept
+{% for runner_host in groups['runners'] | default([]) %}
+    iifname "{{ k3s_private_interface }}" ip saddr {{ hostvars[runner_host].runner_private_ip }} tcp dport {{ k3s_private_registry_node_port }} accept
 {% endfor %}
-{% for client_ip in k3s_microsandbox_control_clients | default([]) %}
-    iifname "{{ k3s_private_interface }}" ip saddr {{ client_ip }} tcp dport {{ k3s_microsandbox_control_node_port }} accept
+{% for runner_host in groups['runners'] | default([]) %}
+    iifname "{{ k3s_private_interface }}" ip saddr {{ hostvars[runner_host].runner_private_ip }} tcp dport {{ k3s_microsandbox_control_node_port }} accept
 {% endfor %}
   }
 

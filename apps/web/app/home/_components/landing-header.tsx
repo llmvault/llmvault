@@ -115,7 +115,7 @@ export function LandingHeader() {
   return (
     <header className="mx-auto grid h-16 w-[calc(100%-2rem)] max-w-[1300px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center">
       <Link
-        href="/home"
+        href="/"
         aria-label="Hivy home"
         className="w-fit text-[1.05rem] font-semibold tracking-[-0.05em] text-foreground"
       >

@@ -13,9 +13,13 @@ runner_coredns_private_names:
   - mcp.usehivy.com
   - staging.mcp.usehivy.com
 runner_sandbox_private_egress_cidr: "{{ runner_private_ip }}/32"
-runner_sandbox_private_egress_ports: "443"
+runner_sandbox_private_egress_ports: "443,9430"
 runner_haproxy_backend_group: k3s_ingress
 runner_kubernetes_private_cidr: 10.80.1.0/24
+runner_sandbox_guest_cidr: 172.16.0.0/12
+runner_log_ingest_port: 9430
+runner_telemetry_hostname: telemetry.usehivy.com
+runner_telemetry_environment: production
 runner_firewall_retired_sources:
   - 10.80.0.2
   - 10.80.1.4
@@ -34,3 +38,5 @@ microsandbox_required_env:
   - HIVY_MICROSANDBOX_CONTROL_URL
   - HIVY_MICROSANDBOX_RUNNER_JOIN_SECRET
   - HIVY_MICROSANDBOX_RUNNER_API_TOKEN
+  - HIVY_MICROSANDBOX_LOG_INGEST_SIGNING_KEY
+  - HIVY_TELEMETRY_INGEST_TOKEN

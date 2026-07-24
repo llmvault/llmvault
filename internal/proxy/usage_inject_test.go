@@ -154,6 +154,29 @@ func TestApplyUsageAccounting_EngyUsesOpenAICompatibleContract(t *testing.T) {
 	}
 }
 
+func TestApplyUsageAccounting_TheseanUsesOpenAICompatibleContract(t *testing.T) {
+	req := makePostRequest(`{"model":"ship-like/claude-sonnet-5","stream":true,"messages":[]}`)
+
+	if err := applyUsageAccounting(req, "thesean", "https://api.thesean.ai/v1", "ignored-user"); err != nil {
+		t.Fatalf("applyUsageAccounting: %v", err)
+	}
+
+	body := decodeBody(t, req)
+	if _, ok := body["usage"]; ok {
+		t.Fatal("Thesean request received OpenRouter usage extension")
+	}
+	if _, ok := body["user"]; ok {
+		t.Fatal("Thesean request received OpenRouter user attribution")
+	}
+	so := map[string]json.RawMessage{}
+	if err := json.Unmarshal(body["stream_options"], &so); err != nil {
+		t.Fatalf("stream_options not an object: %s", body["stream_options"])
+	}
+	if string(so["include_usage"]) != "true" {
+		t.Fatalf("include_usage = %s, want true", so["include_usage"])
+	}
+}
+
 func TestApplyUsageAccounting_TogetherUsesOpenAICompatibleContract(t *testing.T) {
 	req := makePostRequest(`{"model":"thinkingmachines/Inkling","stream":true,"messages":[]}`)
 
@@ -167,6 +190,29 @@ func TestApplyUsageAccounting_TogetherUsesOpenAICompatibleContract(t *testing.T)
 	}
 	if _, ok := body["user"]; ok {
 		t.Fatal("Together request received OpenRouter user attribution")
+	}
+	so := map[string]json.RawMessage{}
+	if err := json.Unmarshal(body["stream_options"], &so); err != nil {
+		t.Fatalf("stream_options not an object: %s", body["stream_options"])
+	}
+	if string(so["include_usage"]) != "true" {
+		t.Fatalf("include_usage = %s, want true", so["include_usage"])
+	}
+}
+
+func TestApplyUsageAccounting_TheGridUsesOpenAICompatibleContract(t *testing.T) {
+	req := makePostRequest(`{"model":"text-standard","stream":true,"messages":[]}`)
+
+	if err := applyUsageAccounting(req, "thegrid", "https://api.thegrid.ai/v1", "ignored-user"); err != nil {
+		t.Fatalf("applyUsageAccounting: %v", err)
+	}
+
+	body := decodeBody(t, req)
+	if _, ok := body["usage"]; ok {
+		t.Fatal("The Grid request received OpenRouter usage extension")
+	}
+	if _, ok := body["user"]; ok {
+		t.Fatal("The Grid request received OpenRouter user attribution")
 	}
 	so := map[string]json.RawMessage{}
 	if err := json.Unmarshal(body["stream_options"], &so); err != nil {
