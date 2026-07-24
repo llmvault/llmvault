@@ -5,8 +5,11 @@ var coreHivyModels = append(
 		append(
 			append(
 				append(
-					append([]HivyModel{}, coreHivyModelsPreferred...),
-					coreHivyModelsText...,
+					append(
+						append([]HivyModel{}, coreHivyModelsPreferred...),
+						coreHivyModelsText...,
+					),
+					coreHivyModelsTextLegacy...,
 				),
 				quantisedHivyModels...,
 			),
