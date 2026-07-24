@@ -40,4 +40,13 @@ describe("static marketing route guard", () => {
       "Retired marketing routes must stay removed: /home"
     )
   })
+
+  it("keeps the API-backed model catalog runtime-rendered", () => {
+    const manifest = staticManifest()
+    manifest.routes["/models"] = {}
+
+    expect(() => assertStaticMarketingRoutes(manifest)).toThrow(
+      "Runtime marketing routes must stay dynamic: /models"
+    )
+  })
 })

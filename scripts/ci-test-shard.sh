@@ -104,7 +104,7 @@ internal_core_shard_packages() {
     8) select_internal_core_packages agents agentsandbox apps orgtier ;;
     9) select_internal_core_packages model registry db migrations testdb counter memory ;;
     10) select_internal_core_packages trigger/dispatch trigger/enrichment trigger/hivy spider firecrawl serper webcrawl enqueue email ;;
-    11) select_internal_core_packages evals observability/sentry observe sheets ;;
+    11) select_internal_core_packages evals observability/correlation observability/sentry observe sheets ;;
     *)
       echo "invalid internal-core shard index: $shard_index" >&2
       exit 2

@@ -1,4 +1,4 @@
-export type ModelNewWindow = {
+type ModelNewWindow = {
   new_from?: string | null
   new_to?: string | null
 }

@@ -53,6 +53,7 @@
     "react-resizable-panels": "^4.10.0",
     "react-scroll-to-bottom": "^4.2.0",
     "react-voice-visualizer": "^2.1.0",
+    "server-only": "0.0.1",
     "streamdown": "^2.5.0",
     "tailwind-merge": "^3.5.0",
     "zustand": "^5.0.14"

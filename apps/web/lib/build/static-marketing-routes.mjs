@@ -16,12 +16,12 @@ export const staticMarketingRoutes = [
   "/home/variant-5",
   "/home/variant-6",
   "/knowledge",
-  "/models",
   "/pricing",
   "/sheets",
   "/tag",
 ]
 
+export const runtimeMarketingRoutes = ["/models"]
 export const retiredMarketingRoutes = ["/home"]
 
 const staticMarketingCollections = [
@@ -35,6 +35,9 @@ export function assertStaticMarketingRoutes(manifest) {
     (route) => !prerenderedRoutes.has(route)
   )
   const restoredRoutes = retiredMarketingRoutes.filter((route) =>
+    prerenderedRoutes.has(route)
+  )
+  const prerenderedRuntimeRoutes = runtimeMarketingRoutes.filter((route) =>
     prerenderedRoutes.has(route)
   )
 
@@ -63,6 +66,11 @@ export function assertStaticMarketingRoutes(manifest) {
   if (restoredRoutes.length > 0) {
     throw new Error(
       `Retired marketing routes must stay removed: ${restoredRoutes.join(", ")}`
+    )
+  }
+  if (prerenderedRuntimeRoutes.length > 0) {
+    throw new Error(
+      `Runtime marketing routes must stay dynamic: ${prerenderedRuntimeRoutes.join(", ")}`
     )
   }
 }

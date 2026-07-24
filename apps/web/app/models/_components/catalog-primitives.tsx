@@ -219,7 +219,7 @@ export function PricePair({
   )
 }
 
-export function PriceDatum({
+function PriceDatum({
   label,
   value,
   inverse = false,

@@ -7,8 +7,9 @@ export const metadata: Metadata = {
     "Compare every model available to Hivy agents, including provider routes, context windows, and per-token prices.",
 }
 
-export const dynamic = "force-static"
-export const revalidate = 3600
+// The catalog comes from the API configured for the running web service.
+// Rendering it at build time makes the image depend on a live API endpoint.
+export const dynamic = "force-dynamic"
 
 export default function ModelsPage() {
   return <CatalogPage />

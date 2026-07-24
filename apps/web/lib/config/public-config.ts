@@ -31,7 +31,7 @@ export const PUBLIC_CONFIG_ELEMENT_ID = "hivy-runtime-public-config"
  * request (mirrors the backend's required-env philosophy). Server-only path —
  * on the client, clientConfig() reads the injected window value instead.
  */
-export function publicConfigFromEnv(): PublicConfig {
+function publicConfigFromEnv(): PublicConfig {
   // apiUrl: browser-facing public API URL. HIVY_PUBLIC_API_URL lets split-network
   // deploys (browser vs. server-internal) differ; falls back to HIVY_API_URL.
   const apiUrl = (

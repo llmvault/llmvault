@@ -1,7 +1,7 @@
 import type { components } from "@/lib/api/schema"
 
 export type CatalogModel = components["schemas"]["catalogModelResponse"]
-export type CatalogProvider =
+type CatalogProvider =
   components["schemas"]["catalogModelProviderResponse"]
 
 export type CatalogProviderOption = {
