@@ -30,7 +30,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: migrate
-          image: ghcr.io/usehivy/msb@sha256:c72b97e71935483e116df79c34f4fc3c285f0cd9d389bc03bbccd8ca4b8b434b
+          image: ghcr.io/usehivy/msb@sha256:e19cf81de561489b11923c001cb2f95f75aadea64cd964078d2712b6b38d5116
           imagePullPolicy: IfNotPresent
           args: ["migrate", "up"]
           envFrom:
@@ -48,7 +48,7 @@ spec:
             runAsGroup: 101
       containers:
         - name: control
-          image: ghcr.io/usehivy/msb@sha256:c72b97e71935483e116df79c34f4fc3c285f0cd9d389bc03bbccd8ca4b8b434b
+          image: ghcr.io/usehivy/msb@sha256:e19cf81de561489b11923c001cb2f95f75aadea64cd964078d2712b6b38d5116
           imagePullPolicy: IfNotPresent
           args: ["control"]
           envFrom:
