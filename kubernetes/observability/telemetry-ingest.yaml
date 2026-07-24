@@ -78,6 +78,13 @@ spec:
       app.kubernetes.io/name: vmauth
       app.kubernetes.io/instance: hivy-telemetry
   ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: observability
+      toPorts:
+        - ports:
+            - port: "8427"
+              protocol: TCP
     - fromEntities:
         - ingress
         - host

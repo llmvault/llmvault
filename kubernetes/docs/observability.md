@@ -261,7 +261,8 @@ Helm release:
 
 Generate the ignored credentials first. This command preserves existing values
 unless `--refresh` is passed and keeps the environment database-role passwords
-in sync with Grafana's datasource secret:
+in sync with Grafana's datasource secret. It also mirrors the existing staging
+and production Qdrant API keys into the observability-only metrics secret:
 
 ```sh
 kubernetes/observability/generate-secrets.sh

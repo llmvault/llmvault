@@ -13,5 +13,9 @@ secretGenerator:
     envs:
       - postgres-datasources.env
     type: Opaque
+  - name: observability-qdrant-metrics
+    envs:
+      - qdrant-metrics.env
+    type: Opaque
 generatorOptions:
   disableNameSuffixHash: true

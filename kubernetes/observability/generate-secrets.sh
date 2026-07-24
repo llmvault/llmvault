@@ -7,8 +7,11 @@ secret_dir="$repo_root/kubernetes/config/env/observability"
 grafana_target="$secret_dir/grafana-admin.env"
 telemetry_target="$secret_dir/telemetry-ingest.env"
 datasource_target="$secret_dir/postgres-datasources.env"
+qdrant_metrics_target="$secret_dir/qdrant-metrics.env"
 production_postgres_target="$repo_root/kubernetes/config/env/production/postgres-observability.env"
 staging_postgres_target="$repo_root/kubernetes/config/env/staging/postgres-observability.env"
+production_qdrant_target="$repo_root/kubernetes/config/env/production/qdrant.env"
+staging_qdrant_target="$repo_root/kubernetes/config/env/staging/qdrant.env"
 refresh="${1:-}"
 
 if [[ -n "$refresh" && "$refresh" != "--refresh" ]]; then
@@ -85,3 +88,30 @@ else
 fi
 
 unset postgres_changed production_postgres_password staging_postgres_password
+
+for qdrant_source in "$production_qdrant_target" "$staging_qdrant_target"; do
+  if [[ ! -f "$qdrant_source" ]]; then
+    echo "missing Qdrant environment file: $qdrant_source" >&2
+    exit 1
+  fi
+done
+
+production_qdrant_key="$(read_env_value HIVY_QDRANT_API_KEY "$production_qdrant_target")"
+staging_qdrant_key="$(read_env_value HIVY_QDRANT_API_KEY "$staging_qdrant_target")"
+if [[ -z "$production_qdrant_key" || -z "$staging_qdrant_key" ]]; then
+  echo "HIVY_QDRANT_API_KEY is required in both environment Qdrant files" >&2
+  exit 1
+fi
+
+if [[ ! -e "$qdrant_metrics_target" ||
+      "$(read_env_value PRODUCTION_QDRANT_API_KEY "$qdrant_metrics_target")" != "$production_qdrant_key" ||
+      "$(read_env_value STAGING_QDRANT_API_KEY "$qdrant_metrics_target")" != "$staging_qdrant_key" ]]; then
+  printf 'PRODUCTION_QDRANT_API_KEY=%s\nSTAGING_QDRANT_API_KEY=%s\n' \
+    "$production_qdrant_key" "$staging_qdrant_key" > "$qdrant_metrics_target"
+  chmod 600 "$qdrant_metrics_target"
+  echo "synchronized $qdrant_metrics_target"
+else
+  echo "preserved $qdrant_metrics_target"
+fi
+
+unset production_qdrant_key staging_qdrant_key

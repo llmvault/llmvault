@@ -12,18 +12,20 @@ spec:
         - alert: HivyRunnerTelemetryMissing
           expr: |
             (
-              max_over_time(up{node_type="runner"}[5m]) < 1
+              max_over_time(up{node_type="runner", instance!~"127\\.0\\.0\\.1:.*"}[5m]) < 1
             )
             or
             (
-              time() - max_over_time(timestamp(up{node_type="runner"})[24h]) > 300
+              time() - max_over_time(
+                timestamp(up{node_type="runner", instance!~"127\\.0\\.0\\.1:.*"})[24h]
+              ) > 300
             )
           for: 5m
           labels:
             severity: critical
           annotations:
             summary: "Runner telemetry is missing for {{ $labels.runner_id }}"
-            description: "The {{ $labels.job }} target on runner {{ $labels.runner_id }} has not produced a successful scrape for ten minutes."
+            description: "The {{ $labels.job }} target on runner {{ $labels.runner_id }} has not produced a successful scrape for five minutes."
         - alert: HivyRunnerTelemetryBufferGrowing
           expr: |
             (
