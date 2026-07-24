@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/hibiken/asynq"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/usehivy/hivy/internal/agentemail"
 	"github.com/usehivy/hivy/internal/agentruntime"
@@ -18,6 +19,7 @@ import (
 	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/model"
+	obsmetrics "github.com/usehivy/hivy/internal/observability/metrics"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/runtimestream"
@@ -147,7 +149,19 @@ func runWork(ctx context.Context, deps *bootstrap.Deps) error {
 	})
 
 	mux := tasks.NewServeMux(workerDeps)
+	mux.Use(obsmetrics.AsynqMiddleware())
 	mux.Use(sentryobs.AsynqMiddleware())
+
+	queueCollector := obsmetrics.NewAsynqQueueCollector(redisOpt, []string{
+		tasks.QueueCritical,
+		tasks.QueueDefault,
+		tasks.QueuePeriodic,
+		ragtasks.QueueRagWork,
+		tasks.QueueBulk,
+		tasks.QueueSandboxLifecycle,
+	})
+	prometheus.MustRegister(queueCollector)
+	defer queueCollector.Close()
 
 	srv := asynq.NewServer(redisOpt, asynq.Config{
 		Concurrency: cfg.AsynqConcurrency,

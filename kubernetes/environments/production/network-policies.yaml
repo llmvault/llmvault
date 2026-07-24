@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: worker-deny-ingress
+  name: worker-ingress
   labels:
     app.kubernetes.io/name: hivy-backend
     hivy.io/apply-phase: workload
@@ -12,6 +12,14 @@ spec:
       app.kubernetes.io/component: worker
   policyTypes:
     - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - port: 8090
+          protocol: TCP
 ---
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
@@ -45,6 +53,13 @@ spec:
               protocol: TCP
             - port: "8081"
               protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: observability
+      toPorts:
+        - ports:
+            - port: "9090"
+              protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -67,6 +82,15 @@ spec:
               kubernetes.io/metadata.name: cnpg-system
       ports:
         - port: 8000
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - port: 5432
+          protocol: TCP
+        - port: 9187
           protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
@@ -137,6 +161,13 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: qdrant-backup
+      ports:
+        - port: 6333
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
       ports:
         - port: 6333
           protocol: TCP
@@ -223,4 +254,11 @@ spec:
               kubernetes.io/metadata.name: cnpg-system
       ports:
         - port: 8000
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - port: 9187
           protocol: TCP

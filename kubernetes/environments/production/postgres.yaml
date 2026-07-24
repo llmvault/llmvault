@@ -9,6 +9,13 @@ spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie@sha256:06d950644d127249699c1468d0ffad7e44c34daa11688b0e966dec947eb043c4
   enableSuperuserAccess: false
   primaryUpdateStrategy: unsupervised
+  managed:
+    roles:
+      - name: hivy_observability
+        ensure: present
+        login: true
+        passwordSecret:
+          name: backend-postgres-observability
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
@@ -37,7 +44,7 @@ spec:
       cpu: "4"
       memory: 8Gi
   monitoring:
-    enablePodMonitor: false
+    enablePodMonitor: false # Scraped by the VM-native VMPodScrape in observability.
 ---
 apiVersion: barmancloud.cnpg.io/v1
 kind: ObjectStore
@@ -85,4 +92,3 @@ spec:
   method: plugin
   pluginConfiguration:
     name: barman-cloud.cloudnative-pg.io
-

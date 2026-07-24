@@ -9,5 +9,9 @@ secretGenerator:
     envs:
       - telemetry-ingest.env
     type: Opaque
+  - name: observability-postgres-datasources
+    envs:
+      - postgres-datasources.env
+    type: Opaque
 generatorOptions:
   disableNameSuffixHash: true

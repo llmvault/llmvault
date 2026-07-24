@@ -220,6 +220,11 @@ private interface before Ansible touches the host.
 6. Confirm registration in control-plane logs and run a create, preview, wake,
    stop, and delete lifecycle test.
 
+Phase 1 includes `runner-observability`. It installs runner and sandbox journal
+forwarding plus node, VMAgent, VLAgent, runner API, and log-ingest metric
+scrapes. No Grafana dashboard or central scrape-target edit is required when a
+runner is added; `runner_name` becomes its stable telemetry label.
+
 The hard-coded client lists mean adding an inventory entry alone is
 insufficient. Zot pulls and control-plane registration will remain blocked
 until both host and Cilium policy allow the address.

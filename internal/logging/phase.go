@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	obsmetrics "github.com/usehivy/hivy/internal/observability/metrics"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 )
 
 // LogPhase emits a structured timing record for one step in a larger operation.
 func LogPhase(ctx context.Context, event string, phase string, started time.Time, attrs ...any) {
+	duration := time.Since(started)
+	obsmetrics.ObserveWorkflow(event, phase, "success", duration)
 	span := sentryobs.StartSpan(ctx, "provision.phase", event+" / "+phase)
 	if span != nil {
 		span.StartTime = started
@@ -25,7 +28,7 @@ func LogPhase(ctx context.Context, event string, phase string, started time.Time
 		"event", event,
 		"phase", phase,
 		"status", "success",
-		"duration_ms", time.Since(started).Milliseconds(),
+		"duration_ms", duration.Milliseconds(),
 	)
 	if span != nil {
 		fields = append(fields,

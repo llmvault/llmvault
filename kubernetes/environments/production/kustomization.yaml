@@ -7,6 +7,7 @@ resources:
   - ../../apps/backend/base
   - ../../apps/data-backups
   - ../../apps/nango/base
+  - ../../apps/redis-exporter
   - ../../apps/web/base
   - deployment-service-account.yaml
   - postgres.yaml
@@ -33,6 +34,7 @@ patches:
       version: v1
       kind: CronJob
       name: backend-redis-backup
+  - path: redis-exporter-patch.yaml
 images:
   - name: ghcr.io/usehivy/hivy
     newName: ghcr.io/usehivy/hivy

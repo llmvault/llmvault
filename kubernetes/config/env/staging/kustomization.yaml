@@ -31,6 +31,10 @@ secretGenerator:
     envs:
       - postgres.env
     type: kubernetes.io/basic-auth
+  - name: backend-postgres-observability
+    envs:
+      - postgres-observability.env
+    type: kubernetes.io/basic-auth
   - name: backend-redis-auth
     envs:
       - redis.env

@@ -111,6 +111,9 @@ spec:
             - name: mcp
               containerPort: 8081
               protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
           envFrom:
             - configMapRef:
                 name: backend-config

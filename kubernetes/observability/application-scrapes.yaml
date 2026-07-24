@@ -1,0 +1,117 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: hivy-api
+  labels:
+    app.kubernetes.io/part-of: hivy-observability
+spec:
+  namespaceSelector:
+    matchNames:
+      - production
+      - staging
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hivy-backend
+      app.kubernetes.io/component: api
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: hivy-worker
+  labels:
+    app.kubernetes.io/part-of: hivy-observability
+spec:
+  namespaceSelector:
+    matchNames:
+      - production
+      - staging
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hivy-backend
+      app.kubernetes.io/component: worker
+  podMetricsEndpoints:
+    - port: health
+      path: /metrics
+      interval: 15s
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: microsandbox-control
+  labels:
+    app.kubernetes.io/part-of: hivy-observability
+spec:
+  namespaceSelector:
+    matchNames:
+      - production
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: microsandbox-control
+      app.kubernetes.io/component: control-plane
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: cloudnative-pg
+  labels:
+    app.kubernetes.io/part-of: hivy-observability
+spec:
+  namespaceSelector:
+    matchNames:
+      - production
+      - staging
+  selector:
+    matchExpressions:
+      - key: cnpg.io/cluster
+        operator: Exists
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: qdrant
+  labels:
+    app.kubernetes.io/part-of: hivy-observability
+spec:
+  namespaceSelector:
+    matchNames:
+      - production
+      - staging
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qdrant
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: backend-redis
+  labels:
+    app.kubernetes.io/part-of: hivy-observability
+spec:
+  namespaceSelector:
+    matchNames:
+      - production
+      - staging
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend-redis-exporter
+      app.kubernetes.io/component: metrics
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s

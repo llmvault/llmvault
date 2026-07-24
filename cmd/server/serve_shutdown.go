@@ -16,6 +16,7 @@ func shutdownServers(
 	ctx context.Context,
 	srv *http.Server,
 	mcpSrv *http.Server,
+	metricsSrv *http.Server,
 	auditWriter *middleware.AuditWriter,
 	generationWriter *middleware.GenerationWriter,
 	deps *bootstrap.Deps,
@@ -30,6 +31,9 @@ func shutdownServers(
 	}
 	if err := mcpSrv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("mcp server shutdown error", "error", err)
+	}
+	if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("metrics server shutdown error", "error", err)
 	}
 
 	auditWriter.Shutdown(shutdownCtx)

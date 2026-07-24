@@ -1,0 +1,145 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: hivy-application-observability
+  labels:
+    app.kubernetes.io/part-of: hivy-observability
+spec:
+  groups:
+    - name: hivy-slo-recording
+      interval: 30s
+      rules:
+        - record: hivy:http_request_rate5m
+          expr: sum by (namespace, service) (rate(hivy_http_requests_total[5m]))
+        - record: hivy:http_5xx_ratio5m
+          expr: |
+            sum by (namespace, service) (rate(hivy_http_requests_total{status_class="5xx"}[5m]))
+            /
+            clamp_min(sum by (namespace, service) (rate(hivy_http_requests_total[5m])), 0.001)
+        - record: hivy:http_latency_p95_5m
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (namespace, service, le) (rate(hivy_http_request_duration_seconds_bucket[5m]))
+            )
+        - record: hivy:llm_error_ratio10m
+          expr: |
+            sum by (namespace, provider) (rate(hivy_llm_generations_total{status="error"}[10m]))
+            /
+            clamp_min(sum by (namespace, provider) (rate(hivy_llm_generations_total[10m])), 0.001)
+    - name: hivy-application-alerts
+      interval: 30s
+      rules:
+        - alert: HivyAPIHighErrorRate
+          expr: hivy:http_5xx_ratio5m > 0.05 and hivy:http_request_rate5m > 0.1
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Hivy {{ $labels.service }} 5xx rate is above 5%"
+            description: "The five-minute server-error ratio has remained above 5% for ten minutes in {{ $labels.namespace }}."
+            dashboard: "Hivy / API Reliability and SLOs"
+        - alert: HivyAPIHighLatency
+          expr: hivy:http_latency_p95_5m > 5 and hivy:http_request_rate5m > 0.1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Hivy {{ $labels.service }} p95 latency is above 5 seconds"
+            description: "The five-minute p95 has remained above five seconds in {{ $labels.namespace }}."
+            dashboard: "Hivy / API Reliability and SLOs"
+        - alert: HivyQueueLatencyHigh
+          expr: max by (namespace, queue) (hivy_asynq_queue_latency_seconds) > 120
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Asynq queue {{ $labels.queue }} is more than two minutes behind"
+            description: "The oldest pending task has waited more than two minutes in {{ $labels.namespace }}."
+            dashboard: "Hivy / Async Work and Queues"
+        - alert: HivyArchivedTasksPresent
+          expr: max by (namespace, queue) (hivy_asynq_queue_tasks{state="archived"}) > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Asynq queue {{ $labels.queue }} has archived tasks"
+            description: "One or more tasks exhausted retries in {{ $labels.namespace }}."
+            dashboard: "Hivy / Async Work and Queues"
+        - alert: HivyQueueCollectorDown
+          expr: min by (namespace, queue) (hivy_asynq_queue_collector_up) == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Asynq queue inspection failed for {{ $labels.queue }}"
+            description: "Worker metrics cannot read queue state in {{ $labels.namespace }}."
+            dashboard: "Hivy / Async Work and Queues"
+        - alert: HivyLLMProviderHighErrorRate
+          expr: hivy:llm_error_ratio10m > 0.10
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "LLM provider {{ $labels.provider }} error rate is above 10%"
+            description: "Generation errors have remained above 10% in {{ $labels.namespace }}."
+            dashboard: "Hivy / Agent Runs and LLM"
+        - alert: HivyMicrosandboxRunnerUnhealthy
+          expr: max by (runner_id) (hivy_microsandbox_runner_status{status="unhealthy"}) > 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Microsandbox runner {{ $labels.runner_id }} is unhealthy"
+            description: "The control plane has marked the runner unhealthy."
+            dashboard: "Hivy / Sandbox Capacity and Lifecycle"
+        - alert: HivyMicrosandboxRunnerHeartbeatLate
+          expr: max by (runner_id) (hivy_microsandbox_runner_heartbeat_age_seconds) > 30
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Microsandbox runner {{ $labels.runner_id }} heartbeat is late"
+            description: "No runner heartbeat has been recorded for more than 30 seconds."
+            dashboard: "Hivy / Sandbox Capacity and Lifecycle"
+        - alert: HivyMicrosandboxCapacityHigh
+          expr: |
+            max by (runner_id, resource) (
+              hivy_microsandbox_runner_reserved
+              /
+              clamp_min(hivy_microsandbox_runner_capacity, 1)
+            ) > 0.85
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Runner {{ $labels.runner_id }} {{ $labels.resource }} reservation is above 85%"
+            description: "Sustained reservation pressure can delay new sandbox provisioning."
+            dashboard: "Hivy / Sandbox Capacity and Lifecycle"
+        - alert: HivyPostgresCollectorDown
+          expr: cnpg_collector_up{namespace=~"production|staging"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "CloudNativePG metrics collector is down"
+            description: "Database telemetry is unavailable for {{ $labels.namespace }}/{{ $labels.pod }}."
+            dashboard: "Hivy / Data Services"
+        - alert: HivyApplicationScrapeDown
+          expr: up{namespace=~"production|staging", job=~".*(hivy|microsandbox|cloudnative|qdrant).*"} == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Application metrics scrape is down"
+            description: "VictoriaMetrics cannot scrape {{ $labels.job }} at {{ $labels.instance }}."
+            dashboard: "Hivy / Observability Pipeline"
+        - alert: HivyPublicJourneyDown
+          expr: probe_success{job="hivy-public-journeys"} == 0
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Public journey probe failed"
+            description: "The external-style HTTP probe for {{ $labels.instance }} has failed for three minutes."
+            dashboard: "Hivy / Product Journey SLOs"

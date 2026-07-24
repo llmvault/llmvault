@@ -16,6 +16,7 @@ import (
 	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
+	obsmetrics "github.com/usehivy/hivy/internal/observability/metrics"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 )
 
@@ -47,6 +48,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	}
 
 	r := chi.NewRouter()
+	r.Use(obsmetrics.HTTPMiddleware("api"))
 	r.Use(chimw.RequestID)
 	r.Use(middleware.RealIP(cfg.TrustedProxyCIDRs))
 	r.Use(sentryobs.Middleware())
@@ -100,8 +102,9 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	})
 
 	mcpSrv := setupMCPServer(ctx, cfg, signingKey, database, h.mcpHandler)
+	metricsSrv := startServeMetricsServer(ctx, cfg.MetricsPort)
 
 	<-ctx.Done()
-	shutdownServers(ctx, srv, mcpSrv, h.auditWriter, h.generationWriter, deps)
+	shutdownServers(ctx, srv, mcpSrv, metricsSrv, h.auditWriter, h.generationWriter, deps)
 	return nil
 }

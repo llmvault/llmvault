@@ -17,6 +17,7 @@ import (
 	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	obsmetrics "github.com/usehivy/hivy/internal/observability/metrics"
 	"github.com/usehivy/hivy/internal/observe"
 	"github.com/usehivy/hivy/internal/providerheaders"
 	"github.com/usehivy/hivy/internal/registry"
@@ -162,6 +163,7 @@ func (gw *GenerationWriter) spill(ctx context.Context, gen model.Generation, rea
 // Write queues a generation entry, never blocking the request hot path: a full
 // buffer spills the billing-bearing entry to the durable asynq task.
 func (gw *GenerationWriter) Write(ctx context.Context, gen model.Generation) {
+	obsmetrics.ObserveGeneration(gen)
 	select {
 	case gw.entries <- gen:
 	default:

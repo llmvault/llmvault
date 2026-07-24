@@ -31,3 +31,21 @@ scrape_configs:
         labels:
           instance: {{ runner_name | quote }}
           service: vmagent
+
+  - job_name: microsandbox-runner
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "{{ runner_private_ip }}:{{ runner_api_port }}"
+        labels:
+          instance: {{ runner_name | quote }}
+          service: microsandbox-runner
+
+  - job_name: microsandbox-runner-log-ingest
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "{{ runner_private_ip }}:{{ runner_log_ingest_port }}"
+        labels:
+          instance: {{ runner_name | quote }}
+          service: microsandbox-runner-log-ingest

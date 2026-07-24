@@ -19,6 +19,7 @@ import (
 	"github.com/usehivy/hivy/internal/microsandbox/config"
 	"github.com/usehivy/hivy/internal/microsandbox/httpx"
 	"github.com/usehivy/hivy/internal/observability/correlation"
+	obsmetrics "github.com/usehivy/hivy/internal/observability/metrics"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 )
 
@@ -68,6 +69,7 @@ func NewServer(ctx context.Context, cfg config.Config) (*Server, error) {
 
 func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
+	r.Use(obsmetrics.HTTPMiddleware("microsandbox-runner"))
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(sentryobs.Middleware())
@@ -78,6 +80,7 @@ func (s *Server) Routes() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok\n"))
 	})
+	r.Handle("/metrics", obsmetrics.Handler())
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireControl)
 		r.Post("/v1/sandboxes", s.createSandbox)

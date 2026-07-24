@@ -6,6 +6,7 @@ resources:
   - ../../config/env/staging
   - ../../apps/backend/base
   - ../../apps/nango/base
+  - ../../apps/redis-exporter
   - ../../apps/data-backups
   - ../../apps/web/base
   - deployment-service-account.yaml

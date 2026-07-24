@@ -15,6 +15,7 @@ import (
 	"github.com/usehivy/hivy/internal/goroutine"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/middleware"
+	obsmetrics "github.com/usehivy/hivy/internal/observability/metrics"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 )
 
@@ -26,6 +27,7 @@ func setupMCPServer(
 	mcpHandler *handler.MCPHandler,
 ) *http.Server {
 	mcpRouter := chi.NewRouter()
+	mcpRouter.Use(obsmetrics.HTTPMiddleware("mcp"))
 	mcpRouter.Use(chimw.RequestID)
 	mcpRouter.Use(middleware.RealIP(cfg.TrustedProxyCIDRs))
 	mcpRouter.Use(sentryobs.Middleware())

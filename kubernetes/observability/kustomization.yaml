@@ -8,6 +8,10 @@ resources:
   - ../config/env/observability
   - routes.yaml
   - network-policy.yaml
+  - datasources.yaml
+  - application-scrapes.yaml
+  - application-rules.yaml
+  - synthetics.yaml
   - redis-backup-rules.yaml
   - telemetry-ingest.yaml
   - runner-alerts.yaml
@@ -19,6 +23,20 @@ configMapGenerator:
       - dashboards/hivy-service-details.json
       - dashboards/hivy-runners-sandboxes.json
       - dashboards/hivy-session-forensics.json
+      - dashboards/hivy-customer-support.json
+      - dashboards/hivy-api-reliability.json
+      - dashboards/hivy-agent-llm.json
+      - dashboards/hivy-asynq.json
+      - dashboards/hivy-sandbox-capacity.json
+      - dashboards/hivy-automation.json
+      - dashboards/hivy-rag.json
+      - dashboards/hivy-data-services.json
+      - dashboards/hivy-billing-security.json
+      - dashboards/hivy-product-operations.json
+      - dashboards/hivy-deployments.json
+      - dashboards/hivy-backups.json
+      - dashboards/hivy-observability-pipeline.json
+      - dashboards/hivy-product-journeys.json
     options:
       disableNameSuffixHash: true
       labels:

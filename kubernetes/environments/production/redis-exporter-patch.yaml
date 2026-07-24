@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-redis-exporter
+spec:
+  template:
+    spec:
+      containers:
+        - name: exporter
+          env:
+            - name: REDIS_ADDR
+              value: redis://backend-redis-leader:6379
+            - name: REDIS_EXPORTER_IS_CLUSTER
+              value: "true"

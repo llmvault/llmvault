@@ -11,11 +11,13 @@ import (
 
 	"github.com/usehivy/hivy/internal/bootstrap"
 	"github.com/usehivy/hivy/internal/goroutine"
+	obsmetrics "github.com/usehivy/hivy/internal/observability/metrics"
 	sentryobs "github.com/usehivy/hivy/internal/observability/sentry"
 )
 
 func startWorkerHealthServer(ctx context.Context, deps *bootstrap.Deps) (*http.Server, error) {
 	healthMux := http.NewServeMux()
+	healthMux.Handle("/metrics", obsmetrics.Handler())
 	healthMux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

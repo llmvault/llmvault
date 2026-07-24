@@ -97,8 +97,9 @@ type Config struct {
 	// anonymous rate limit from 60 req/hr to 5000 req/hr per token.
 	GitHubToken string `env:"HIVY_GITHUB_TOKEN"`
 
-	MCPPort    int    `env:"HIVY_MCP_PORT" envDefault:"8081"`
-	MCPBaseURL string `env:"HIVY_MCP_BASE_URL" envDefault:"http://localhost:8081"`
+	MCPPort     int    `env:"HIVY_MCP_PORT" envDefault:"8081"`
+	MCPBaseURL  string `env:"HIVY_MCP_BASE_URL" envDefault:"http://localhost:8081"`
+	MetricsPort int    `env:"HIVY_METRICS_PORT" envDefault:"9090"`
 	// MCPOAuthCallbackURL is the public callback for arbitrary remote MCP OAuth
 	// servers. Empty falls back to HIVY_API_WEBHOOK_BASE_URL plus the standard
 	// callback path so self-hosted deployments never depend on a Hivy domain.
