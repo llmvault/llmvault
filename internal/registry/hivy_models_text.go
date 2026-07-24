@@ -2,7 +2,9 @@ package registry
 
 var coreHivyModelsText = []HivyModel{
 	{
-		ID: "gpt-5.6-luna",
+		ID:      "gpt-5.6-luna",
+		NewFrom: "2026-07-23T00:00:00Z",
+		NewTo:   "2026-09-23T00:00:00Z",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "openai/gpt-5.6-luna"},
 		},
@@ -11,7 +13,9 @@ var coreHivyModelsText = []HivyModel{
 		},
 	},
 	{
-		ID: "gpt-5.6-terra",
+		ID:      "gpt-5.6-terra",
+		NewFrom: "2026-07-23T00:00:00Z",
+		NewTo:   "2026-09-23T00:00:00Z",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "openai/gpt-5.6-terra"},
 		},
@@ -20,7 +24,9 @@ var coreHivyModelsText = []HivyModel{
 		},
 	},
 	{
-		ID: "gpt-5.6-sol",
+		ID:      "gpt-5.6-sol",
+		NewFrom: "2026-07-23T00:00:00Z",
+		NewTo:   "2026-09-23T00:00:00Z",
 		Routes: []ModelRoute{
 			{ProviderID: "atlascloud", ModelID: "openai/gpt-5.6-sol"},
 		},
