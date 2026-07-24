@@ -59,6 +59,7 @@ import {
   ensureSessionStream,
   hydrateSessionRuntimeFromResponse,
   interruptSessionTurn,
+  stopSessionStream,
 } from "@/app/w/(chat)/_stores/session-stream-manager"
 import {
   useSessionLiveEvents,
@@ -296,13 +297,17 @@ export function SessionThreadView({
     ) {
       return
     }
-    if (turnActive && !activeBackendTurnID) return
+    ensureSessionNotices(sessionId, { queryClient, orgId: activeOrgId })
+    if (!turnActive) {
+      stopSessionStream(sessionId)
+      return
+    }
+    if (!activeBackendTurnID) return
     ensureSessionStream(sessionId, {
       queryClient,
       orgId: activeOrgId,
       replay: replayModeForLoadedSession(activeBackendTurnID),
     })
-    ensureSessionNotices(sessionId, { queryClient, orgId: activeOrgId })
   }, [
     activeBackendTurnID,
     activeOrgId,

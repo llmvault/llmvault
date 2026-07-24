@@ -84,6 +84,10 @@ export function ensureSessionStream(
   sessionId: string,
   options: EnsureStreamOptions
 ) {
+  if (!sessionHasActiveTurn(sessionId)) {
+    stopController(sessionId)
+    return
+  }
   const nextReplayKey = replayKey(options.replay)
   const existing = controllers.get(sessionId)
   if (existing && !existing.stopped && !existing.reconnect) {
@@ -135,6 +139,10 @@ export async function interruptSessionTurn(
 export function stopAllSessionStreams() {
   for (const sessionId of controllers.keys()) stopController(sessionId)
   suspendedStreamsByOrg.clear()
+}
+
+export function stopSessionStream(sessionId: string) {
+  stopController(sessionId)
 }
 
 export function ensureSessionNotices(
@@ -313,7 +321,10 @@ async function runSessionStream(
     })
     if (controller.abort.signal.aborted || controller.stopped) return
     clearControllerIfCurrent(sessionId, controller)
-    if (shouldReconnectAfterClose(attemptedReplay)) {
+    if (
+      sessionHasActiveTurn(sessionId) &&
+      shouldReconnectAfterClose(attemptedReplay)
+    ) {
       reconnectSessionStream(
         sessionId,
         controller.queryClient,
@@ -325,6 +336,10 @@ async function runSessionStream(
     }
   } catch (error) {
     if (controller.abort.signal.aborted || controller.stopped) return
+    if (!sessionHasActiveTurn(sessionId)) {
+      stopController(sessionId)
+      return
+    }
     const status = goSessionStreamHTTPStatus(error)
     if (
       (status === 401 || status === 403) &&
@@ -394,6 +409,9 @@ function handleSessionStreamFrame(
       outcome: message ? "failed" : "completed",
     })
   }
+  if (!subagentFrame && !sessionHasActiveTurn(sessionId)) {
+    stopController(sessionId)
+  }
 }
 
 function clearControllerIfCurrent(
@@ -415,6 +433,10 @@ function reconnectSessionStream(
     authRefreshAttempts?: number
   } = {}
 ) {
+  if (!sessionHasActiveTurn(sessionId)) {
+    stopController(sessionId)
+    return
+  }
   const currentAttempt =
     useSessionRuntimeStore.getState().reconnectAttemptsBySessionId[sessionId] ??
     0
@@ -424,6 +446,7 @@ function reconnectSessionStream(
   stopController(sessionId, { keepStatus: true })
   const reconnect = setTimeout(() => {
     controllers.delete(sessionId)
+    if (!sessionHasActiveTurn(sessionId)) return
     ensureSessionStream(sessionId, {
       queryClient,
       orgId: options.orgId,

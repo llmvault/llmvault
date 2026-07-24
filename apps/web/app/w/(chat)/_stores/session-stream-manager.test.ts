@@ -50,6 +50,7 @@ describe("session stream manager", () => {
   })
 
   it("opens the chat stream with sandbox access instead of a backend stream", async () => {
+    markTurnActive()
     const access = sandboxAccess({ token: "token-1" })
     getSessionSandboxAccessMock.mockResolvedValueOnce(access)
     subscribeToGoSessionStreamMock.mockResolvedValueOnce(undefined)
@@ -76,6 +77,7 @@ describe("session stream manager", () => {
 
   it("refreshes sandbox access once after a direct stream auth failure", async () => {
     vi.useFakeTimers()
+    markTurnActive()
     const firstAccess = sandboxAccess({ token: "expired-token" })
     const refreshedAccess = sandboxAccess({ token: "fresh-token" })
     getSessionSandboxAccessMock
@@ -110,6 +112,7 @@ describe("session stream manager", () => {
   })
 
   it("keeps one stream open when the loaded replay mode changes", async () => {
+    markTurnActive()
     getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
     let firstSignal: AbortSignal | undefined
     subscribeToGoSessionStreamMock.mockImplementationOnce(({ signal }) => {
@@ -188,6 +191,7 @@ describe("session stream manager", () => {
 
   it("preserves from_turn_id across an early reconnect before a cursor exists", async () => {
     vi.useFakeTimers()
+    markTurnActive()
     getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
     subscribeToGoSessionStreamMock
       .mockRejectedValueOnce(new Error("network closed"))
@@ -211,6 +215,7 @@ describe("session stream manager", () => {
 
   it("preserves durable from_turn_id follow across an early reconnect before a cursor exists", async () => {
     vi.useFakeTimers()
+    markTurnActive()
     getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
     subscribeToGoSessionStreamMock
       .mockRejectedValueOnce(new Error("network closed"))
@@ -234,6 +239,7 @@ describe("session stream manager", () => {
 
   it("reconnects a durable stream that closes without an error", async () => {
     vi.useFakeTimers()
+    markTurnActive()
     getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
     subscribeToGoSessionStreamMock
       .mockResolvedValueOnce(undefined)
@@ -257,7 +263,8 @@ describe("session stream manager", () => {
     )
   })
 
-  it("keeps the durable stream connected when a turn completes", async () => {
+  it("stops the direct stream as soon as the turn becomes idle", async () => {
+    markTurnActive()
     getSessionSandboxAccessMock.mockResolvedValueOnce(sandboxAccess())
     let signal: AbortSignal | undefined
     subscribeToGoSessionStreamMock.mockImplementationOnce(
@@ -282,7 +289,7 @@ describe("session stream manager", () => {
     })
     await flushAsync()
 
-    expect(signal?.aborted).toBe(false)
+    expect(signal?.aborted).toBe(true)
     expect(
       useSessionRuntimeStore.getState().statusBySessionId["session-1"]
     ).toMatchObject({
@@ -291,7 +298,44 @@ describe("session stream manager", () => {
     })
   })
 
+  it("stops the direct stream as soon as the turn fails", async () => {
+    markTurnActive()
+    getSessionSandboxAccessMock.mockResolvedValueOnce(sandboxAccess())
+    let signal: AbortSignal | undefined
+    subscribeToGoSessionStreamMock.mockImplementationOnce(
+      async ({ onEvent, signal: streamSignal }) => {
+        signal = streamSignal
+        onEvent?.(
+          frame("turn_failed", {
+            turn_id: "turn-1",
+            error: "runtime failed",
+          })
+        )
+        await new Promise<void>((resolve) => {
+          streamSignal.addEventListener("abort", () => resolve(), {
+            once: true,
+          })
+        })
+      }
+    )
+
+    ensureSessionStream("session-1", {
+      queryClient: testQueryClient(),
+      replay: { mode: "from_turn_id_follow", turnId: "turn-1" },
+    })
+    await flushAsync()
+
+    expect(signal?.aborted).toBe(true)
+    expect(
+      useSessionRuntimeStore.getState().statusBySessionId["session-1"]
+    ).toMatchObject({
+      status: "failed",
+      lastOutcome: "failed",
+    })
+  })
+
   it("finishes the session when a final frame arrives before turn_completed", async () => {
+    markTurnActive()
     getSessionSandboxAccessMock.mockResolvedValueOnce(sandboxAccess())
     subscribeToGoSessionStreamMock.mockImplementationOnce(
       async ({ onEvent }) => {
@@ -317,10 +361,64 @@ describe("session stream manager", () => {
       status: "idle",
       lastOutcome: "completed",
     })
+    expect(subscribeToGoSessionStreamMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not open a direct stream while the session is idle", async () => {
+    useSessionRuntimeStore.setState({
+      statusBySessionId: {
+        "session-1": {
+          status: "idle",
+          updatedAt: Date.now(),
+        },
+      },
+    })
+
+    ensureSessionStream("session-1", {
+      queryClient: testQueryClient(),
+      replay: { mode: "none" },
+    })
+    await flushAsync()
+
+    expect(getSessionSandboxAccessMock).not.toHaveBeenCalled()
+    expect(subscribeToGoSessionStreamMock).not.toHaveBeenCalled()
+  })
+
+  it("opens a new direct stream when the next agent turn starts", async () => {
+    markTurnActive()
+    getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
+    subscribeToGoSessionStreamMock
+      .mockImplementationOnce(async ({ onEvent }) => {
+        onEvent?.(frame("turn_completed", { turn_id: "turn-1" }))
+      })
+      .mockResolvedValueOnce(undefined)
+
+    const queryClient = testQueryClient()
+    ensureSessionStream("session-1", {
+      queryClient,
+      replay: { mode: "from_turn_id_follow", turnId: "turn-1" },
+    })
+    await flushAsync()
+
+    expect(subscribeToGoSessionStreamMock).toHaveBeenCalledTimes(1)
+    markTurnActive()
+    ensureSessionStream("session-1", {
+      queryClient,
+      replay: { mode: "from_turn_id_follow", turnId: "turn-2" },
+    })
+    await flushAsync()
+
+    expect(subscribeToGoSessionStreamMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        replay: { mode: "from_turn_id_follow", turnId: "turn-2" },
+      })
+    )
   })
 
   it("reconnects with a full replay after resync_required", async () => {
     vi.useFakeTimers()
+    markTurnActive()
     getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
     subscribeToGoSessionStreamMock
       .mockImplementationOnce(async ({ onEvent }) => {
@@ -344,6 +442,7 @@ describe("session stream manager", () => {
   })
 
   it("keeps repo-change invalidation on direct runtime frames", async () => {
+    markTurnActive()
     getSessionSandboxAccessMock.mockResolvedValueOnce(sandboxAccess())
     subscribeToGoSessionStreamMock.mockImplementationOnce(
       async ({ onEvent }) => {
@@ -365,6 +464,17 @@ describe("session stream manager", () => {
     })
   })
 })
+
+function markTurnActive() {
+  useSessionRuntimeStore.setState({
+    statusBySessionId: {
+      "session-1": {
+        status: "streaming",
+        updatedAt: Date.now(),
+      },
+    },
+  })
+}
 
 function sandboxAccess(
   overrides: Partial<SessionSandboxAccess> = {}

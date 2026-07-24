@@ -36,10 +36,11 @@ type previewCacheRoute struct {
 }
 
 const (
-	routeLeaseSafetyMargin = 15 * time.Second
-	routeActivityInterval  = 30 * time.Second
-	routeNoSleepLease      = 10 * time.Minute
-	defaultAutoSleepAfter  = 300
+	maxRouteLeaseSafetyMargin = 15 * time.Second
+	maxRouteActivityInterval  = 30 * time.Second
+	routeLeaseTimingDivisor   = 3
+	routeNoSleepLease         = 10 * time.Minute
+	defaultAutoSleepAfter     = 300
 )
 
 func NewPreviewCacheClient(ctx context.Context, cfg config.Config) *PreviewCacheClient {
@@ -145,17 +146,26 @@ func routeLeaseTimes(sb model.Sandbox, now time.Time) (time.Time, time.Time) {
 	}
 	if sb.AutoSleepAfterSeconds <= 0 || sb.SleepAfterAt == nil {
 		expires := now.Add(routeNoSleepLease)
-		return expires, now.Add(routeActivityInterval)
+		return expires, now.Add(maxRouteActivityInterval)
 	}
-	expires := sb.SleepAfterAt.Add(-routeLeaseSafetyMargin)
+	autoSleepWindow := time.Duration(sb.AutoSleepAfterSeconds) * time.Second
+	expires := sb.SleepAfterAt.Add(-routeLeaseSafetyMargin(autoSleepWindow))
 	if expires.Before(now) {
 		expires = now
 	}
-	nextActivity := now.Add(routeActivityInterval)
+	nextActivity := now.Add(routeActivityInterval(autoSleepWindow))
 	if nextActivity.After(expires) {
 		nextActivity = now
 	}
 	return expires, nextActivity
+}
+
+func routeLeaseSafetyMargin(autoSleepWindow time.Duration) time.Duration {
+	return min(autoSleepWindow/routeLeaseTimingDivisor, maxRouteLeaseSafetyMargin)
+}
+
+func routeActivityInterval(autoSleepWindow time.Duration) time.Duration {
+	return min(autoSleepWindow/routeLeaseTimingDivisor, maxRouteActivityInterval)
 }
 
 func nextSleepAfter(sb model.Sandbox, now time.Time) *time.Time {

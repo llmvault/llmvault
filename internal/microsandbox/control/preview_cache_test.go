@@ -213,6 +213,54 @@ func TestPreviewCacheRouteBuildsDirectUpstreams(t *testing.T) {
 	}
 }
 
+func TestRouteLeaseTimesScalesWithAutoSleepWindow(t *testing.T) {
+	now := time.Date(2026, time.July, 24, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name              string
+		sandbox           model.Sandbox
+		wantLeaseAfter    time.Duration
+		wantActivityAfter time.Duration
+	}{
+		{
+			name: "short autosleep window",
+			sandbox: model.Sandbox{
+				Status:                model.SandboxStatusRunning,
+				AutoSleepAfterSeconds: 15,
+				SleepAfterAt:          timePointer(now.Add(15 * time.Second)),
+			},
+			wantLeaseAfter:    10 * time.Second,
+			wantActivityAfter: 5 * time.Second,
+		},
+		{
+			name: "default autosleep window",
+			sandbox: model.Sandbox{
+				Status:                model.SandboxStatusRunning,
+				AutoSleepAfterSeconds: 300,
+				SleepAfterAt:          timePointer(now.Add(300 * time.Second)),
+			},
+			wantLeaseAfter:    285 * time.Second,
+			wantActivityAfter: 30 * time.Second,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			leaseExpiresAt, nextActivityAfter := routeLeaseTimes(tt.sandbox, now)
+			if got := leaseExpiresAt.Sub(now); got != tt.wantLeaseAfter {
+				t.Fatalf("lease expires after %s, want %s", got, tt.wantLeaseAfter)
+			}
+			if got := nextActivityAfter.Sub(now); got != tt.wantActivityAfter {
+				t.Fatalf("next activity after %s, want %s", got, tt.wantActivityAfter)
+			}
+		})
+	}
+}
+
+func timePointer(value time.Time) *time.Time {
+	return &value
+}
+
 func equalInts(a, b []int) bool {
 	if len(a) != len(b) {
 		return false
