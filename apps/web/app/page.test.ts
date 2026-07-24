@@ -91,5 +91,7 @@ describe("RootPage", () => {
     expect(html).toContain('href="/auth/signup"')
     expect(html).toContain("marketing-link-scope")
     expect(html).toContain("marketing-menu-link")
+    expect(html.match(/aria-label="Hivy home"/g)).toHaveLength(2)
+    expect(html.match(/viewBox="15 46.8 99 77"/g)).toHaveLength(2)
   })
 })

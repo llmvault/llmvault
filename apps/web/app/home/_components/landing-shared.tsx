@@ -2,6 +2,7 @@ import { Button, Link, Separator, Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { footerGroups } from "./landing-footer-links"
 import { LandingHeader } from "./landing-header"
+import { MarketingLogo } from "./marketing-logo"
 
 export const pillars = [
   {
@@ -360,9 +361,10 @@ export function LandingFooter() {
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[0.8fr_repeat(3,1fr)]">
           <Link
             href="/"
-            className="h-fit text-lg font-semibold tracking-[-0.05em] text-foreground"
+            aria-label="Hivy home"
+            className="inline-flex h-10 w-fit items-center text-foreground"
           >
-            hivy
+            <MarketingLogo className="h-10 w-auto" />
           </Link>
           {footerGroups.map((group) => (
             <div key={group.title}>

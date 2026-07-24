@@ -4,6 +4,7 @@ import { NavigationMenu } from "@base-ui/react/navigation-menu"
 import { Button, Link } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { ThemeModeSwitcher } from "@/components/theme-mode-switcher"
+import { MarketingLogo } from "./marketing-logo"
 
 const platformLinks = [
   {
@@ -117,9 +118,9 @@ export function LandingHeader() {
       <Link
         href="/"
         aria-label="Hivy home"
-        className="w-fit text-[1.05rem] font-semibold tracking-[-0.05em] text-foreground"
+        className="inline-flex h-10 w-fit items-center text-foreground"
       >
-        hivy
+        <MarketingLogo className="h-10 w-auto" />
       </Link>
 
       <NavigationMenu.Root
