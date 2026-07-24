@@ -25,10 +25,8 @@ func TestGlobalAgentManifestsUseLeastPrivilegeMCPAllowLists(t *testing.T) {
 		"anna-playwright-qa-engineer": {},
 		"hakaree-software-engineer":   {},
 		"hivy": {
-			"search_knowledge_base", "manage_memories",
-			"list_team_skills", "list_agents", "get_agent", "create_agent", "update_agent",
-			"create_skill", "update_skill", "archive_skill",
-			"cron", "create_http_trigger", "list_channels",
+			"list_agents", "get_agent", "create_agent", "update_agent",
+			"create_http_trigger",
 		},
 		"kara-ui-and-graphics-designer": {},
 		"pedro-lead-gen": {
@@ -63,6 +61,10 @@ func TestGlobalAgentManifestsUseLeastPrivilegeMCPAllowLists(t *testing.T) {
 		sort.Strings(expected)
 		if !reflect.DeepEqual(got, expected) {
 			t.Fatalf("%s mcp allow = %v, want %v", manifest.Slug, got, expected)
+		}
+		if manifest.Slug == "hivy" {
+			assertManifestToolEnabled(t, manifest.Tools, "write_file")
+			assertManifestToolEnabled(t, manifest.Tools, "apply_patch")
 		}
 	}
 }

@@ -16,7 +16,7 @@ import (
 
 // addHTTPTriggerTool registers create_http_trigger for agent-proxy tokens. The
 // trigger runs an agent whenever its returned URL is POSTed to. By default it
-// targets the calling agent; agent_id targets another agent in the same org.
+// targets the calling agent; agent_id targets another agent in Hivy's team.
 func addHTTPTriggerTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 	if server == nil {
 		return
@@ -27,7 +27,7 @@ func addHTTPTriggerTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 	}
 	server.AddTool(&mcp.Tool{
 		Name:        "create_http_trigger",
-		Description: "Create an HTTP trigger that runs an agent whenever its URL is POSTed to. Returns the trigger URL to hand to the user or an external system. By default it runs the calling agent; pass agent_id to target another agent in the same organization.",
+		Description: "Create an HTTP trigger that runs an agent whenever its URL is POSTed to. Returns the trigger URL to hand to the user or an external system. By default it runs Hivy; pass agent_id to target another agent in Hivy's team.",
 		InputSchema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
@@ -35,7 +35,7 @@ func addHTTPTriggerTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 			"properties": map[string]any{
 				"agent_id": map[string]any{
 					"type":        "string",
-					"description": "Optional UUID of the agent to run. Defaults to the calling agent. Must be in the same organization.",
+					"description": "Optional UUID of the agent to run. Defaults to Hivy. Must be in Hivy's team.",
 				},
 				"instructions": map[string]any{
 					"type":        "string",
@@ -71,13 +71,13 @@ func handleCreateHTTPTrigger(ctx context.Context, db *gorm.DB, token *model.Toke
 	if instructions == "" {
 		return cronToolError("instructions is required"), nil
 	}
-	actor, err := access.Resolve(ctx, db, token.OrgID, args.HivyActorUserID)
+	_, err := access.Resolve(ctx, db, token.OrgID, args.HivyActorUserID)
 	if err != nil {
 		return cronToolError(err.Error()), nil
 	}
 	agent := callingAgent
 	if strings.TrimSpace(args.AgentID) != "" {
-		target, errResult := resolveCronAgent(ctx, db, callingAgent, actor, args.AgentID)
+		target, errResult := resolveCronAgent(ctx, db, callingAgent, args.AgentID)
 		if errResult != nil {
 			return errResult, nil
 		}

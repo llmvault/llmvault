@@ -14,14 +14,11 @@ import (
 	"github.com/usehivy/hivy/internal/runtimeevents"
 )
 
-const sessionReflectionMinimumMessages = 5
+const sessionReflectionMinimumHumanMessages = 3
 
-var sessionReflectionMessageEventTypes = []string{
+var sessionReflectionHumanMessageEventTypes = []string{
 	runtimeevents.EventUserMessageReceived,
 	runtimeevents.EventMessageReceived,
-	runtimeevents.EventFinal,
-	runtimeevents.EventResponseCompleted,
-	runtimeevents.EventQuestionRequested,
 	runtimeevents.EventQuestionAnswered,
 }
 
@@ -94,13 +91,13 @@ func sessionHasMinimumReflectionMessages(db *gorm.DB, sessionID uuid.UUID) (bool
 	var count int64
 	err := db.Model(&model.SessionEvent{}).
 		Where("session_id = ?", sessionID).
-		Where("event_type IN ?", sessionReflectionMessageEventTypes).
+		Where("event_type IN ?", sessionReflectionHumanMessageEventTypes).
 		Where("durability = ? OR durability = ''", "durable").
 		Count(&count).Error
 	if err != nil {
 		return false, fmt.Errorf("count reflection messages: %w", err)
 	}
-	return count >= sessionReflectionMinimumMessages, nil
+	return count >= sessionReflectionMinimumHumanMessages, nil
 }
 
 // skipReflectionForSessionState gates the near-real-time idle loop: active

@@ -34,7 +34,6 @@ type MCPHandler struct {
 	kms               *crypto.KeyWrapper
 	webTools          mcpserver.WebToolsFunc
 	knowledgeTools    mcpserver.KnowledgeToolsFunc
-	memoryTools       mcpserver.MemoryToolsFunc
 	imageTools        mcpserver.ImageGenerationToolsFunc
 	skillTools        mcpserver.SkillToolsFunc
 	agentBuilderTools mcpserver.AgentBuilderToolsFunc
@@ -69,11 +68,6 @@ func (h *MCPHandler) SetWebTools(fn mcpserver.WebToolsFunc) {
 // SetKnowledgeTools sets the callback for registering knowledge-base tools.
 func (h *MCPHandler) SetKnowledgeTools(fn mcpserver.KnowledgeToolsFunc) {
 	h.knowledgeTools = fn
-}
-
-// SetMemoryTools sets the callback for registering agent memory tools.
-func (h *MCPHandler) SetMemoryTools(fn mcpserver.MemoryToolsFunc) {
-	h.memoryTools = fn
 }
 
 // SetImageGenerationTools sets the callback for registering image generation tools.
@@ -171,7 +165,7 @@ func (h *MCPHandler) serverFactory(r *http.Request) *mcp.Server {
 		}
 
 		toolFilter := h.agentProxyMCPToolFilter(ctx, &token)
-		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools, h.memoryTools, h.imageTools, h.skillTools, h.agentBuilderTools, h.sheetTools, h.appsTools, h.emailTools, h.driveTools, toolFilter)
+		srv, err := mcpserver.BuildServer(ctx, &token, h.db, h.counter, h.webTools, h.knowledgeTools, h.imageTools, h.skillTools, h.agentBuilderTools, h.sheetTools, h.appsTools, h.emailTools, h.driveTools, toolFilter)
 		if err != nil {
 			return nil, time.Time{}, err
 		}

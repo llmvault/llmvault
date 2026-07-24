@@ -106,8 +106,7 @@ export const SUBAGENT_TASK_TOOL = "subagent_task"
 
 export type ToolSelection = Record<string, boolean>
 
-// Everything defaults on (matching the backend: full runtime toolset and all MCP
-// tools allowed unless denied).
+// New form rows start selected; saves persist the exact optional MCP allow-list.
 function allToolsSelected(): ToolSelection {
   return Object.fromEntries(
     [...RUNTIME_TOOL_IDS, ...MCP_TOOL_IDS].map((id) => [id, true])
@@ -124,11 +123,10 @@ function runtimeToolsMap(selection: ToolSelection): Record<string, boolean> {
   return out
 }
 
-// MCP tools the user turned off, expressed as a deny list (default = all allowed,
-// so only unchecked tools are denied). Always sent so an edit can also clear a
-// previously-set filter; an empty deny list normalizes to "no filter" server-side.
-function mcpToolFilterFor(selection: ToolSelection): { deny: string[] } {
-  return { deny: MCP_TOOL_IDS.filter((id) => !selection[id]) }
+// MCP tools the user selected, expressed as an explicit allow-list. The runtime
+// is deny-by-default; platform baseline tools are injected server-side.
+function mcpToolFilterFor(selection: ToolSelection): { allow: string[] } {
+  return { allow: MCP_TOOL_IDS.filter((id) => selection[id]) }
 }
 
 export type SubAgentForm = {
@@ -196,15 +194,15 @@ export function subAgentNameError(subAgents: SubAgentForm[]): string | null {
 }
 
 // Rebuilds the tool selection from a saved agent: runtime tools come from the
-// stored tools map, MCP tools are on unless present in the mcp_tool_filter deny.
+// stored tools map and optional MCP tools come from the explicit allow-list.
 function toolSelectionFromAgent(
   tools: Record<string, unknown> | undefined,
   mcpFilter: ToolFilter | undefined
 ): ToolSelection {
   const selection: ToolSelection = {}
   for (const id of RUNTIME_TOOL_IDS) selection[id] = Boolean(tools?.[id])
-  const deny = new Set(mcpFilter?.deny ?? [])
-  for (const id of MCP_TOOL_IDS) selection[id] = !deny.has(id)
+  const allow = new Set(mcpFilter?.allow ?? [])
+  for (const id of MCP_TOOL_IDS) selection[id] = allow.has(id)
   return selection
 }
 

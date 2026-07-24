@@ -52,6 +52,7 @@ func (h *SessionReflectionHandler) storeMemories(
 	for _, event := range events {
 		byID[event.ID] = event
 	}
+	candidates = filterReflectionCandidatesByEvidence(candidates, byID)
 	stored := 0
 	for _, candidate := range candidates {
 		req := h.memoryCreateRequest(session, byID, identities, candidate)
@@ -85,8 +86,8 @@ func (h *SessionReflectionHandler) memoryCreateRequest(
 		"entities":           candidate.Entities,
 		"expires_at":         candidate.ExpiresAt,
 		"source_event_ids":   candidate.SourceEventIDs,
-		"actor_display_name": firstNonEmptyString(candidate.ActorDisplayName, identity.DisplayName),
-		"actor_external_ref": firstNonEmptyString(candidate.ActorExternalRef, identity.ExternalRef),
+		"actor_display_name": identity.DisplayName,
+		"actor_external_ref": identity.ExternalRef,
 	}
 	fingerprint := reflectionMemoryFingerprint(session.OrgID, session.AgentID, candidate.Content)
 	return memory.CreateRequest{
@@ -155,12 +156,12 @@ func eventAfterReflectionCursor(event model.SessionEvent, state model.SessionRef
 	return event.EventAt.Equal(*state.LastReflectedEventAt) && event.ID.String() > state.LastReflectedEventID.String()
 }
 
-func (h *SessionReflectionHandler) loadExistingMemories(ctx context.Context, sessionID uuid.UUID) string {
+func (h *SessionReflectionHandler) loadExistingMemories(ctx context.Context, session model.Session) string {
 	var rows []model.AgentMemory
 	if err := h.db.WithContext(ctx).
-		Where("source_session_id = ? AND archived_at IS NULL", sessionID).
+		Where("org_id = ? AND agent_id = ? AND archived_at IS NULL", session.OrgID, session.AgentID).
 		Order("created_at DESC").
-		Limit(50).
+		Limit(100).
 		Find(&rows).Error; err != nil {
 		return ""
 	}

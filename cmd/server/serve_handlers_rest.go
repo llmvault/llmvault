@@ -19,7 +19,6 @@ import (
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/handler"
 	"github.com/usehivy/hivy/internal/mcpservers"
-	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/precontext"
 	"github.com/usehivy/hivy/internal/proxy"
 	"github.com/usehivy/hivy/internal/registry"
@@ -77,8 +76,6 @@ func buildServeHandlersRest(ctx context.Context, deps *bootstrap.Deps, enqueuer 
 	}
 	preContextCache := precontext.NewRedisCache(redisClient)
 	memorySearchService := buildMemorySearchService(cfg, database, cacheManager)
-	memoryToolService := buildMemoryToolService(cfg, database, cacheManager, enqueuer)
-	mcpHandler.SetMemoryTools(memory.NewToolsFunc(memoryToolService))        //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
 	mcpHandler.SetSkillTools(skills.NewToolsFunc(database, cfg.FrontendURL)) //nolint:contextcheck // tool handlers receive their own request context from the MCP server at call time.
 	// Assignable agent models: the full text-output catalog minus the scribe
 	// transcription model. Used verbatim as the strict `model` enum in the

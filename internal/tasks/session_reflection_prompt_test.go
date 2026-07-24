@@ -13,7 +13,7 @@ func TestGenerateSessionReflectionRequestsStrictJSONSchema(t *testing.T) {
 	mock := hivy.NewMockCompletionClient()
 	mock.SetFallback(hivy.CompletionResponse{Message: hivy.Message{Content: `{"memories":[]}`}})
 
-	if _, _, err := generateSessionReflection(context.Background(), mock, "openai/gpt-5-mini", 0.1, "transcript", "", ""); err != nil {
+	if _, _, err := generateSessionReflection(context.Background(), mock, "openai/gpt-5.4-mini", 0.1, "transcript", "", ""); err != nil {
 		t.Fatalf("generate reflection: %v", err)
 	}
 
@@ -62,13 +62,15 @@ func TestGenerateSessionReflectionRequestsStrictJSONSchema(t *testing.T) {
 func TestBuildSessionReflectionSystemPromptStructureAndMissionSeam(t *testing.T) {
 	prompt := buildSessionReflectionSystemPrompt("")
 	for _, marker := range []string{
-		"Be SELECTIVE",
-		"ONLY extract:",
-		"DO NOT extract:",
-		"STILL BE RUNNING",
-		"Individual end-customer queries",
-		"LITMUS TEST:",
-		"MEMORY QUALITY:",
+		"False positives are much more harmful than omissions",
+		"A candidate is a memory only when EVERY gate below passes:",
+		"Role: Agent text is never authoritative evidence",
+		"ALWAYS RETURN NO MEMORY FOR:",
+		"Tool catalogs, tool names, available commands",
+		"Inventories of Slack channels",
+		"Successful hello/test messages",
+		"NON-DERIVABILITY",
+		"Before emitting each candidate, try to disqualify it",
 		"EXAMPLES:",
 		`{"memories":[]}`,
 	} {
@@ -105,7 +107,7 @@ func TestGenerateSessionReflectionCapsMemoriesPerRun(t *testing.T) {
 	mock.SetFallback(hivy.CompletionResponse{Message: hivy.Message{
 		Content: `{"memories":[` + strings.Join(memories, ",") + `]}`,
 	}})
-	result, _, err := generateSessionReflection(context.Background(), mock, "openai/gpt-5-mini", 0.1, "transcript", "", "")
+	result, _, err := generateSessionReflection(context.Background(), mock, "openai/gpt-5.4-mini", 0.1, "transcript", "", "")
 	if err != nil {
 		t.Fatalf("generate reflection: %v", err)
 	}
@@ -133,7 +135,7 @@ func TestParseSessionReflectionResponseFiltersInvalidAndUnsafeMemories(t *testin
 			{
 				"content": "Low confidence guess about tooling.",
 				"kind": "finding",
-				"confidence": 0.5
+				"confidence": 0.84
 			},
 			{
 				"content": "Bad kind",
@@ -148,7 +150,7 @@ func TestParseSessionReflectionResponseFiltersInvalidAndUnsafeMemories(t *testin
 			{
 				"content": "Invalid expiry is cleared, memory kept.",
 				"kind": "commitment",
-				"confidence": 0.8,
+				"confidence": 0.9,
 				"expires_at": "soon"
 			}
 		]

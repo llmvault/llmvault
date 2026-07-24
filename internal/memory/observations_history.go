@@ -12,8 +12,6 @@ const (
 	// bullet may carry: enough to show how the fact evolved without letting
 	// stale text crowd out current knowledge in the injected prompt.
 	digestEvolutionMaxEntries = 2
-	// searchHistoryMaxEntries caps the history array on one search hit.
-	searchHistoryMaxEntries = 3
 	// evolutionContentMaxBytes clamps one superseded wording inside an
 	// injected evolution note.
 	evolutionContentMaxBytes = 200

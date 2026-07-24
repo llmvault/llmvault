@@ -68,7 +68,7 @@ func TestCompile_DeniesMCPToolsWithoutExplicitFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	assertMCPToolsDeniedByDefault(t, def.McpToolFilter, model.ReadOnlyMCPToolFloor)
+	assertMCPToolsDeniedByDefault(t, def.McpToolFilter, model.BaselineParentMCPToolIDs)
 
 	subDef := def.SubAgents[sub.ID.String()]
 	if subDef == nil {

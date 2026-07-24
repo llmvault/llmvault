@@ -108,10 +108,10 @@ type updateAgentArgs struct {
 	SubAgents    *[]subAgentToolArgs `json:"sub_agents"`
 }
 
-func registerUpdateAgent(server *mcp.Server, deps Deps, token *model.Token, frontendURL string) {
+func registerUpdateAgent(server *mcp.Server, deps Deps, token *model.Token, teamID uuid.UUID, frontendURL string) {
 	server.AddTool(&mcp.Tool{
 		Name:        toolUpdateAgent,
-		Description: "Update an existing agent owned by this organization. This is a true patch: only provided fields change. A provided array (skills, tools, sub_agents) REPLACES that field entirely. Use list_team_skills to discover valid skills.",
+		Description: "Update an existing agent in the calling Hivy agent's team. This is a true patch: only provided fields change. A provided array (skills, tools, sub_agents) REPLACES that field entirely. Use list_team_skills to discover valid skills.",
 		InputSchema: updateAgentSchema(deps.Models),
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var args updateAgentArgs
@@ -122,20 +122,18 @@ func registerUpdateAgent(server *mcp.Server, deps Deps, token *model.Token, fron
 		if err != nil || agentID == uuid.Nil {
 			return toolError("agent_id must be a valid UUID"), nil
 		}
-		if errResult := authorizeUpdateTarget(ctx, deps, token.OrgID, req, agentID); errResult != nil {
+		if errResult := authorizeUpdateTarget(ctx, deps, token.OrgID, teamID, req, agentID); errResult != nil {
 			return errResult, nil
 		}
-		return handleUpdateAgent(ctx, deps, token, frontendURL, args)
+		return handleUpdateAgent(ctx, deps, token, teamID, frontendURL, args)
 	})
 }
 
-// authorizeUpdateTarget loads the update target scoped to the org — a cross-org
-// id reports as not found so the gate never leaks existence across orgs — then
-// gates the actor on managing the agent's owning team (org managers always,
-// otherwise active team membership; a nil-team agent is manager-only). Returning
-// a nil result means allowed.
-func authorizeUpdateTarget(ctx context.Context, deps Deps, orgID uuid.UUID, req *mcp.CallToolRequest, agentID uuid.UUID) *mcp.CallToolResult {
-	agent, err := loadOrgAgent(ctx, deps.DB, orgID, agentID)
+// authorizeUpdateTarget first binds the target to the calling Hivy agent's team,
+// then applies the human team-management gate. A manager can authorize the
+// action, but cannot widen Hivy's team scope.
+func authorizeUpdateTarget(ctx context.Context, deps Deps, orgID, teamID uuid.UUID, req *mcp.CallToolRequest, agentID uuid.UUID) *mcp.CallToolResult {
+	agent, err := loadTeamAgent(ctx, deps.DB, orgID, teamID, agentID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return toolError(ErrAgentNotFound.Error())
@@ -145,12 +143,12 @@ func authorizeUpdateTarget(ctx context.Context, deps Deps, orgID uuid.UUID, req 
 	return requireTeamManager(ctx, deps.DB, orgID, agent.TeamID, req, "changing an agent")
 }
 
-func handleUpdateAgent(ctx context.Context, deps Deps, token *model.Token, frontendURL string, args updateAgentArgs) (*mcp.CallToolResult, error) {
+func handleUpdateAgent(ctx context.Context, deps Deps, token *model.Token, teamID uuid.UUID, frontendURL string, args updateAgentArgs) (*mcp.CallToolResult, error) {
 	agentID, err := uuid.Parse(strings.TrimSpace(args.AgentID))
 	if err != nil || agentID == uuid.Nil {
 		return toolError("agent_id must be a valid UUID"), nil
 	}
-	target, err := loadOrgAgent(ctx, deps.DB, token.OrgID, agentID)
+	target, err := loadTeamAgent(ctx, deps.DB, token.OrgID, teamID, agentID)
 	if err != nil {
 		return toolError(ErrAgentNotFound.Error()), nil
 	}

@@ -56,6 +56,13 @@ func resolveReflectionIdentities(session model.Session, events []model.SessionEv
 	out := make(map[uuid.UUID]reflectionIdentity, len(events))
 	for _, event := range events {
 		identity := reflectionIdentity{}
+		// ActorUserID is also propagated as the authorization actor for an
+		// entire turn, so it does not identify the speaker of agent/tool events.
+		// Only inbound human events may carry a human identity into reflection.
+		if !isReflectionHumanMessageEvent(event.EventType) {
+			out[event.ID] = identity
+			continue
+		}
 		if event.ActorUserID != nil {
 			identity.UserID = event.ActorUserID
 			identity.DisplayName = firstNonEmptyString(userNames[*event.ActorUserID], event.ActorUserID.String())
@@ -89,6 +96,9 @@ func writeReflectionEvent(b *strings.Builder, event model.SessionEvent, identity
 	b.WriteString("Type: ")
 	b.WriteString(event.EventType)
 	b.WriteString("\n")
+	b.WriteString("Role: ")
+	b.WriteString(reflectionEventRole(event.EventType))
+	b.WriteString("\n")
 	if event.TurnID != "" {
 		b.WriteString("Turn: ")
 		b.WriteString(event.TurnID)
@@ -99,7 +109,7 @@ func writeReflectionEvent(b *strings.Builder, event model.SessionEvent, identity
 		b.WriteString(formatReflectionActor(identity))
 		b.WriteString("\n")
 	}
-	if slack := payloadMap(event.Payload, "slack"); slack != nil {
+	if slack := payloadMap(event.Payload, "slack"); slack != nil && isReflectionHumanMessageEvent(event.EventType) {
 		b.WriteString("Slack: ")
 		b.WriteString(formatSlackReflectionContext(slack))
 		b.WriteString("\n")
@@ -134,13 +144,37 @@ func shouldRenderReflectionEvent(eventType string) bool {
 // results, lifecycle events) is reduced to a one-line summary — the junk
 // memories provably originate in raw tool output.
 func isReflectionMessageEvent(eventType string) bool {
+	return isReflectionHumanMessageEvent(eventType) || isReflectionAgentMessageEvent(eventType)
+}
+
+func isReflectionHumanMessageEvent(eventType string) bool {
 	switch eventType {
 	case runtimeevents.EventUserMessageReceived, runtimeevents.EventMessageReceived,
-		runtimeevents.EventFinal, runtimeevents.EventResponseCompleted,
-		runtimeevents.EventQuestionRequested, runtimeevents.EventQuestionAnswered:
+		runtimeevents.EventQuestionAnswered:
 		return true
 	default:
 		return false
+	}
+}
+
+func isReflectionAgentMessageEvent(eventType string) bool {
+	switch eventType {
+	case runtimeevents.EventFinal, runtimeevents.EventResponseCompleted,
+		runtimeevents.EventQuestionRequested:
+		return true
+	default:
+		return false
+	}
+}
+
+func reflectionEventRole(eventType string) string {
+	switch {
+	case isReflectionHumanMessageEvent(eventType):
+		return "Human"
+	case isReflectionAgentMessageEvent(eventType):
+		return "Agent"
+	default:
+		return "Tool/Event"
 	}
 }
 

@@ -10,10 +10,10 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// The universal floor adds skill_view to every compiled filter. A deny-only
-// legacy filter grants no optional capability, and an explicit deny removes a
-// matching explicit grant.
-func TestNormalizeToolFilter_AppliesReadOnlyFloor(t *testing.T) {
+// The universal parent floor is added after optional grants are normalized. A
+// deny-only legacy filter grants no optional capability, and an explicit deny
+// removes a matching explicit grant.
+func TestCompileMCPToolFilter_AppliesBaselineParentFloor(t *testing.T) {
 	tests := []struct {
 		name      string
 		in        *model.ToolFilter
@@ -22,32 +22,32 @@ func TestNormalizeToolFilter_AppliesReadOnlyFloor(t *testing.T) {
 		wantNil   bool
 	}{
 		{
-			name:      "allow list gains universal skill view",
+			name:      "allow list gains universal parent tools",
 			in:        &model.ToolFilter{Allow: []string{"web_search"}},
-			wantAllow: []string{"drive_search", "skill_view", "web_search"},
+			wantAllow: []string{"archive_skill", "create_skill", "cron", "drive_search", "list_team_skills", "search_knowledge_base", "skill_view", "update_skill", "web_search"},
 			wantDeny:  nil,
 		},
 		{
 			name:      "explicit deny removes explicit grant",
 			in:        &model.ToolFilter{Allow: []string{"web_search"}, Deny: []string{"web_search"}},
-			wantAllow: []string{"drive_search", "skill_view"},
+			wantAllow: []string{"archive_skill", "create_skill", "cron", "drive_search", "list_team_skills", "search_knowledge_base", "skill_view", "update_skill"},
 			wantDeny:  nil,
 		},
 		{
 			name:      "pure deny list grants no optional capability",
 			in:        &model.ToolFilter{Deny: []string{"generate_image"}},
-			wantAllow: []string{"drive_search", "skill_view"},
+			wantAllow: []string{"archive_skill", "create_skill", "cron", "drive_search", "list_team_skills", "search_knowledge_base", "skill_view", "update_skill"},
 			wantDeny:  nil,
 		},
 		{
-			name:      "nil filter grants only universal tool",
+			name:      "nil filter grants only universal parent tools",
 			in:        nil,
-			wantAllow: []string{"drive_search", "skill_view"},
+			wantAllow: []string{"archive_skill", "create_skill", "cron", "drive_search", "list_team_skills", "search_knowledge_base", "skill_view", "update_skill"},
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := normalizeToolFilter(tc.in)
+			got := compileMCPToolFilter(tc.in)
 			if got == nil {
 				t.Fatalf("filter = nil, want %#v/%#v", tc.wantAllow, tc.wantDeny)
 			}
@@ -76,7 +76,7 @@ func TestResolveAgentMCPToolFilter_AppliesFloorForUserAgent(t *testing.T) {
 	if filter == nil {
 		t.Fatalf("filter = nil, want floored allow list")
 	}
-	for _, id := range model.ReadOnlyMCPToolFloor {
+	for _, id := range model.BaselineParentMCPToolIDs {
 		if !containsString(filter.Allow, id) {
 			t.Fatalf("allow = %#v, want floor id %q", filter.Allow, id)
 		}

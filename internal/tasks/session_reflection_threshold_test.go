@@ -10,7 +10,7 @@ import (
 	"github.com/usehivy/hivy/internal/runtimeevents"
 )
 
-func TestSessionReflectionRequiresFiveMessageEvents(t *testing.T) {
+func TestSessionReflectionRequiresThreeHumanMessageEvents(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ func TestSessionReflectionRequiresFiveMessageEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 	if eligible {
-		t.Fatal("four messages plus a tool event must not trigger reflection")
+		t.Fatal("two human messages plus agent and tool events must not trigger reflection")
 	}
 
 	insert(runtimeevents.EventUserMessageReceived)
@@ -54,6 +54,6 @@ func TestSessionReflectionRequiresFiveMessageEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !eligible {
-		t.Fatal("five total messages should trigger reflection")
+		t.Fatal("three human messages should trigger reflection")
 	}
 }

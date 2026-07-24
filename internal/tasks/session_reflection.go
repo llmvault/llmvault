@@ -82,7 +82,7 @@ func (h *SessionReflectionHandler) Handle(ctx context.Context, task *asynq.Task)
 	}
 	userNames := h.loadReflectionUserNames(ctx, claim.Session, events)
 	transcript, identities := renderSessionReflectionTranscript(claim.Session, "", events, userNames)
-	existing := h.loadExistingMemories(ctx, claim.Session.ID)
+	existing := h.loadExistingMemories(ctx, claim.Session)
 	cred, err := h.reflectionCredential(ctx)
 	if err != nil {
 		logging.CaptureWithFields(ctx, fmt.Errorf("session reflection credential unavailable: %w", err), map[string]any{

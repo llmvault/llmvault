@@ -67,47 +67,13 @@ func TestAssignableToolIDs_IsUnionOfRuntimeAndMCP(t *testing.T) {
 		}
 	}
 	// Privileged tools are never assignable.
-	for _, forbidden := range []string{toolCreateAgent, toolUpdateAgent, toolListTeamSkills} {
+	for _, forbidden := range []string{toolCreateAgent, toolUpdateAgent, toolListTeamSkills, "search_knowledge_base", "cron"} {
 		if set[forbidden] {
 			t.Fatalf("privileged tool %q must not be assignable", forbidden)
 		}
 	}
 	if want := len(model.RuntimeBuiltInToolIDs) + len(AssignableMCPTools); len(ids) != want {
 		t.Fatalf("enum length = %d, want %d", len(ids), want)
-	}
-}
-
-func TestAgentBuilderEnabled(t *testing.T) {
-	cases := []struct {
-		name  string
-		agent *model.Agent
-		want  bool
-	}{
-		{"default agent enabled", &model.Agent{IsDefault: true}, true},
-		{"nil filter not default -> disabled", &model.Agent{IsDefault: false}, false},
-		{
-			"explicit allow create_agent -> enabled",
-			&model.Agent{McpToolFilter: &model.ToolFilter{Allow: []string{"web_search", "create_agent"}}},
-			true,
-		},
-		{
-			"explicit allow update_agent -> enabled",
-			&model.Agent{McpToolFilter: &model.ToolFilter{Allow: []string{"update_agent"}}},
-			true,
-		},
-		{
-			"allow list without builder tools -> disabled",
-			&model.Agent{McpToolFilter: &model.ToolFilter{Allow: []string{"web_search"}}},
-			false,
-		},
-		{"nil agent -> disabled", nil, false},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := agentBuilderEnabled(tc.agent); got != tc.want {
-				t.Fatalf("agentBuilderEnabled = %v, want %v", got, tc.want)
-			}
-		})
 	}
 }
 

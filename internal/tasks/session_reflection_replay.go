@@ -62,7 +62,7 @@ func ReplaySessionReflection(ctx context.Context, db *gorm.DB, client hivy.Compl
 	}
 	userNames := h.loadReflectionUserNames(ctx, session, events)
 	transcript, _ := renderSessionReflectionTranscript(session, "", events, userNames)
-	existing := h.loadExistingMemories(ctx, session.ID)
+	existing := h.loadExistingMemories(ctx, session)
 	agentMission := h.loadAgentMission(ctx, session)
 	run := &ReflectionReplayRun{
 		SessionID:    session.ID,
@@ -81,7 +81,11 @@ func ReplaySessionReflection(ctx context.Context, db *gorm.DB, client hivy.Compl
 	if err != nil {
 		return run, err
 	}
-	run.Memories = result.Memories
+	eventsByID := make(map[uuid.UUID]model.SessionEvent, len(events))
+	for _, event := range events {
+		eventsByID[event.ID] = event
+	}
+	run.Memories = filterReflectionCandidatesByEvidence(result.Memories, eventsByID)
 	return run, nil
 }
 

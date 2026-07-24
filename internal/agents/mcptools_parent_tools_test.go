@@ -64,7 +64,7 @@ func TestCreateAgent_NoMCPPicks_GrantsBaseline(t *testing.T) {
 	assertBaselineGranted(t, stored.Tools)
 
 	allow := allowSet(t, stored.McpToolFilter)
-	for _, floor := range model.ReadOnlyMCPToolFloor {
+	for _, floor := range model.BaselineParentMCPToolIDs {
 		if allow[floor] {
 			t.Fatalf("stored parent filter must not persist universal tool %q: %v", floor, stored.McpToolFilter.Allow)
 		}
@@ -220,7 +220,7 @@ func assertReadOnlyMCPFloor(t *testing.T, name string, f *model.ToolFilter) {
 	want := append([]string(nil), model.SubAgentReadOnlyMCPToolFloor...)
 	sort.Strings(want)
 	if !reflect.DeepEqual(allow, want) {
-		t.Fatalf("%s sub allow = %v, want read-only floor %v", name, allow, want)
+		t.Fatalf("%s sub allow = %v, want baseline parent floor %v", name, allow, want)
 	}
 }
 
@@ -245,7 +245,7 @@ func TestUpdateAgent_ToolsReplacementKeepsBaselineAndSubagentTask(t *testing.T) 
 	// Patch tools only (sub_agents untouched) -> subagent_task must survive
 	// because the Worker sub-agent still exists.
 	newTools := []string{"generate_image"}
-	updRes, _ := handleUpdateAgent(ctx, deps, token, "https://app.test", updateAgentArgs{
+	updRes, _ := handleUpdateAgent(ctx, deps, token, team.ID, "https://app.test", updateAgentArgs{
 		AgentID: agentID.String(),
 		Tools:   &newTools,
 	})
@@ -280,7 +280,7 @@ func TestUpdateAgent_ToolsWithoutSubAgents_DropsSubagentTask(t *testing.T) {
 	agentID := uuid.MustParse(builderResultJSON(t, createRes)["agent"].(map[string]any)["id"].(string))
 
 	newTools := []string{"web_crawl"}
-	updRes, _ := handleUpdateAgent(ctx, deps, token, "https://app.test", updateAgentArgs{
+	updRes, _ := handleUpdateAgent(ctx, deps, token, team.ID, "https://app.test", updateAgentArgs{
 		AgentID: agentID.String(),
 		Tools:   &newTools,
 	})

@@ -3,7 +3,6 @@ package skills
 import (
 	"context"
 	"regexp"
-	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
@@ -26,25 +25,6 @@ const (
 )
 
 var envVarNamePattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
-
-func skillManagerEnabled(agent *model.Agent) bool {
-	if agent == nil {
-		return false
-	}
-	if agent.IsDefault {
-		return true
-	}
-	if agent.McpToolFilter == nil {
-		return false
-	}
-	for _, allowed := range agent.McpToolFilter.Allow {
-		switch strings.TrimSpace(allowed) {
-		case toolCreateSkill, toolUpdateSkill, toolArchiveSkill:
-			return true
-		}
-	}
-	return false
-}
 
 func resolveSkillManagerTeam(ctx context.Context, db *gorm.DB, token *model.Token, rawActorUserID, action string) (*model.Agent, *access.Actor, *mcp.CallToolResult) {
 	if token == nil {

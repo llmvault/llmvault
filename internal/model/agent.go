@@ -154,8 +154,8 @@ var AgentEmailMCPToolIDs = []string{
 //   - MCP tools ("mcp.*" categories below): the curated explicit-grant set
 //     AssignableMCPTools in internal/agents/tools.go, registered on the "hivy"
 //     MCP server (internal/mcpserver/builder.go and the per-package mcptools.go
-//     files). Default-Hivy management and automation tools remain intentionally
-//     excluded because only the team's default Hivy agent may use them.
+//     files). Platform-baseline tools and default-Hivy management tools remain
+//     intentionally excluded because they are policy-derived, not grantable.
 //
 // TestValidBuiltInToolsMatchesRuntimeAndMCP pins this to those sources so drift
 // surfaces as a deliberate test edit.
@@ -181,7 +181,7 @@ var ValidBuiltInTools = []BuiltInToolDefinition{
 	{ID: "generate_vector_image", Name: "Generate vector image", Description: "Generate an SVG vector image from a text prompt.", Category: "mcp.image"},
 	{ID: "remix_image", Name: "Remix image", Description: "Generate a new image from a text prompt and one or more reference images.", Category: "mcp.image"},
 	{ID: "vectorize_image", Name: "Vectorize image", Description: "Convert an organization image asset into SVG.", Category: "mcp.image"},
-	{ID: "search_knowledge_base", Name: "Search knowledge base", Description: "Search the organization's synced knowledge base (Slack, GitHub, Linear, Notion, websites, and uploaded files).", Category: "mcp.knowledge"},
+	{ID: "search_knowledge_base", Name: "Search knowledge base", Description: "Search the team's synced knowledge sources.", Category: "mcp.knowledge", Locked: true},
 	{ID: "sheet_create", Name: "Create sheet", Description: "Create a typed sheet.", Category: "mcp.sheets"},
 	{ID: "sheet_list", Name: "List sheets", Description: "List sheets available in the current channel.", Category: "mcp.sheets"},
 	{ID: "sheet_describe", Name: "Describe sheet", Description: "Inspect a sheet's pages and fields.", Category: "mcp.sheets"},
@@ -269,13 +269,18 @@ var BaselineRuntimeToolIDs = []string{
 	"drive_download",
 }
 
-// ReadOnlyMCPToolFloor lists the universal MCP tools for parent agents. All
-// other MCP tools require an explicit allow.
-// Skill availability is rendered into the system prompt, so skill_view alone is
-// sufficient to load a selected skill.
-var ReadOnlyMCPToolFloor = []string{
+// BaselineParentMCPToolIDs lists the universal Hivy MCP surface for every
+// top-level agent. These capabilities are platform policy rather than optional
+// grants, so an agent-level deny cannot remove them.
+var BaselineParentMCPToolIDs = []string{
 	"skill_view",
 	"drive_search",
+	"search_knowledge_base",
+	"list_team_skills",
+	"create_skill",
+	"update_skill",
+	"archive_skill",
+	"cron",
 }
 
 // SubAgentReadOnlyMCPToolFloor is the universal MCP surface for sub-agents.

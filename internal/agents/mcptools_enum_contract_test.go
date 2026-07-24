@@ -20,7 +20,6 @@ func TestParentAssignableToolIDs_ExactContract(t *testing.T) {
 		"generate_vector_image",
 		"remix_image",
 		"vectorize_image",
-		"search_knowledge_base",
 		"sheet_create",
 		"sheet_list",
 		"sheet_describe",
@@ -41,16 +40,16 @@ func TestParentAssignableToolIDs_ExactContract(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("ParentAssignableToolIDs() = %v, want %v", got, want)
 	}
-	if len(got) != 25 {
-		t.Fatalf("parent enum length = %d, want 25", len(got))
+	if len(got) != 24 {
+		t.Fatalf("parent enum length = %d, want 24", len(got))
 	}
-	// No baseline or read-only floor id may appear in the parent enum.
+	// No baseline or baseline parent floor id may appear in the parent enum.
 	for _, id := range got {
 		if baselineRuntimeToolSet[id] {
 			t.Fatalf("parent enum must not contain baseline tool %q", id)
 		}
-		if readOnlyMCPFloorSet[id] {
-			t.Fatalf("parent enum must not contain read-only floor tool %q", id)
+		if baselineParentMCPToolSet[id] {
+			t.Fatalf("parent enum must not contain baseline parent floor tool %q", id)
 		}
 		if id == "subagent_task" {
 			t.Fatalf("parent enum must not contain subagent_task")
@@ -102,15 +101,10 @@ func TestValidBuiltInToolsMatchesRuntimeAndMCP(t *testing.T) {
 	for _, id := range AssignableMCPTools {
 		want[id] = true
 	}
-	// Most universal tools are intentionally UI-invisible. drive_search is an
-	// always-on agent-drive capability and remains part of the permission
-	// registry so persisted permissions validate, even though it cannot be
-	// selected or removed through the agent-builder schema.
-	for _, id := range model.ReadOnlyMCPToolFloor {
-		if id != "skill_view" {
-			want[id] = true
-		}
-	}
+	// These baseline capabilities remain in the permission registry so older
+	// persisted permission maps continue to validate.
+	want["drive_search"] = true
+	want["search_knowledge_base"] = true
 
 	got := map[string]bool{}
 	for _, id := range model.BuiltInToolIDs() {
@@ -138,7 +132,7 @@ func TestValidBuiltInToolsMatchesRuntimeAndMCP(t *testing.T) {
 func TestSharedConstantSubsets(t *testing.T) {
 	// Universal MCP tools are deliberately absent from the optional assignment
 	// enum: every compiled agent gets them automatically.
-	for _, floor := range model.ReadOnlyMCPToolFloor {
+	for _, floor := range model.BaselineParentMCPToolIDs {
 		if assignableMCPToolSet[floor] {
 			t.Fatalf("universal floor tool %q must not be assignable", floor)
 		}

@@ -18,16 +18,16 @@ import (
 // Session reflection gets its own provider/model/temperature resolution,
 // separate from session naming. Every knob is env-overridable:
 //
-//	HIVY_REFLECTION_PROVIDER     provider of the org-wide system credential (default "openai")
-//	HIVY_REFLECTION_MODEL       canonical Hivy model ID or provider upstream ID (default "gpt-4o-mini")
+//	HIVY_REFLECTION_PROVIDER     provider of the org-wide system credential (default "atlascloud")
+//	HIVY_REFLECTION_MODEL       canonical Hivy model ID or provider upstream ID (default "gpt-5.4-mini")
 //	HIVY_REFLECTION_TEMPERATURE sampling temperature (default 0.1)
 const (
 	reflectionProviderEnv    = "HIVY_REFLECTION_PROVIDER"
 	reflectionModelEnv       = "HIVY_REFLECTION_MODEL"
 	reflectionTemperatureEnv = "HIVY_REFLECTION_TEMPERATURE"
 
-	reflectionDefaultProviderID  = "openai"
-	reflectionDefaultModelID     = "gpt-4o-mini"
+	reflectionDefaultProviderID  = "atlascloud"
+	reflectionDefaultModelID     = "gpt-5.4-mini"
 	reflectionDefaultTemperature = 0.1
 )
 

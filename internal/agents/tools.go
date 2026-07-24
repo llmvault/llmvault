@@ -17,10 +17,10 @@ import (
 // Tools map.
 //
 // IMPORTANT: this list must stay in sync with the optional MCP tools actually
-// registered on the "hivy" MCP server (see internal/webcrawl, internal/rag,
-// internal/sheets, internal/apps, and internal/handler/images_mcp.go). The
-// default-Hivy management and automation tools are intentionally NOT
-// assignable; skill_view is universal and therefore not an optional grant.
+// registered on the "hivy" MCP server (see internal/webcrawl,
+// internal/sheets, internal/apps, and internal/handler/images_mcp.go).
+// Baseline parent tools and default-Hivy management tools are intentionally
+// not assignable.
 var AssignableMCPTools = []string{
 	"web_search",
 	"web_fetch",
@@ -29,7 +29,6 @@ var AssignableMCPTools = []string{
 	"generate_vector_image",
 	"remix_image",
 	"vectorize_image",
-	"search_knowledge_base",
 	"sheet_create",
 	"sheet_list",
 	"sheet_describe",
@@ -66,7 +65,7 @@ func stringSet(ids []string) map[string]bool {
 
 var baselineRuntimeToolSet = stringSet(model.BaselineRuntimeToolIDs)
 
-var readOnlyMCPFloorSet = stringSet(model.ReadOnlyMCPToolFloor)
+var baselineParentMCPToolSet = stringSet(model.BaselineParentMCPToolIDs)
 
 // optionalRuntimeToolIDs are the runtime built-in tools a parent agent may opt
 // into: everything in RuntimeBuiltInToolIDs that is not always-granted baseline
@@ -86,12 +85,11 @@ func optionalRuntimeToolIDs() []string {
 
 var optionalRuntimeToolSet = stringSet(optionalRuntimeToolIDs())
 
-// parentAssignableMCPTools are the MCP tools a parent agent may opt into. The
-// universal skill_view tool is intentionally absent from AssignableMCPTools.
+// parentAssignableMCPTools are the MCP tools a parent agent may opt into.
 func parentAssignableMCPTools() []string {
 	out := make([]string, 0, len(AssignableMCPTools))
 	for _, id := range AssignableMCPTools {
-		if readOnlyMCPFloorSet[id] {
+		if baselineParentMCPToolSet[id] {
 			continue
 		}
 		out = append(out, id)

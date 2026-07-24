@@ -21,8 +21,9 @@ const skillViewDescription = "Load a skill's full content and materialize its bu
 // DB-backed and scoped to the token's agent/org; skill_view returns a
 // materialize payload the runtime writes to the sandbox workspace.
 //
-// It also registers mutating skill tools when the calling agent's managed MCP
-// filter allows them. frontendURL builds the environment-settings link.
+// It also registers the universal skill-management tools. Their handlers bind
+// every mutation to the calling agent's team and require a human team manager.
+// frontendURL builds the environment-settings link.
 func NewToolsFunc(db *gorm.DB, frontendURL string) func(server *mcp.Server, token *model.Token) {
 	return func(server *mcp.Server, token *model.Token) {
 		if server == nil || db == nil || !skillToolAgentProxy(token) {
@@ -33,11 +34,6 @@ func NewToolsFunc(db *gorm.DB, frontendURL string) func(server *mcp.Server, toke
 			return
 		}
 		registerSkillViewTool(server, db, token, agentID)
-
-		agent, err := loadActiveAgent(context.Background(), db, token.OrgID, agentID)
-		if err != nil || !skillManagerEnabled(agent) {
-			return
-		}
 		registerSkillManagerTools(server, db, token, frontendURL)
 	}
 }

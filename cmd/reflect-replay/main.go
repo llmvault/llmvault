@@ -15,8 +15,8 @@
 //
 //	HIVY_DATABASE_URL           Postgres DSN (required)
 //	HIVY_REFLECTION_API_KEY     provider API key (or HIVY_SYSTEM_OPENAI_API_KEY); required unless -dry-run
-//	HIVY_REFLECTION_PROVIDER    same knob production reads (default "openai")
-//	HIVY_REFLECTION_MODEL       same knob production reads (default "gpt-4o-mini")
+//	HIVY_REFLECTION_PROVIDER    same knob production reads (default "atlascloud")
+//	HIVY_REFLECTION_MODEL       same knob production reads (default "gpt-5.4-mini")
 //	HIVY_REFLECTION_TEMPERATURE same knob production reads (default 0.1)
 package main
 

@@ -53,22 +53,29 @@ func resolveAgentMCPToolFilter(ctx context.Context, db *gorm.DB, agent *model.Ag
 
 // compileMCPToolFilter applies the platform's deny-by-default policy. The
 // runtime treats nil as unrestricted, so the compiler never emits nil; an
-// otherwise empty capability set receives only universal skill_view below.
+// otherwise empty optional set still receives the universal parent surface.
 func compileMCPToolFilter(filter *model.ToolFilter) *model.ToolFilter {
-	return normalizeToolFilter(filter)
+	return applyMCPToolFloor(normalizeToolFilter(filter), model.BaselineParentMCPToolIDs)
 }
 
 // compileSubAgentMCPToolFilter applies the sub-agent-specific universal floor.
 // In particular, Drive search is parent-scoped alongside Drive upload/download.
 func compileSubAgentMCPToolFilter(filter *model.ToolFilter, hasInbox bool) *model.ToolFilter {
-	compiled := normalizeToolFilter(filter)
+	compiled := applyMCPToolFloor(normalizeToolFilter(filter), model.SubAgentReadOnlyMCPToolFloor)
 	if compiled == nil {
 		return nil
 	}
 	compiled = applyAgentInboxEmailTools(compiled, hasInbox)
+	parentOnly := make(map[string]bool, len(model.BaselineParentMCPToolIDs))
+	for _, id := range model.BaselineParentMCPToolIDs {
+		parentOnly[id] = true
+	}
+	for _, id := range model.SubAgentReadOnlyMCPToolFloor {
+		delete(parentOnly, id)
+	}
 	allow := make([]string, 0, len(compiled.Allow))
 	for _, id := range compiled.Allow {
-		if id != "drive_search" {
+		if !parentOnly[id] {
 			allow = append(allow, id)
 		}
 	}
@@ -133,10 +140,10 @@ func toolFilterFromPayload(payload *toolFilterJSON) *model.ToolFilter {
 	// Route catalog manifest filters through the same normalization choke point
 	// as user-created and sub-agent filters so the explicit allow-list policy is
 	// identical at every entry point.
-	return normalizeToolFilter(&model.ToolFilter{
+	return applyMCPToolFloor(normalizeToolFilter(&model.ToolFilter{
 		Allow: normalizeOptionalStrings(payload.Allow),
 		Deny:  normalizeOptionalStrings(payload.Deny),
-	})
+	}), model.BaselineParentMCPToolIDs)
 }
 
 // normalizeToolFilter is the single choke point every compiled MCP tool filter
@@ -161,14 +168,13 @@ func normalizeToolFilter(filter *model.ToolFilter) *model.ToolFilter {
 			filtered = append(filtered, id)
 		}
 	}
-	return applyReadOnlyMCPToolFloor(&model.ToolFilter{Allow: filtered})
+	return &model.ToolFilter{Allow: filtered}
 }
 
-// applyReadOnlyMCPToolFloor adds the small universal MCP surface to parent
-// filters. The available-skill inventory is already rendered into the system
-// prompt, so skills_list is not needed, and channel/automation tools stay
-// explicit Hivy-default grants.
-func applyReadOnlyMCPToolFloor(filter *model.ToolFilter) *model.ToolFilter {
+// applyMCPToolFloor adds a caller-specific universal MCP surface after optional
+// grants and denies have been normalized. Parent and sub-agent floors are kept
+// separate because sub-agents execute through their parent's proxy identity.
+func applyMCPToolFloor(filter *model.ToolFilter, floor []string) *model.ToolFilter {
 	if filter == nil {
 		return filter
 	}
@@ -177,7 +183,7 @@ func applyReadOnlyMCPToolFloor(filter *model.ToolFilter) *model.ToolFilter {
 		present[id] = true
 	}
 	changed := false
-	for _, id := range model.ReadOnlyMCPToolFloor {
+	for _, id := range floor {
 		if present[id] {
 			continue
 		}

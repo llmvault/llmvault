@@ -100,14 +100,16 @@ func TestAuthorizeUpdateTarget(t *testing.T) {
 	org := testOrg(t, db)
 	other := testOrg(t, db)
 	team := testTeam(t, db, org.ID)
+	otherTeam := testTeam(t, db, org.ID)
 	deps := noopDeps(db)
 
 	owner := model.User{ID: uuid.New(), Email: "owner-" + uuid.NewString() + "@example.test", Name: "Owner"}
 	teamMember := model.User{ID: uuid.New(), Email: "team-" + uuid.NewString() + "@example.test", Name: "TeamMember"}
 	outsider := model.User{ID: uuid.New(), Email: "outsider-" + uuid.NewString() + "@example.test", Name: "Outsider"}
 	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "Target", Model: "test", Status: "active", TeamID: team.ID}
+	otherTeamAgent := model.Agent{ID: uuid.New(), OrgID: &org.ID, Name: "Other team target", Model: "test", Status: "active", TeamID: otherTeam.ID}
 	for _, row := range []any{
-		&owner, &teamMember, &outsider, &agent,
+		&owner, &teamMember, &outsider, &agent, &otherTeamAgent,
 		&model.OrgMembership{UserID: owner.ID, OrgID: org.ID, Role: "owner"},
 		&model.OrgMembership{UserID: teamMember.ID, OrgID: org.ID, Role: "member"},
 		&model.OrgMembership{UserID: outsider.ID, OrgID: org.ID, Role: "member"},
@@ -129,7 +131,7 @@ func TestAuthorizeUpdateTarget(t *testing.T) {
 	}
 
 	// A cross-org id reports as not found, without leaking that it exists elsewhere.
-	crossOrg := authorizeUpdateTarget(t.Context(), deps, other.ID, reqFor(owner.ID.String()), agent.ID)
+	crossOrg := authorizeUpdateTarget(t.Context(), deps, other.ID, team.ID, reqFor(owner.ID.String()), agent.ID)
 	if crossOrg == nil {
 		t.Fatal("cross-org update target must be rejected")
 	}
@@ -137,18 +139,27 @@ func TestAuthorizeUpdateTarget(t *testing.T) {
 		t.Fatalf("cross-org rejection should read as not found: %q", msg)
 	}
 
+	// Even an org owner cannot widen Hivy beyond Hivy's own team.
+	crossTeam := authorizeUpdateTarget(t.Context(), deps, org.ID, team.ID, reqFor(owner.ID.String()), otherTeamAgent.ID)
+	if crossTeam == nil {
+		t.Fatal("cross-team update target must be rejected even for an org owner")
+	}
+	if msg := crossTeam.Content[0].(*mcp.TextContent).Text; !strings.Contains(msg, ErrAgentNotFound.Error()) {
+		t.Fatalf("cross-team rejection should read as not found: %q", msg)
+	}
+
 	// A member of the target agent's team may update it.
-	if res := authorizeUpdateTarget(t.Context(), deps, org.ID, reqFor(teamMember.ID.String()), agent.ID); res != nil {
+	if res := authorizeUpdateTarget(t.Context(), deps, org.ID, team.ID, reqFor(teamMember.ID.String()), agent.ID); res != nil {
 		t.Fatalf("team member should be allowed to update own-team agent: %v", res.Content)
 	}
 
 	// An org member outside the agent's team is denied.
-	if res := authorizeUpdateTarget(t.Context(), deps, org.ID, reqFor(outsider.ID.String()), agent.ID); res == nil {
+	if res := authorizeUpdateTarget(t.Context(), deps, org.ID, team.ID, reqFor(outsider.ID.String()), agent.ID); res == nil {
 		t.Fatal("non-member of the agent's team must be denied")
 	}
 
 	// No actor (automated run) fails closed.
-	if res := authorizeUpdateTarget(t.Context(), deps, org.ID, reqFor(""), agent.ID); res == nil {
+	if res := authorizeUpdateTarget(t.Context(), deps, org.ID, team.ID, reqFor(""), agent.ID); res == nil {
 		t.Fatal("automated run (no actor) must be blocked from updating")
 	}
 }

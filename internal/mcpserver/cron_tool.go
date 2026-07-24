@@ -20,49 +20,54 @@ func addCronTool(server *mcp.Server, token *model.Token, db *gorm.DB) {
 		return
 	}
 	agent := callingProxyAgent(token, db)
-	if agent == nil || !agent.IsDefault {
+	if agent == nil {
 		return
+	}
+	properties := map[string]any{
+		"action": map[string]any{
+			"type":        "string",
+			"description": "One of create, list, update, pause, resume, cancel.",
+		},
+		"job_id": map[string]any{
+			"type":        "string",
+			"description": "Cron job id for update, pause, resume, or cancel.",
+		},
+		"task_prompt": map[string]any{
+			"type":        "string",
+			"description": "Prompt to send when the cron job runs.",
+		},
+		"description": map[string]any{
+			"type":        "string",
+			"description": "Short human-readable description.",
+		},
+		"interval_seconds": map[string]any{
+			"type":        "integer",
+			"description": "Recurring interval in seconds. Mutually exclusive with cron_expression.",
+		},
+		"cron_expression": map[string]any{
+			"type":        "string",
+			"description": "Standard 5-field cron expression. Mutually exclusive with interval_seconds.",
+		},
+		"repeat_count": map[string]any{
+			"type":        "integer",
+			"description": "Optional maximum number of runs.",
+		},
+	}
+	description := "Create, list, update, pause, resume, and cancel recurring cron jobs owned by this agent. All times are UTC."
+	if agent.IsDefault {
+		description = "Create, list, update, pause, resume, and cancel recurring cron jobs. By default the job belongs to Hivy; pass agent_id to manage jobs for another agent in Hivy's team. All times are UTC."
+		properties["agent_id"] = map[string]any{
+			"type":        "string",
+			"description": "Optional UUID of an agent in Hivy's team. Defaults to Hivy.",
+		}
 	}
 	server.AddTool(&mcp.Tool{
 		Name:        "cron",
-		Description: "Create, list, update, pause, resume, and cancel recurring cron jobs. By default the job belongs to the calling agent; pass agent_id to manage jobs for another agent in the same organization. All times are UTC.",
+		Description: description,
 		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"action": map[string]any{
-					"type":        "string",
-					"description": "One of create, list, update, pause, resume, cancel.",
-				},
-				"agent_id": map[string]any{
-					"type":        "string",
-					"description": "Optional UUID of the agent this job belongs to. Defaults to the calling agent. Must be an agent in the same organization.",
-				},
-				"job_id": map[string]any{
-					"type":        "string",
-					"description": "Cron job id for update, pause, resume, or cancel.",
-				},
-				"task_prompt": map[string]any{
-					"type":        "string",
-					"description": "Prompt to send when the cron job runs.",
-				},
-				"description": map[string]any{
-					"type":        "string",
-					"description": "Short human-readable description.",
-				},
-				"interval_seconds": map[string]any{
-					"type":        "integer",
-					"description": "Recurring interval in seconds. Mutually exclusive with cron_expression.",
-				},
-				"cron_expression": map[string]any{
-					"type":        "string",
-					"description": "Standard 5-field cron expression. Mutually exclusive with interval_seconds.",
-				},
-				"repeat_count": map[string]any{
-					"type":        "integer",
-					"description": "Optional maximum number of runs.",
-				},
-			},
-			"required": []string{"action"},
+			"type":       "object",
+			"properties": properties,
+			"required":   []string{"action"},
 		},
 	}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args, err := decodeCronToolArgs(req)
@@ -99,8 +104,8 @@ func decodeCronToolArgs(req *mcp.CallToolRequest) (cronToolArgs, error) {
 }
 
 func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent, args cronToolArgs) (*mcp.CallToolResult, error) {
-	// By default the job belongs to the calling agent; agent_id targets another
-	// agent in the same org (validated here).
+	// By default the job belongs to the calling agent. Only the default Hivy
+	// agent may target another top-level agent, and only within Hivy's team.
 	orgID := uuid.Nil
 	if callingAgent != nil && callingAgent.OrgID != nil {
 		orgID = *callingAgent.OrgID
@@ -111,7 +116,7 @@ func handleCronTool(ctx context.Context, db *gorm.DB, callingAgent *model.Agent,
 	}
 	agent := callingAgent
 	if strings.TrimSpace(args.AgentID) != "" {
-		target, errResult := resolveCronAgent(ctx, db, callingAgent, actor, args.AgentID)
+		target, errResult := resolveCronAgent(ctx, db, callingAgent, args.AgentID)
 		if errResult != nil {
 			return errResult, nil
 		}
@@ -201,10 +206,10 @@ func cronScheduleCreator(actor *access.Actor) *uuid.UUID {
 	return &id
 }
 
-// resolveCronAgent returns the target agent for a cron action, validating it
-// belongs to the calling agent's organization. Returns the calling agent when
-// agent_id matches it.
-func resolveCronAgent(ctx context.Context, db *gorm.DB, callingAgent *model.Agent, actor *access.Actor, idText string) (*model.Agent, *mcp.CallToolResult) {
+// resolveCronAgent returns the target agent for a cron or HTTP-trigger action.
+// Non-default agents may only target themselves. The default Hivy agent may
+// target another top-level active agent, but only inside Hivy's own team.
+func resolveCronAgent(ctx context.Context, db *gorm.DB, callingAgent *model.Agent, idText string) (*model.Agent, *mcp.CallToolResult) {
 	id, err := uuid.Parse(strings.TrimSpace(idText))
 	if err != nil || id == uuid.Nil {
 		return nil, cronToolError("agent_id must be a valid UUID")
@@ -215,21 +220,15 @@ func resolveCronAgent(ctx context.Context, db *gorm.DB, callingAgent *model.Agen
 	if id == callingAgent.ID {
 		return callingAgent, nil
 	}
+	if !callingAgent.IsDefault {
+		return nil, cronToolError("Not allowed: this agent can only manage its own cron jobs.")
+	}
 	var target model.Agent
 	if err := db.WithContext(ctx).
-		Where("id = ? AND org_id = ? AND status <> ?", id, *callingAgent.OrgID, "archived").
+		Where("id = ? AND org_id = ? AND team_id = ? AND parent_agent_id IS NULL AND status <> ?",
+			id, *callingAgent.OrgID, callingAgent.TeamID, "archived").
 		First(&target).Error; err != nil {
-		return nil, cronToolError("agent not found in this organization")
-	}
-	if actor != nil && !actor.IsOrgManager() {
-		member, err := actor.IsTeamMember(ctx, db, target.TeamID)
-		if err != nil {
-			return nil, cronToolError("could not verify your access to that agent: " + err.Error())
-		}
-		if !member {
-			return nil, cronToolError("Not allowed: you can only manage agents on teams you belong to. " +
-				"Ask a member of that team or an organization admin to set this up.")
-		}
+		return nil, cronToolError("agent not found in this team")
 	}
 	return &target, nil
 }

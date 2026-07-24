@@ -13,9 +13,8 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// Tool names. list_team_skills, list_agents, and get_agent are read-only;
-// create_agent and update_agent are privileged, opt-in mutating tools gated per
-// calling agent.
+// Tool names. list_team_skills is universal. Agent discovery and mutation are
+// reserved for the team's default Hivy agent.
 const (
 	toolListTeamSkills = "list_team_skills"
 	toolListAgents     = "list_agents"
@@ -24,9 +23,9 @@ const (
 	toolUpdateAgent    = "update_agent"
 )
 
-// NewToolsFunc returns the agent-builder ToolsFunc. It registers the read-only
-// list_team_skills / list_agents / get_agent tools and the mutating
-// create_agent / update_agent tools when the calling agent is permitted.
+// NewToolsFunc returns the agent-builder ToolsFunc. Every top-level agent gets
+// list_team_skills. Only the default Hivy agent gets agent discovery and
+// mutation, and every one of those operations remains bound to Hivy's team.
 func NewToolsFunc(deps Deps, frontendURL string) func(server *mcp.Server, token *model.Token) {
 	return func(server *mcp.Server, token *model.Token) {
 		if server == nil || deps.DB == nil || !agentProxyToken(token) {
@@ -40,38 +39,15 @@ func NewToolsFunc(deps Deps, frontendURL string) func(server *mcp.Server, token 
 		if err != nil {
 			return
 		}
-		if !agentBuilderEnabled(agent) {
+		registerListTeamSkills(server, deps.DB, token)
+		if !agent.IsDefault {
 			return
 		}
-		registerListTeamSkills(server, deps.DB, token)
-		registerListAgents(server, deps.DB, token)
-		registerGetAgent(server, deps.DB, token, frontendURL)
+		registerListAgents(server, deps.DB, token, agent.TeamID)
+		registerGetAgent(server, deps.DB, token, agent.TeamID, frontendURL)
 		registerCreateAgent(server, deps, token, agent.TeamID, frontendURL)
-		registerUpdateAgent(server, deps, token, frontendURL)
+		registerUpdateAgent(server, deps, token, agent.TeamID, frontendURL)
 	}
-}
-
-// agentBuilderEnabled reports whether the calling agent may use the privileged
-// agent-builder tools. The default Hivy agent is eligible for its catalog-defined
-// builder surface; any other agent must explicitly allow-list create_agent or
-// update_agent.
-func agentBuilderEnabled(agent *model.Agent) bool {
-	if agent == nil {
-		return false
-	}
-	if agent.IsDefault {
-		return true
-	}
-	if agent.McpToolFilter == nil {
-		return false
-	}
-	for _, allowed := range agent.McpToolFilter.Allow {
-		switch strings.TrimSpace(allowed) {
-		case toolCreateAgent, toolUpdateAgent:
-			return true
-		}
-	}
-	return false
 }
 
 // --- shared low-level helpers -------------------------------------------------
@@ -86,29 +62,15 @@ func loadOrgAgent(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID) (*
 	return &agent, nil
 }
 
-// loadVisibleOrgAgent is loadOrgAgent with actor-scoped visibility: when userID
-// is non-nil the agent must also belong to a team that user belongs to, so
-// a hidden agent returns gorm.ErrRecordNotFound and never leaks its existence. A
-// nil userID (manager or automated run) keeps org-wide access.
-func loadVisibleOrgAgent(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, userID *uuid.UUID) (*model.Agent, error) {
-	q := db.WithContext(ctx).
-		Where("id = ? AND org_id = ? AND status <> ?", agentID, orgID, "archived")
-	if userID != nil {
-		q = q.Where("team_id IN (?)", visibleTeamIDsSubquery(db, userID))
-	}
+func loadTeamAgent(ctx context.Context, db *gorm.DB, orgID, teamID, agentID uuid.UUID) (*model.Agent, error) {
 	var agent model.Agent
-	if err := q.First(&agent).Error; err != nil {
+	if err := db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND team_id = ? AND parent_agent_id IS NULL AND status <> ?",
+			agentID, orgID, teamID, "archived").
+		First(&agent).Error; err != nil {
 		return nil, err
 	}
 	return &agent, nil
-}
-
-func visibleTeamIDsSubquery(db *gorm.DB, userID *uuid.UUID) *gorm.DB {
-	q := db.Model(&model.TeamMember{}).Select("team_id").Where("deactivated_at IS NULL")
-	if userID == nil {
-		return q.Where("1 = 0")
-	}
-	return q.Where("user_id = ?", *userID)
 }
 
 func agentProxyToken(token *model.Token) bool {

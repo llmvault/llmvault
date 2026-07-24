@@ -11,15 +11,14 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 )
 
-// agentVisibilityScenario seeds an org with two users (an admin and a plain
-// member), two teams (the member belongs to only one), and a spread of agents
-// owned by different teams so the actor-scoping matrix can be asserted against
-// list_agents / get_agent. Under the team-primary model an agent is a team
-// member, so a user sees exactly the agents belonging to their teams.
+// agentVisibilityScenario seeds an org with multiple teams and a spread of
+// agents so list_agents/get_agent can be pinned to the calling Hivy agent's
+// team, independently of the human actor's org role.
 type agentVisibilityScenario struct {
 	org      model.Org
 	admin    model.User
 	member   model.User
+	teamA    model.Team
 	inTeamA  model.Agent // owned by the member's team; visible to the member
 	inTeamB  model.Agent // owned by a team the member is not in; hidden
 	teamNull model.Agent // owned by a third team the member is not in; hidden
@@ -65,72 +64,48 @@ func seedAgentVisibility(t *testing.T, db *gorm.DB) agentVisibilityScenario {
 	})
 	return agentVisibilityScenario{
 		org: org, admin: admin, member: member,
+		teamA:   teamA,
 		inTeamA: inTeamA, inTeamB: inTeamB, teamNull: teamNull,
 	}
 }
 
-func TestListAgents_ActorScopedVisibility(t *testing.T) {
+func TestListAgents_CallingAgentTeamScopedVisibility(t *testing.T) {
 	db := testDB(t)
 	sc := seedAgentVisibility(t, db)
 	token := &model.Token{OrgID: sc.org.ID}
 	ctx := context.Background()
 
-	// A plain member sees only agents owned by teams they belong to.
-	memberText := listAgentsText(t, ctx, db, token, sc.member.ID.String())
-	if !strings.Contains(memberText, sc.inTeamA.ID.String()) {
-		t.Fatalf("member list should include %s (%s), got: %s", sc.inTeamA.Name, sc.inTeamA.ID, memberText)
+	text := listAgentsText(t, ctx, db, token, sc.teamA.ID)
+	if !strings.Contains(text, sc.inTeamA.ID.String()) {
+		t.Fatalf("team list should include %s (%s), got: %s", sc.inTeamA.Name, sc.inTeamA.ID, text)
 	}
 	for _, hidden := range []model.Agent{sc.inTeamB, sc.teamNull} {
-		if strings.Contains(memberText, hidden.ID.String()) {
-			t.Fatalf("member list must NOT include %s (%s), got: %s", hidden.Name, hidden.ID, memberText)
-		}
-	}
-
-	// An org manager sees every agent in the org.
-	adminText := listAgentsText(t, ctx, db, token, sc.admin.ID.String())
-	// No human actor (automated run) also keeps the org-wide view.
-	noActorText := listAgentsText(t, ctx, db, token, "")
-	for _, all := range []model.Agent{sc.inTeamA, sc.inTeamB, sc.teamNull} {
-		if !strings.Contains(adminText, all.ID.String()) {
-			t.Fatalf("admin list should include %s (%s)", all.Name, all.ID)
-		}
-		if !strings.Contains(noActorText, all.ID.String()) {
-			t.Fatalf("no-actor list should include %s (%s)", all.Name, all.ID)
+		if strings.Contains(text, hidden.ID.String()) {
+			t.Fatalf("team list must NOT include %s (%s), got: %s", hidden.Name, hidden.ID, text)
 		}
 	}
 }
 
-func TestGetAgent_ActorScopedVisibility(t *testing.T) {
+func TestGetAgent_CallingAgentTeamScopedVisibility(t *testing.T) {
 	db := testDB(t)
 	sc := seedAgentVisibility(t, db)
 	token := &model.Token{OrgID: sc.org.ID}
 	ctx := context.Background()
 
-	// The member can inspect an agent owned by their team.
-	if res, _ := handleGetAgent(ctx, db, token, "", sc.member.ID.String(), getAgentArgs{AgentID: sc.inTeamA.ID.String()}); res.IsError {
-		t.Fatalf("member get of visible agent errored: %s", errResultText(res))
+	if res, _ := handleGetAgent(ctx, db, token, sc.teamA.ID, "", getAgentArgs{AgentID: sc.inTeamA.ID.String()}); res.IsError {
+		t.Fatalf("get of same-team agent errored: %s", errResultText(res))
 	}
-	// A hidden agent is reported as not found (never as forbidden) so its
-	// existence does not leak.
 	for _, hidden := range []model.Agent{sc.inTeamB, sc.teamNull} {
-		res, _ := handleGetAgent(ctx, db, token, "", sc.member.ID.String(), getAgentArgs{AgentID: hidden.ID.String()})
+		res, _ := handleGetAgent(ctx, db, token, sc.teamA.ID, "", getAgentArgs{AgentID: hidden.ID.String()})
 		if !res.IsError || !strings.Contains(errResultText(res), "not found") {
-			t.Fatalf("member get of hidden %s should be not found, got: %s", hidden.Name, errResultText(res))
+			t.Fatalf("cross-team get of %s should be not found, got: %s", hidden.Name, errResultText(res))
 		}
-	}
-	// A manager can inspect any agent, including other teams' agents.
-	if res, _ := handleGetAgent(ctx, db, token, "", sc.admin.ID.String(), getAgentArgs{AgentID: sc.inTeamB.ID.String()}); res.IsError {
-		t.Fatalf("admin get of any agent errored: %s", errResultText(res))
-	}
-	// No actor keeps org-wide access.
-	if res, _ := handleGetAgent(ctx, db, token, "", "", getAgentArgs{AgentID: sc.teamNull.ID.String()}); res.IsError {
-		t.Fatalf("no-actor get of third-team agent errored: %s", errResultText(res))
 	}
 }
 
-func listAgentsText(t *testing.T, ctx context.Context, db *gorm.DB, token *model.Token, actorRaw string) string {
+func listAgentsText(t *testing.T, ctx context.Context, db *gorm.DB, token *model.Token, teamID uuid.UUID) string {
 	t.Helper()
-	res, _ := handleListAgents(ctx, db, token, actorRaw)
+	res, _ := handleListAgents(ctx, db, token, teamID)
 	if res.IsError {
 		t.Fatalf("list_agents error: %s", errResultText(res))
 	}

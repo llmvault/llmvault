@@ -85,7 +85,7 @@ WHERE s.status = 'active'
 		OR (latest.event_at = st.last_reflected_event_at AND latest.id > st.last_reflected_event_id)
 	)
 ORDER BY latest.event_at ASC
-LIMIT ?`, sessionReflectionMessageEventTypes, sessionReflectionMinimumMessages, now.Add(-sessionReflectionIdleDelay), now, limit).Scan(&rows).Error
+LIMIT ?`, sessionReflectionHumanMessageEventTypes, sessionReflectionMinimumHumanMessages, now.Add(-sessionReflectionIdleDelay), now, limit).Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("scan reflection-eligible sessions: %w", err)
 	}

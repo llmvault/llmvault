@@ -1,17 +1,12 @@
 package main
 
 import (
-	"context"
-
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/cache"
 	"github.com/usehivy/hivy/internal/config"
-	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/memory"
 	"github.com/usehivy/hivy/internal/precontext"
-	"github.com/usehivy/hivy/internal/tasks"
 )
 
 func buildMemorySearchService(cfg *config.Config, db *gorm.DB, cacheManager *cache.Manager) *memory.Service {
@@ -25,14 +20,6 @@ func buildMemoryServiceConfig(cfg *config.Config, db *gorm.DB, cacheManager *cac
 		memCfg.EmbeddingDim = cfg.MemoryEmbeddingDim
 	}
 	return memCfg
-}
-
-func buildMemoryToolService(cfg *config.Config, db *gorm.DB, cacheManager *cache.Manager, enq enqueue.TaskEnqueuer) *memory.Service {
-	memCfg := buildMemoryServiceConfig(cfg, db, cacheManager)
-	memCfg.EnqueueEmbed = func(ctx context.Context, id uuid.UUID, revision int) error {
-		return tasks.EnqueueMemoryEmbed(ctx, enq, id, revision)
-	}
-	return memory.NewService(memCfg)
 }
 
 func buildPreContextService(

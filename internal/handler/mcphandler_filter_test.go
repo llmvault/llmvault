@@ -69,15 +69,20 @@ func TestAgentProxyMCPToolFilterUsesCompilerAllowList(t *testing.T) {
 	for _, id := range filter.Allow {
 		got[id] = true
 	}
-	if !got["sheet_list"] || !got["skill_view"] {
-		t.Fatalf("compiled JTI filter = %#v, want sheet_list plus skill_view", filter)
+	if !got["sheet_list"] {
+		t.Fatalf("compiled JTI filter = %#v, want explicit sheet_list grant", filter)
+	}
+	for _, id := range model.BaselineParentMCPToolIDs {
+		if !got[id] {
+			t.Fatalf("compiled JTI filter = %#v, want baseline parent tool %q", filter, id)
+		}
 	}
 	for _, id := range model.AgentEmailMCPToolIDs {
 		if !got[id] {
 			t.Fatalf("compiled JTI filter = %#v, want inbox-derived tool %q", filter, id)
 		}
 	}
-	if got["app_create"] || got["web_search"] || got["search_knowledge_base"] {
+	if got["app_create"] || got["web_search"] || got["list_agents"] || got["create_http_trigger"] {
 		t.Fatalf("compiled JTI filter leaked ungranted tools: %#v", filter)
 	}
 }

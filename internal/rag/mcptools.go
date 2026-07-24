@@ -144,10 +144,26 @@ This is the FIRST place to search for company knowledge — reach for it before 
 }
 
 // resolveKnowledgeTeam derives the calling agent's team from the
-// runtime-injected _hivy_session_id. The value is server-controlled and cannot
-// be forged by the model. A session is mandatory; its team_id is a NOT NULL
-// column, so every session resolves to exactly one team.
+// runtime-injected _hivy_session_id. The session must belong to the agent
+// identified by the proxy token, so even a leaked session ID cannot widen the
+// agent to another team's knowledge grants.
 func resolveKnowledgeTeam(ctx context.Context, db *gorm.DB, token *model.Token, rawSessionID string) (uuid.UUID, error) {
+	if token == nil || token.Meta == nil {
+		return uuid.Nil, fmt.Errorf("knowledge search requires an agent proxy token")
+	}
+	rawAgentID, _ := token.Meta[model.TokenMetaAgentID].(string)
+	agentID, err := uuid.Parse(strings.TrimSpace(rawAgentID))
+	if err != nil || agentID == uuid.Nil {
+		return uuid.Nil, fmt.Errorf("agent proxy token is missing agent_id")
+	}
+	var agent model.Agent
+	if err := db.WithContext(ctx).
+		Select("id", "team_id").
+		Where("id = ? AND org_id = ? AND parent_agent_id IS NULL AND status <> ?",
+			agentID, token.OrgID, "archived").
+		First(&agent).Error; err != nil {
+		return uuid.Nil, fmt.Errorf("calling agent not found")
+	}
 	sessionIDText := strings.TrimSpace(rawSessionID)
 	if sessionIDText == "" {
 		return uuid.Nil, fmt.Errorf("knowledge search must be called from within a session")
@@ -159,11 +175,12 @@ func resolveKnowledgeTeam(ctx context.Context, db *gorm.DB, token *model.Token, 
 	var session model.Session
 	if err := db.WithContext(ctx).
 		Select("id", "team_id").
-		Where("id = ? AND org_id = ?", sessionID, token.OrgID).
+		Where("id = ? AND org_id = ? AND agent_id = ? AND team_id = ?",
+			sessionID, token.OrgID, agentID, agent.TeamID).
 		First(&session).Error; err != nil {
-		return uuid.Nil, fmt.Errorf("session not found in this org")
+		return uuid.Nil, fmt.Errorf("session not found for this agent")
 	}
-	return session.TeamID, nil
+	return agent.TeamID, nil
 }
 
 // teamSourceIDs returns the RAG source IDs the agent's team is granted.

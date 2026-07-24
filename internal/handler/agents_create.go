@@ -182,6 +182,18 @@ func applyHivyAgentRuntimeDefaults(ctx context.Context, db *gorm.DB, agent *mode
 		updates["sandbox_size"] = model.DefaultHivyAgentSandboxSize
 		agent.SandboxSize = model.DefaultHivyAgentSandboxSize
 	}
+	tools := cloneModelJSON(agent.Tools)
+	toolsChanged := false
+	for _, id := range []string{"write_file", "apply_patch"} {
+		if enabled, ok := tools[id].(bool); !ok || !enabled {
+			tools[id] = true
+			toolsChanged = true
+		}
+	}
+	if toolsChanged {
+		updates["tools"] = tools
+		agent.Tools = tools
+	}
 	if len(updates) == 0 {
 		return nil
 	}

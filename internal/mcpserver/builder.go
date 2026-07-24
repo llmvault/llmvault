@@ -17,18 +17,14 @@ type WebToolsFunc func(server *mcp.Server, token *model.Token)
 // KnowledgeToolsFunc registers org-scoped knowledge-base search tools.
 type KnowledgeToolsFunc func(server *mcp.Server, token *model.Token)
 
-// MemoryToolsFunc registers org and user memory tools for agent runtimes.
-type MemoryToolsFunc func(server *mcp.Server, token *model.Token)
-
 // ImageGenerationToolsFunc registers agent image generation tools.
 type ImageGenerationToolsFunc func(server *mcp.Server, token *model.Token)
 
-// SkillToolsFunc registers skill_view and any eligible skill-manager tools.
+// SkillToolsFunc registers the universal skill view and management tools.
 type SkillToolsFunc func(server *mcp.Server, token *model.Token)
 
-// AgentBuilderToolsFunc registers the agent-builder tools (list_team_skills,
-// create_agent, update_agent). The func itself gates create_agent/update_agent
-// per calling agent, so it may always be invoked.
+// AgentBuilderToolsFunc registers universal list_team_skills plus Hivy-only
+// agent discovery and mutation tools. The callback applies that hard gate.
 type AgentBuilderToolsFunc func(server *mcp.Server, token *model.Token)
 
 // SheetToolsFunc registers the sheets tool group.
@@ -51,7 +47,7 @@ const universalSkillViewTool = "skill_view"
 // initial tools/list response contains only the agent's granted capabilities.
 var hivyMCPToolNames = []string{
 	"web_fetch", "web_search", "web_crawl",
-	"search_knowledge_base", "manage_memories",
+	"search_knowledge_base",
 	"generate_image", "generate_vector_image", "remix_image", "vectorize_image",
 	"skill_view",
 	"list_team_skills", "list_agents", "get_agent", "create_agent", "update_agent",
@@ -121,7 +117,6 @@ func BuildServer(
 	ctr *counter.Counter,
 	addWebTools WebToolsFunc,
 	addKnowledgeTools KnowledgeToolsFunc,
-	addMemoryTools MemoryToolsFunc,
 	addImageGenerationTools ImageGenerationToolsFunc,
 	addSkillTools SkillToolsFunc,
 	addAgentBuilderTools AgentBuilderToolsFunc,
@@ -146,10 +141,6 @@ func BuildServer(
 
 	if addKnowledgeTools != nil && hasAllowedHivyMCPTool(toolFilter, "search_knowledge_base") {
 		addKnowledgeTools(server, token)
-	}
-
-	if addMemoryTools != nil && hasAllowedHivyMCPTool(toolFilter, "manage_memories") {
-		addMemoryTools(server, token)
 	}
 
 	if addImageGenerationTools != nil && hasAllowedHivyMCPTool(toolFilter, "generate_image", "generate_vector_image", "remix_image", "vectorize_image") {

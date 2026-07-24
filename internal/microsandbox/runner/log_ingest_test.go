@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"encoding/binary"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -107,6 +108,83 @@ func TestSandboxLogIngestForwardsTrustedIdentity(t *testing.T) {
 	}
 	if got := server.logAccepted.Load(); got != 1 {
 		t.Fatalf("accepted counter = %d, want 1", got)
+	}
+}
+
+func TestSandboxLogIngestRedactsEnvironmentDumpValues(t *testing.T) {
+	t.Parallel()
+	var gotBody string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer upstream.Close()
+
+	server := newLogTestServer(t, upstream.URL+"/insert/journald")
+	backend := server.backend.(*MockBackend)
+	_, err := backend.CreateSandbox(context.Background(), CreateSandboxRequest{ID: "sandbox-1"})
+	if err != nil {
+		t.Fatalf("create sandbox: %v", err)
+	}
+
+	payload := strings.Join([]string{
+		"MESSAGE=  with environment:\nSYSLOG_IDENTIFIER=kernel\n\n",
+		"MESSAGE=    HIVY_RUNTIME_SECRET=runtime-secret\nSYSLOG_IDENTIFIER=kernel\n\n",
+		"MESSAGE=    PATH=/usr/local/bin:/usr/bin\nSYSLOG_IDENTIFIER=kernel\n\n",
+		"MESSAGE=runtime started\nSYSLOG_IDENTIFIER=hivy-runtime\n\n",
+	}, "")
+	path := "/v1/sandbox-logs/sandbox-1/" + server.sandboxLogToken("sandbox-1") + "/journald"
+	rec := httptest.NewRecorder()
+	server.LogRoutes().ServeHTTP(
+		rec,
+		httptest.NewRequest(http.MethodPost, path, strings.NewReader(payload)),
+	)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+	for _, leaked := range []string{"runtime-secret", "/usr/local/bin:/usr/bin"} {
+		if strings.Contains(gotBody, leaked) {
+			t.Fatalf("environment value %q reached upstream: %q", leaked, gotBody)
+		}
+	}
+	for _, want := range []string{
+		"MESSAGE=  with environment:",
+		"MESSAGE=    HIVY_RUNTIME_SECRET=[REDACTED]",
+		"MESSAGE=    PATH=[REDACTED]",
+		"MESSAGE=runtime started",
+	} {
+		if !strings.Contains(gotBody, want) {
+			t.Errorf("redacted journal %q does not contain %q", gotBody, want)
+		}
+	}
+}
+
+func TestRedactingJournalBodyRedactsBinaryEnvironmentMessage(t *testing.T) {
+	t.Parallel()
+	value := []byte("    HIVY_DRIVE_UPLOAD_BEARER=binary-secret\n")
+	var encodedLength [8]byte
+	binary.LittleEndian.PutUint64(encodedLength[:], uint64(len(value)))
+	payload := append([]byte("MESSAGE\n"), encodedLength[:]...)
+	payload = append(payload, value...)
+	payload = append(payload, '\n')
+
+	body := newRedactingJournalBody(io.NopCloser(strings.NewReader(string(payload))), int64(len(payload)))
+	got, err := io.ReadAll(body)
+	if err != nil {
+		t.Fatalf("read redacted body: %v", err)
+	}
+	if strings.Contains(string(got), "binary-secret") {
+		t.Fatalf("binary environment value reached output")
+	}
+	if !strings.Contains(string(got), "HIVY_DRIVE_UPLOAD_BEARER=[REDACTED]") {
+		t.Fatalf("binary environment value was not redacted")
+	}
+	gotLength := binary.LittleEndian.Uint64(got[len("MESSAGE\n") : len("MESSAGE\n")+8])
+	wantLength := len("    HIVY_DRIVE_UPLOAD_BEARER=[REDACTED]")
+	if gotLength != uint64(wantLength) {
+		t.Fatalf("binary message length = %d, want %d", gotLength, wantLength)
 	}
 }
 

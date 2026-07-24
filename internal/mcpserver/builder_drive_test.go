@@ -43,7 +43,6 @@ func TestBuildServer_RegistersDriveToolsOnlyWhenAllowed(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil,
 				func(_ *mcp.Server, _ *model.Token) { invoked = true },
 				tc.filter,
 			)

@@ -4,10 +4,49 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/model"
 )
+
+func TestNewToolsFunc_RegistersSkillManagementForEveryAgentProxy(t *testing.T) {
+	server := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "1"}, nil)
+	NewToolsFunc(&gorm.DB{}, "")(server, &model.Token{
+		OrgID: uuid.New(),
+		Meta: model.JSON{
+			model.TokenMetaType:    model.TokenTypeAgentProxy,
+			model.TokenMetaAgentID: uuid.NewString(),
+		},
+	})
+	serverTransport, clientTransport := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(t.Context(), serverTransport, nil)
+	if err != nil {
+		t.Fatalf("connect server: %v", err)
+	}
+	t.Cleanup(func() { _ = serverSession.Close() })
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1"}, nil)
+	clientSession, err := client.Connect(t.Context(), clientTransport, nil)
+	if err != nil {
+		t.Fatalf("connect client: %v", err)
+	}
+	t.Cleanup(func() { _ = clientSession.Close() })
+	result, err := clientSession.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+	got := map[string]bool{}
+	for _, tool := range result.Tools {
+		got[tool.Name] = true
+	}
+	for _, name := range []string{"skill_view", toolCreateSkill, toolUpdateSkill, toolArchiveSkill} {
+		if !got[name] {
+			t.Fatalf("registered tools = %v, missing %s", got, name)
+		}
+	}
+}
 
 func testSkill() (model.Skill, Bundle) {
 	desc := "Parse invoices"

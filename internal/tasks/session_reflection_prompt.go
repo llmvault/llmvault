@@ -11,8 +11,8 @@ import (
 
 const (
 	sessionReflectionMaxTokens   = 3000
-	sessionReflectionMaxMemories = 10
-	sessionReflectionMinScore    = 0.7
+	sessionReflectionMaxMemories = 5
+	sessionReflectionMinScore    = 0.85
 )
 
 const sessionReflectionResponseSchema = `{
@@ -71,58 +71,92 @@ type reflectionMemoryCandidate struct {
 	ActorExternalRef string   `json:"actor_external_ref"`
 }
 
-const sessionReflectionPromptIntro = `You extract durable organizational memories from a Hivy agent session.
-Be SELECTIVE — most sessions contain 0–5 memories worth keeping. Extract only
-what this agent should still know weeks from now.`
+const sessionReflectionPromptIntro = `You are a high-precision memory gate for a Hivy agent.
+Your job is to retain the smallest possible set of durable facts that will materially improve
+this agent's future work. False positives are much more harmful than omissions. Most transcript
+windows contain no memory worth storing. Return an empty memories array by default.`
 
-const sessionReflectionPromptRules = `ONLY extract:
-✅ Stated preferences, corrections, and rules from humans ("always X", "stop doing Y", "we prefer Z")
-✅ Decisions WITH their rationale ("chose Railway over Fly because ...")
-✅ Durable project/org conventions (naming, process, review rules, tooling choices)
-✅ Facts about the organization: people and roles, customers, vendors, systems, integrations
-✅ Recurring workarounds for real problems (include the problem and the fix)
-✅ Commitments and plans with owners and dates
-✅ Hard-won findings that would cost real effort to rediscover (root causes, gotchas in THIS org's systems)
+const sessionReflectionPromptRules = `A candidate is a memory only when EVERY gate below passes:
 
-DO NOT extract:
-❌ Filesystem/directory listings, file contents, repo structure observations
-❌ Machine/environment readings: disk space, RAM, CPU, installed versions, sandbox specs
-❌ One-off command output or its interpretation
-❌ Mid-task state and progress ("user is setting up X", "pending approval")
-❌ In-flight work: this session may STILL BE RUNNING. Extract only SETTLED facts —
-   things a human stated, decisions explicitly made, findings confirmed. If ongoing
-   work could still change the fact, it is not settled; it will be re-offered later.
-❌ What the agent did this session, unless it established a durable convention or decision
-❌ Anything true only inside this session's sandbox or that expires when the session ends
-❌ Restatements of anything in the Existing Memories list
-❌ Secrets, tokens, credentials, hidden reasoning
-❌ Individual end-customer queries, requests, or personal details (names, contact info,
-   account specifics of the org's customers' end users). Recurring PATTERNS across
-   customers are useful agent knowledge ("password-reset emails land in spam for Outlook
-   users") — individual interactions are not. The agent mission may explicitly
-   override this for a dedicated account agent.
+1. AUTHORITATIVE EVIDENCE
+   - A Role: Human event explicitly states, corrects, approves, or confirms the fact; OR
+   - for a finding/workaround only, tool evidence demonstrates the problem and a Role: Agent
+     conclusion confirms the diagnosis or fix.
+   - Role: Agent text is never authoritative evidence for an org fact, preference, rule,
+     convention, decision, commitment, person, system, integration, permission, or capability.
+2. DURABILITY
+   - It is expected to remain true for at least six months, or it has a meaningful known expiry.
+3. FUTURE UTILITY
+   - Remembering it will change a future answer, decision, workflow, or action.
+4. ORGANIZATIONAL SPECIFICITY
+   - It is specific to this organization, its people, customers, projects, policies, or systems.
+5. SETTLED STATE
+   - It is explicit and complete, not inferred from exploration, a test, or unfinished work.
+6. NON-DERIVABILITY
+   - It would be costly or unreliable to rediscover when needed. Facts cheaply obtained by
+     listing, searching, reading current configuration, or calling an availability endpoint
+     are not memories.
 
-LITMUS TEST: "Will this still be true and useful to this agent in 6 months?"
-If unsure → omit. A missed triviality costs nothing; stored noise pollutes every future prompt.
+HIGH-VALUE MEMORY TYPES:
+- Human-stated preferences, corrections, prohibitions, and standing rules.
+- Human-confirmed decisions with rationale, rejected alternatives, and effective dates.
+- Stable conventions or policies the organization deliberately follows.
+- Durable ownership, role, customer, vendor, or system facts explicitly confirmed by a human.
+- Commitments with a concrete owner and date.
+- Hard-won findings and recurring workarounds that include the symptom, verified cause,
+  applicable conditions, and confirmed resolution.
 
-MEMORY QUALITY:
-- Contextually rich, not atomic: 1–2 sentences (15–60 words) with who/what/why.
-  Capture transitions ("switched from Vercel to Railway in June 2026 after preview-deploy
-  limits"), not just end states.
-- Preserve specifics exactly: names, ids, numbers, versions, titles. Never generalize.
-- Resolve ALL relative dates against the Session Date to absolute dates
-  ("yesterday" → "on July 5, 2026"). Never write relative time into a memory.
-- Resolve coreferences: "the client" + "ACME" → "ACME (client)".
-- entities: list people, teams, customers, systems, projects mentioned (for linking).
-- If a memory is only valid until a known time, set expires_at (ISO date).
+ALWAYS RETURN NO MEMORY FOR:
+- Anything the agent did, tried, searched, listed, fetched, read, generated, posted, tested,
+  verified access to, or reported during this session.
+- Agent self-narration or capability claims: "the agent can", "the agent could see",
+  "the agent has access", "the agent returned", "the agent reported", or equivalent wording.
+- Tool catalogs, tool names, available commands, MCP servers, skills, model capabilities,
+  result-count limitations, search behavior, or runtime features.
+- Inventories of Slack channels, teams, repositories, files, integrations, connections,
+  credentials, providers, routes, resources, or other objects discovered by listing/searching.
+- Connection IDs, channel IDs, internal UUIDs, tool-call syntax, API method names, and other
+  implementation identifiers unless a human explicitly made the identifier part of a standing
+  rule and future work genuinely requires it.
+- Successful hello/test messages, access probes, authentication checks, smoke tests, and
+  demonstrations that an integration or permission worked once.
+- One-off tool or command output, including a summary or interpretation of that output.
+- Filesystem listings, file contents, repository structure, machine readings, sandbox details,
+  installed versions, environment capacity, and transient configuration.
+- Requests, questions, task instructions, work performed, progress, plans under discussion,
+  pending approvals, drafts, hypotheses, and unresolved or in-flight work.
+- General knowledge, obvious facts, documentation summaries, and facts easily queried again.
+- Restatements or paraphrases of Existing Memories.
+- Secrets, credentials, hidden reasoning, or personal details about an end customer.
+- A fact included only because it is recent, specific, or confidently phrased.
 
-Return strict JSON: {"memories":[...]}. Empty array is a GOOD result for routine windows.`
+SOURCE RULES:
+- Cite only event UUIDs that directly prove the memory.
+- Preferences, rules, decisions, conventions, commitments, people, and org facts require at
+  least one cited Role: Human event.
+- Findings/workarounds without a human statement require BOTH cited tool/error evidence and a
+  cited Role: Agent conclusion. Raw output alone is not a finding.
+- Never treat an Actor attached to Role: Agent or Role: Tool/Event as the speaker.
+- If the evidence roles are ambiguous, contradictory, or incomplete, omit the memory.
+
+MEMORY WRITING:
+- State the durable fact directly. Never write "the agent saw/reported/found/can/could".
+- Use one or two information-dense sentences, normally 20–60 words, with the useful why or
+  operating condition. Do not write a session recap.
+- Include a date only when it explains a transition, deadline, commitment, or validity period.
+  Do not prefix static facts with the session date merely because the event was timestamped.
+- Resolve relative dates against Session Date. Preserve meaningful names, numbers, and versions.
+- Set expires_at only when the memory has a known end date.
+
+Before emitting each candidate, try to disqualify it using every gate and exclusion above.
+If any exclusion applies or any gate is uncertain, omit it. A clean empty result is success.`
 
 const sessionReflectionPromptOutput = `OUTPUT FIELDS:
 Each memory object must include content, kind, tags, confidence, entities, expires_at, source_event_ids, actor_display_name, and actor_external_ref.
 - kind: one of preference, rule, decision, convention, org-fact, person, workaround, commitment, finding.
 - tags: lowercase kebab-case.
-- confidence: 0.0–1.0. Memories below 0.7 are discarded, so only emit what you are confident is settled.
+- confidence: 0.0–1.0. Memories below 0.85 are discarded. Confidence measures evidence quality
+  after every gate passes; it cannot rescue a low-value or excluded fact.
 - entities: people, teams, customers, systems, projects the memory mentions.
 - expires_at: ISO date (YYYY-MM-DD) when the memory stops being valid, or "" when indefinite.
 - source_event_ids: transcript event UUIDs (from the [event:UUID] markers) that evidence the memory.
@@ -132,27 +166,35 @@ Return compact minified JSON with no prose.`
 
 const sessionReflectionPromptExamples = `EXAMPLES:
 
-Example 1 — noisy exploration session (Session Date: 2026-07-06, Agent: engineering):
+Example 1 — integration exploration produces NO memories (Session Date: 2026-07-06):
 Transcript (abridged):
-[event:6f0a1b2c-0000-0000-0000-000000000001] Actor: Dana — "Set up Playwright e2e tests for the dashboard repo."
-[event:6f0a1b2c-0000-0000-0000-000000000002] Result: bash ok — npm install: added 312 packages in 41s; disk 3.9 GB free
-[event:6f0a1b2c-0000-0000-0000-000000000003] Result: bash error — chromium launch failed: dbus connection refused; /dev/shm size 64M too small
-[event:6f0a1b2c-0000-0000-0000-000000000004] Agent — "Fixed: Chromium only launches in our sandboxes with --disable-dev-shm-usage; tests pass now."
-[event:6f0a1b2c-0000-0000-0000-000000000005] Actor: Dana — "Nice. Going forward keep test artifacts out of git — add test-results/ to .gitignore in every repo."
+[event:6f0a1b2c-0000-0000-0000-000000000001] Role: Human — "Check what Slack access and tools you have."
+[event:6f0a1b2c-0000-0000-0000-000000000002] Role: Tool/Event — Result: Slack channel inventory — all-hive, social, engineering, qa
+[event:6f0a1b2c-0000-0000-0000-000000000003] Role: Agent — "I can see four public channels and these twelve Slack tools."
+[event:6f0a1b2c-0000-0000-0000-000000000004] Role: Tool/Event — Result: chat_post_message ok — hello
+[event:6f0a1b2c-0000-0000-0000-000000000005] Role: Agent — "The hello message proves I can post to Slack."
 
-Output — ONLY 2 memories. Explicitly skipped: the 3.9 GB disk reading (environment reading), the dbus warning and npm install output (one-off command output), "setting up Playwright" (mid-task state):
-{"memories":[{"content":"Playwright/Chromium in Hivy sandboxes must launch with --disable-dev-shm-usage because /dev/shm (64M) is too small; without the flag browser startup fails.","kind":"workaround","tags":["playwright","chromium","sandbox"],"confidence":0.85,"entities":["Playwright","Chromium","Hivy sandbox"],"expires_at":"","source_event_ids":["6f0a1b2c-0000-0000-0000-000000000003","6f0a1b2c-0000-0000-0000-000000000004"],"actor_display_name":"","actor_external_ref":""},{"content":"Dana's rule (stated July 6, 2026): keep test artifacts out of git — add test-results/ to .gitignore in every repo.","kind":"rule","tags":["git","testing","conventions"],"confidence":0.95,"entities":["Dana"],"expires_at":"","source_event_ids":["6f0a1b2c-0000-0000-0000-000000000005"],"actor_display_name":"Dana","actor_external_ref":""}]}
+Output — empty because channel/tool inventories, access probes, and agent capability reports are derivable operational state:
+{"memories":[]}
 
-Example 2 — decision-rich session (Session Date: 2026-07-06, Agent: operations):
+Example 2 — human-confirmed decision (Session Date: 2026-07-06):
 Transcript (abridged):
-[event:7a1b2c3d-0000-0000-0000-000000000001] Actor: Priya — "Decision from yesterday's infra review: preview deploys move from Fly to Railway — Fly's 3-app preview limit kept blocking PR previews. Prod stays on Hetzner."
-[event:7a1b2c3d-0000-0000-0000-000000000002] Actor: Priya — "Also FYI invoicing goes through Paystack now, not Stripe."
+[event:7a1b2c3d-0000-0000-0000-000000000001] Role: Human Actor: Priya — "Decision from yesterday's infra review: preview deploys move from Fly to Railway because Fly's three-app preview limit kept blocking PR previews. Production stays on Hetzner."
 
-Output — 2 memories ("yesterday" resolved against the Session Date):
-{"memories":[{"content":"On July 5, 2026 the team decided to move preview deploys from Fly to Railway because Fly's 3-app preview limit kept blocking PR previews; production stays on Hetzner.","kind":"decision","tags":["infra","deploys","railway"],"confidence":0.95,"entities":["Priya","Fly","Railway","Hetzner"],"expires_at":"","source_event_ids":["7a1b2c3d-0000-0000-0000-000000000001"],"actor_display_name":"Priya","actor_external_ref":""},{"content":"Invoicing runs through Paystack, switched from Stripe (noted by Priya on July 6, 2026).","kind":"org-fact","tags":["billing","vendors"],"confidence":0.9,"entities":["Paystack","Stripe","Priya"],"expires_at":"","source_event_ids":["7a1b2c3d-0000-0000-0000-000000000002"],"actor_display_name":"Priya","actor_external_ref":""}]}
+Output — one memory; "yesterday" is resolved and the rationale is retained:
+{"memories":[{"content":"On July 5, 2026 the team decided to move preview deploys from Fly to Railway because Fly's three-app preview limit repeatedly blocked PR previews; production remains on Hetzner.","kind":"decision","tags":["infra","preview-deploys"],"confidence":0.97,"entities":["Priya","Fly","Railway","Hetzner"],"expires_at":"","source_event_ids":["7a1b2c3d-0000-0000-0000-000000000001"],"actor_display_name":"Priya","actor_external_ref":""}]}
 
-Example 3 — routine window (Session Date: 2026-07-06):
-Transcript: the human asks what the deploy pipeline does; the agent reads existing docs and explains. Nothing new was stated, decided, or confirmed.
+Example 3 — verified recurring workaround without a human statement:
+Transcript (abridged):
+[event:8b2c3d4e-0000-0000-0000-000000000001] Role: Tool/Event — Result: deploy error — release fails only when generated manifest exceeds 1 MiB
+[event:8b2c3d4e-0000-0000-0000-000000000002] Role: Tool/Event — Result: deploy ok — pruning source maps reduces manifest to 740 KiB
+[event:8b2c3d4e-0000-0000-0000-000000000003] Role: Agent — "Confirmed across both retries: manifests above 1 MiB fail; pruning source maps fixes the release."
+
+Output:
+{"memories":[{"content":"Deployments fail when the generated manifest exceeds 1 MiB; prune source maps before release to keep the manifest below that limit.","kind":"workaround","tags":["deploys","manifest"],"confidence":0.93,"entities":[],"expires_at":"","source_event_ids":["8b2c3d4e-0000-0000-0000-000000000001","8b2c3d4e-0000-0000-0000-000000000002","8b2c3d4e-0000-0000-0000-000000000003"],"actor_display_name":"","actor_external_ref":""}]}
+
+Example 4 — routine explanation:
+Transcript: a human asks what the deploy pipeline does; the agent reads current documentation and explains it. No human states or confirms a new durable fact.
 
 Output:
 {"memories":[]}`
