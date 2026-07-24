@@ -14,17 +14,6 @@ import (
 	"github.com/usehivy/hivy/internal/observability/correlation"
 )
 
-const (
-	AgentSandboxPort        = 7080
-	agentHealthTimeout      = 20 * time.Second
-	agentHealthInterval     = 200 * time.Millisecond
-	agentHealthProbeTimeout = 750 * time.Millisecond
-)
-
-func (o *Orchestrator) CreateAgentSandbox(ctx context.Context, agent *model.Agent, secrets *agentruntime.StartupSecrets) (*model.Sandbox, error) {
-	return o.CreateAgentSandboxWithRuntimeOptions(ctx, agent, secrets, agentruntime.RuntimeConfigOptions{})
-}
-
 func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context, agent *model.Agent, secrets *agentruntime.StartupSecrets, runtimeOptions agentruntime.RuntimeConfigOptions) (result *model.Sandbox, resultErr error) {
 	correlationValues := correlation.FromContext(ctx)
 	if runtimeOptions.SessionID != uuid.Nil {
@@ -306,31 +295,4 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 		"sandbox_id", sb.ID, "external_id", info.ExternalID, "agent_id", agent.ID)
 	logPhase("complete", "sandbox_id", sb.ID, "external_id", info.ExternalID, "agent_id", agent.ID, "org_id", orgID)
 	return &sb, nil
-}
-
-func (o *Orchestrator) shouldTryAgentWarmPool(templateRef string, exposedPorts []int) bool {
-	if templateRef != "" {
-		return false
-	}
-	capable, ok := o.provider.(WarmPoolCapable)
-	if !ok || !capable.UsesWarmPool() {
-		return false
-	}
-	if o.provider.ID() == ProviderMicrosandbox && !warmPoolSupportsDefaultPreviewPorts(exposedPorts) {
-		return false
-	}
-	return true
-}
-
-func warmPoolSupportsDefaultPreviewPorts(exposedPorts []int) bool {
-	allowed := map[int]struct{}{AgentSandboxPort: {}}
-	for _, port := range model.DefaultSandboxExposedPorts() {
-		allowed[port] = struct{}{}
-	}
-	for _, port := range exposedPorts {
-		if _, ok := allowed[port]; !ok {
-			return false
-		}
-	}
-	return true
 }
