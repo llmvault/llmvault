@@ -129,23 +129,26 @@ stack, and protect that interface with an appropriate firewall.
 ## Daily commands
 
 ```bash
-make up
-make up-build
-make down
+./start.sh
+./start.sh --build-local-images
+docker compose down
 docker compose logs -f api worker web
 ```
 
-`make down` stops containers while preserving databases, connections, uploads,
-and local indexes.
+`docker compose down` stops containers while preserving databases,
+connections, uploads, and local indexes.
 
 The following command is destructive:
 
 ```bash
-make reset
+docker compose down -v
 ```
 
 It removes all Compose volumes, including manually created Nango connections.
 The next `./start.sh` recreates an empty environment.
+
+If `make` is installed, `make up`, `make up-build`, `make down`, and
+`make reset` are convenience aliases for the same workflows.
 
 ## Hot reload
 
@@ -167,6 +170,6 @@ docker compose logs --tail=200 api worker web nango
 docker compose exec postgres pg_isready -U hivy
 ```
 
-If local state is no longer useful, run `make reset` and start again. Do not use
-reset merely to restart services because it deletes manually authorized
-connections.
+If local state is no longer useful, run `docker compose down -v` and start
+again. Do not use it merely to restart services because it deletes manually
+authorized connections.

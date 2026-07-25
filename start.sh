@@ -411,6 +411,6 @@ printf '  4. Log in and start Hivy; sandboxes will run through local Docker\n'
 printf '\n%sConnections%s\n' "$bold" "$reset"
 printf '  No Nango integrations or connections were created. Add them manually in Hivy when needed.\n'
 printf '\n%sUseful commands%s\n' "$bold" "$reset"
-printf '  make down          Stop services and preserve local data\n'
-printf '  make reset         Delete local containers and all development data\n'
+printf '  docker compose down       Stop services and preserve local data\n'
+printf '  docker compose down -v    Delete containers and all development data\n'
 printf '  docker compose logs -f api worker web\n\n'
