@@ -8,7 +8,7 @@
   "developer": "Hivy",
   "official": true,
   "agent_version": "1",
-  "enabled": true,
+  "enabled": false,
   "default": false,
   "runtime": {
     "sandbox_image": "developer",

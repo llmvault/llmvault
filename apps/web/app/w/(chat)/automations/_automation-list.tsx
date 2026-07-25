@@ -201,7 +201,20 @@ function AutomationRow({ automation }: { automation: AutomationItem }) {
     >
       <div className="rounded-xl px-3 py-1.5 transition-colors group-hover:bg-default group-focus-visible:bg-default group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-foreground/40">
         <div className="flex items-center gap-3">
-          <IntegrationLogo provider={automation.provider} size={36} />
+          {automation.provider ? (
+            <IntegrationLogo provider={automation.provider} size={36} />
+          ) : (
+            <div
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-white"
+              style={{ backgroundColor: automation.iconColor }}
+            >
+              <AppIcon
+                icon={automation.icon}
+                className="h-[18px] w-[18px]"
+                aria-hidden="true"
+              />
+            </div>
+          )}
 
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-medium text-foreground">
