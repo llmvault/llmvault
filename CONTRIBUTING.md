@@ -121,6 +121,11 @@ configuration:
 
 Port overrides remain available through `.env`.
 
+Published development ports bind to `127.0.0.1` by default so local
+credentials and data services are not exposed on shared or cloud hosts. Set
+`HIVY_COMPOSE_BIND_IP` explicitly only when another machine must reach the
+stack, and protect that interface with an appropriate firewall.
+
 ## Daily commands
 
 ```bash
