@@ -336,6 +336,12 @@ wait_healthy redis
 wait_healthy redis-2
 wait_healthy redis-3
 wait_completed redis-cluster-init
+run_quiet redis-cluster \
+  "${compose[@]}" exec -T redis sh -ec \
+  'redis-cli -p 16279 cluster info | grep -q "cluster_state:ok" &&
+    redis-cli -p 16279 cluster nodes |
+      awk '\''BEGIN { good=1 } $3 ~ /fail/ || $8 != "connected" { good=0 } END { exit !(good && NR == 3) }'\'''
+ok "redis cluster is ready"
 wait_healthy nango 300
 wait_healthy minio
 wait_completed minio-setup
