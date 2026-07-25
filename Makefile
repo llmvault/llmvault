@@ -1,4 +1,4 @@
-.PHONY: build test test-e2e test-agent-runtime-e2e test-agent-sessions-e2e test-apps-flagship-e2e test-apps-realtime-e2e sandbox-app-image test-agent-streaming-e2e test-agent-production-e2e test-handler-sharded test-redis-cluster lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources check-deployment-workflows vet check ci-wait-services ci-start-nango ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-integrations ci-test-internal-storage ci-test-internal-extra ci-test-e2e ci-test-cmd ci-test-web ci-test-web-unit ci-web-knip ci-test-runtime ci-quality ensure-nango-image infra-up app-up app-up-build up up-build down dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
+.PHONY: build test test-e2e test-agent-runtime-e2e test-agent-sessions-e2e test-apps-flagship-e2e test-apps-realtime-e2e sandbox-app-image test-agent-streaming-e2e test-agent-production-e2e test-handler-sharded test-redis-cluster lint check-file-length check-ts-file-length check-bare-goroutines check-migrations check-untracked-sources check-deployment-workflows vet check ci-wait-services ci-start-nango ci-start-qdrant ci-setup-minio ci-cleanup-containers ci-test-internal-core ci-test-internal-handler ci-test-internal-rag ci-test-internal-tasks ci-test-internal-integrations ci-test-internal-storage ci-test-internal-extra ci-test-e2e ci-test-cmd ci-test-web ci-test-web-unit ci-web-knip ci-test-runtime ci-quality ensure-nango-image infra-up app-up app-up-build up up-build down reset dev dev-build dev-nango dev-nango-secret dev-migrate clean fetch-actions generate docker-build docker-run migrate-up migrate-status migrate-version test-clean test-clean-auth test-clean-nango test-clean-proxy test-connect test-integrations test-connections test-sandbox-docker test-setup test-setup-nango openapi generate-auth-keys generate-sandbox-runtime-client build-sandbox-runtime-templates agent-env-doctor agent-debug-pack test-services-up test-services-down ragtest-slack-live ragtest-kb-search-live login-test asynq-peek microsandbox-build microsandbox-test microsandbox-release-linux-amd64 microsandbox-release-linux-arm64 microsandbox-release-darwin-arm64
 .PHONY: sandbox-runtime-build sandbox-runtime-native-release sandbox-runtime-linux-build sandbox-runtime-linux-build-amd64 sandbox-runtime-linux-build-arm64 sandbox-runtime-linux-build-all sandbox-runtime-release-all sandbox-runtime-test sandbox-runtime-fmt-check sandbox-runtime-clippy sandbox-runtime-openapi runtime-openapi canvas-cli-linux-build canvas-cli-linux-build-amd64 canvas-cli-linux-build-arm64 sandbox-runtime-image sandbox-runtime-developers-image sandbox-runtime-image-amd64 sandbox-runtime-image-arm64 sandbox-runtime-image-test
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -552,14 +552,13 @@ app-up-build: ensure-nango-image
 	echo "Building and starting Hivy app containers with local Nango secret"; \
 	HIVY_NANGO_SECRET_KEY="$$secret" $(DEV_DOCKER_COMPOSE) up -d --build --no-deps $(DEV_APP_SERVICES)
 
-# Start the complete local development stack through docker compose in the background.
-up: infra-up
-	@$(MAKE) -s dev-migrate
-	@$(MAKE) -s app-up
+# Start, migrate, seed, and verify the complete Docker-only local environment.
+up:
+	@./start.sh
 
-up-build: infra-up
-	@$(MAKE) -s dev-migrate
-	@$(MAKE) -s app-up-build
+# Build native sandbox images from the checkout, then start the full stack.
+up-build:
+	@./start.sh --build-local-images
 
 # Start the complete local development stack through docker compose in foreground dev mode.
 dev: infra-up
@@ -598,8 +597,17 @@ test-clean-connect:
 test-clean-integrations:
 	@./scripts/test-clean.sh integrations
 
-# Stop local development stack
+# Stop local development stack while preserving PostgreSQL, Nango connections,
+# Redis, MinIO, and Qdrant data.
 down:
+	@if [ -f "$(NANGO_COMPOSE_ENV_FILE)" ]; then \
+		$(DEV_DOCKER_COMPOSE) down; \
+	else \
+		docker compose down; \
+	fi
+
+# Explicit destructive reset for the complete local development environment.
+reset:
 	@if [ -f "$(NANGO_COMPOSE_ENV_FILE)" ]; then \
 		$(DEV_DOCKER_COMPOSE) down -v; \
 	else \

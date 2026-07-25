@@ -397,6 +397,21 @@ services:
         if redis-cli -h redis -p 16279 cluster info 2>/dev/null | grep -q "cluster_state:ok"; then
           exit 0;
         fi;
+        known_nodes="$$(redis-cli -h redis -p 16279 cluster info 2>/dev/null | awk -F: "/cluster_known_nodes/ { gsub(/\\r/, \"\", \$$2); print \$$2 }")";
+        if [ "$${known_nodes:-0}" -gt 1 ]; then
+          redis_2_ip="$$(getent hosts redis-2 | awk "{ print \$$1 }")";
+          redis_3_ip="$$(getent hosts redis-3 | awk "{ print \$$1 }")";
+          redis-cli -h redis -p 16279 cluster meet "$$redis_2_ip" 16280;
+          redis-cli -h redis -p 16279 cluster meet "$$redis_3_ip" 16281;
+          for attempt in $$(seq 1 30); do
+            if redis-cli -h redis -p 16279 cluster info | grep -q "cluster_state:ok"; then
+              exit 0;
+            fi;
+            sleep 1;
+          done;
+          echo "existing Redis cluster did not recover after refreshing node addresses" >&2;
+          exit 1;
+        fi;
         redis-cli --cluster create \
           redis:16279 \
           redis-2:16280 \

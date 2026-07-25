@@ -40,13 +40,10 @@ fi
 cp "$HERE/Dockerfile" "$CONTEXT/Dockerfile"
 cp "$REPO_ROOT/go.mod" "$REPO_ROOT/go.sum" "$CONTEXT/"
 
-# Copy exactly the first-party Go packages hivy-appd depends on, computed
-# from the import graph so the context stays minimal and never drifts.
-while IFS= read -r pkg; do
-  rel="${pkg#github.com/usehivy/hivy/}"
-  mkdir -p "$CONTEXT/$(dirname "$rel")"
-  cp -R "$REPO_ROOT/$rel" "$CONTEXT/$rel"
-done < <(cd "$REPO_ROOT" && go list -deps ./cmd/hivy-appd | grep '^github.com/usehivy/hivy/')
+# Keep local image builds Docker-only. The Docker build compiles just
+# cmd/hivy-appd; copying the first-party source trees avoids requiring a host Go
+# installation merely to discover its dependency graph.
+cp -R "$REPO_ROOT/cmd" "$REPO_ROOT/internal" "$CONTEXT/"
 
 mkdir -p "$CONTEXT/docker/app"
 cp "$HERE/entrypoint" \
