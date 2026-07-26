@@ -20,10 +20,12 @@ export function CollectionState({
   }
 }) {
   return (
-    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-border bg-surface px-6 py-10 text-center">
-      <span className="text-muted-foreground flex size-11 items-center justify-center rounded-xl bg-default">
-        <AppIcon icon={icon} className="size-5" aria-hidden="true" />
-      </span>
+    <div className="flex min-h-56 flex-col items-center justify-center px-6 py-10 text-center">
+      <AppIcon
+        icon={icon}
+        className="text-muted-foreground size-7"
+        aria-hidden="true"
+      />
       <div role="status" aria-live="polite">
         <p className="mt-4 text-sm font-semibold text-foreground">{title}</p>
         <p className="text-muted-foreground mt-1 max-w-sm text-sm leading-5">
