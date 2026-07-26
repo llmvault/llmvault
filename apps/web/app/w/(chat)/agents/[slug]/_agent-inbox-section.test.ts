@@ -12,11 +12,11 @@ describe("AgentInboxView", () => {
       })
     )
 
-    expect(html).toContain("No inbox yet")
+    expect(html).toContain("Give this agent an email address")
     expect(html).toContain("Add inbox")
   })
 
-  it("shows a copyable address and received message count", () => {
+  it("shows a copyable active address and received message count", () => {
     const html = renderToString(
       React.createElement(AgentInboxView, {
         inbox: {
@@ -29,8 +29,23 @@ describe("AgentInboxView", () => {
     )
 
     expect(html).toContain("operator-abcd1234@agents.example.test")
-    expect(html).toContain("Inbox messages")
-    expect(html).toContain(">12<")
-    expect(html).toContain("Copy")
+    expect(html).toContain("Inbox active")
+    expect(html).toContain("12 messages received")
+    expect(html).toContain("Copy address")
+  })
+
+  it("turns a zero count into a useful empty state", () => {
+    const html = renderToString(
+      React.createElement(AgentInboxView, {
+        inbox: {
+          available: true,
+          email: "operator-abcd1234@agents.example.test",
+          message_count: 0,
+        },
+        onProvision: () => {},
+      })
+    )
+
+    expect(html).toContain("No messages received yet")
   })
 })

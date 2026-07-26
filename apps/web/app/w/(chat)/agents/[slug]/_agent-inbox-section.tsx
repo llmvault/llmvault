@@ -58,8 +58,10 @@ export function AgentInboxView({
   onProvision: () => void
   onRetry?: () => void
 }) {
+  const email = inbox?.email?.trim() ?? ""
+  const messageCount = inbox?.message_count ?? 0
+
   async function copyAddress() {
-    const email = inbox?.email?.trim()
     if (!email) return
     try {
       await navigator.clipboard.writeText(email)
@@ -71,41 +73,45 @@ export function AgentInboxView({
 
   return (
     <section
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-5"
       aria-labelledby="agent-inbox-heading"
     >
       <div>
         <h2
           id="agent-inbox-heading"
-          className="text-sm font-semibold text-foreground"
+          className="text-base font-semibold text-foreground"
         >
-          Agent inbox
+          Start a session by email
         </h2>
         <p className="text-muted-foreground mt-1 max-w-2xl text-sm leading-5">
-          Send email to this address to start a new session with this agent.
+          Messages sent to this agent&apos;s dedicated address become new
+          sessions.
         </p>
       </div>
 
       {isLoading ? (
         <InboxSkeleton />
       ) : isError ? (
-        <div className="bg-card flex min-h-48 flex-col items-center justify-center rounded-xl px-6 text-center">
-          <AppIcon
-            icon="triangle-alert"
-            className="text-muted-foreground h-7 w-7"
-          />
-          <p className="mt-3 text-sm font-medium text-foreground">
-            Could not load inbox
-          </p>
-          <p className="text-muted-foreground mt-1 max-w-sm text-sm">
-            Try again to load this agent&apos;s inbox.
-          </p>
+        <div className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg bg-default">
+              <AppIcon icon="triangle-alert" className="size-4" />
+            </span>
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Could not load the inbox
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-sm">
+                Check the connection and try again.
+              </p>
+            </div>
+          </div>
           {onRetry ? (
             <Button
               type="button"
               variant="secondary"
               size="sm"
-              className="mt-4"
+              className="w-full shrink-0 sm:w-auto"
               onPress={onRetry}
             >
               Try again
@@ -113,20 +119,26 @@ export function AgentInboxView({
           ) : null}
         </div>
       ) : !inbox?.available ? (
-        <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
-          <AppIcon icon="mail" className="text-muted-foreground h-7 w-7" />
-          <p className="mt-3 text-sm font-medium text-foreground">
-            No inbox yet
-          </p>
-          <p className="text-muted-foreground mt-1 max-w-sm text-sm leading-5">
-            Add a dedicated email address so people can start sessions with this
-            agent by email.
-          </p>
+        <div className="flex flex-col gap-5 rounded-2xl border border-border bg-surface p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="flex items-start gap-4">
+            <span className="text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-xl bg-default">
+              <AppIcon icon="mail" className="size-5" />
+            </span>
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Give this agent an email address
+              </p>
+              <p className="text-muted-foreground mt-1 max-w-md text-sm leading-5">
+                Create a dedicated inbox so teammates can start sessions by
+                sending an email.
+              </p>
+            </div>
+          </div>
           <Button
             type="button"
             variant="primary"
             size="sm"
-            className="mt-4"
+            className="w-full shrink-0 sm:w-auto"
             isPending={isProvisioning}
             isDisabled={isProvisioning}
             onPress={onProvision}
@@ -135,33 +147,46 @@ export function AgentInboxView({
           </Button>
         </div>
       ) : (
-        <div className="bg-card rounded-xl p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+          <div className="p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-4">
               <p className="text-muted-foreground text-xs font-medium">
-                Email address
+                Agent email address
               </p>
-              <p className="mt-1 truncate text-sm font-medium text-foreground">
-                {inbox.email}
-              </p>
+              <span className="text-muted-foreground flex shrink-0 items-center gap-2 text-xs font-medium">
+                <span
+                  className="size-1.5 rounded-full bg-success"
+                  aria-hidden="true"
+                />
+                Inbox active
+              </span>
             </div>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onPress={() => void copyAddress()}
-            >
-              <AppIcon icon="copy" className="h-4 w-4" />
-              Copy
-            </Button>
+
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-base leading-6 font-medium break-all text-foreground">
+                {email || "Address unavailable"}
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="w-full shrink-0 sm:w-auto"
+                isDisabled={!email}
+                onPress={() => void copyAddress()}
+              >
+                <AppIcon icon="copy" className="size-4" />
+                Copy address
+              </Button>
+            </div>
           </div>
-          <div className="mt-5 border-t border-border pt-4">
-            <p className="text-muted-foreground text-xs font-medium">
-              Inbox messages
-            </p>
-            <p className="mt-1 text-2xl font-semibold text-foreground">
-              {inbox.message_count ?? 0}
-            </p>
+
+          <div className="text-muted-foreground flex items-center gap-2 border-t border-border bg-default/40 px-5 py-3 text-sm sm:px-6">
+            <AppIcon
+              icon="messages-square"
+              className="size-4 shrink-0"
+              aria-hidden="true"
+            />
+            <p>{messageCountLabel(messageCount)}</p>
           </div>
         </div>
       )}
@@ -171,10 +196,25 @@ export function AgentInboxView({
 
 function InboxSkeleton() {
   return (
-    <div className="bg-card rounded-xl p-5">
-      <Skeleton className="h-4 w-24 rounded-md" />
-      <Skeleton className="mt-3 h-5 w-72 max-w-full rounded-md" />
-      <Skeleton className="mt-6 h-14 w-full rounded-md" />
+    <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+      <div className="p-5 sm:p-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-3 w-28 rounded" />
+          <Skeleton className="h-3 w-20 rounded" />
+        </div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Skeleton className="h-5 w-72 max-w-full rounded" />
+          <Skeleton className="h-8 w-full rounded-lg sm:w-32" />
+        </div>
+      </div>
+      <div className="border-t border-border bg-default/40 px-5 py-3 sm:px-6">
+        <Skeleton className="h-4 w-40 rounded" />
+      </div>
     </div>
   )
+}
+
+function messageCountLabel(count: number) {
+  if (count === 0) return "No messages received yet"
+  return `${count} ${count === 1 ? "message" : "messages"} received`
 }
