@@ -32,6 +32,13 @@ func TestClientGetReceivedAndSend(t *testing.T) {
 				t.Fatalf("body = %s", body)
 			}
 			_, _ = io.WriteString(w, `{"id":"email_sent_123"}`)
+		case "/emails/email_sent_123":
+			if r.Method != http.MethodGet {
+				t.Fatalf("method = %s", r.Method)
+			}
+			// Resend currently returns sent-email timestamps in this
+			// PostgreSQL-style format. The client intentionally ignores it.
+			_, _ = io.WriteString(w, `{"object":"email","id":"email_sent_123","message_id":"<sent-123@example.test>","created_at":"2026-07-18 00:01:00.123456+00","last_event":"delivered"}`)
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
@@ -52,5 +59,12 @@ func TestClientGetReceivedAndSend(t *testing.T) {
 	}
 	if sent.ID != "email_sent_123" {
 		t.Fatalf("sent = %#v", sent)
+	}
+	details, err := client.GetSent(context.Background(), sent.ID)
+	if err != nil {
+		t.Fatalf("GetSent: %v", err)
+	}
+	if details.MessageID != "<sent-123@example.test>" {
+		t.Fatalf("sent details = %#v", details)
 	}
 }

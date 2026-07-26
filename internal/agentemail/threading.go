@@ -1,8 +1,6 @@
 package agentemail
 
 import (
-	"crypto/rand"
-	"encoding/base32"
 	"strings"
 )
 
@@ -39,15 +37,3 @@ func MessageIDs(value string) []string {
 	}
 	return out
 }
-
-func NewReplyToken() (string, error) {
-	buf := make([]byte, 15)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buf)), nil
-}
-
-// ReplyLocalPart is deliberately opaque. It is a routing hint, never an auth
-// credential; all inbound email remains untrusted.
-func ReplyLocalPart(token string) string { return "reply-" + strings.ToLower(strings.TrimSpace(token)) }

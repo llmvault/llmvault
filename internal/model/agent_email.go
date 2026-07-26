@@ -16,14 +16,13 @@ const (
 )
 
 // AgentEmailThread is the durable correlation boundary between RFC email and
-// a Hivy session. ReplyToken is an opaque fallback when clients omit headers.
+// its originating Hivy session.
 type AgentEmailThread struct {
 	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	OrgID         uuid.UUID  `gorm:"type:uuid;not null;index"`
 	AgentID       uuid.UUID  `gorm:"type:uuid;not null;index"`
 	SessionID     *uuid.UUID `gorm:"type:uuid;index"`
 	RootMessageID string     `gorm:"type:text;not null;default:''"`
-	ReplyToken    string     `gorm:"type:text;not null;uniqueIndex"`
 	LastMessageAt time.Time  `gorm:"not null"`
 	CreatedAt     time.Time
 	UpdatedAt     time.Time

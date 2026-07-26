@@ -78,7 +78,6 @@ type SendRequest struct {
 	Text    string            `json:"text,omitempty"`
 	HTML    string            `json:"html,omitempty"`
 	Headers map[string]string `json:"headers,omitempty"`
-	ReplyTo string            `json:"reply_to,omitempty"`
 }
 
 type SendResponse struct {
@@ -103,6 +102,32 @@ func (c *Client) Send(ctx context.Context, input SendRequest, idempotencyKey str
 	req.Header.Set("Idempotency-Key", idempotencyKey)
 	if err := c.doJSON(req, &result); err != nil {
 		return result, fmt.Errorf("send Resend email: %w", err)
+	}
+	return result, nil
+}
+
+type SentEmail struct {
+	ID        string `json:"id"`
+	MessageID string `json:"message_id"`
+}
+
+// GetSent retrieves the provider-assigned RFC Message-ID used to reconcile
+// replies received at the agent's permanent inbox address.
+func (c *Client) GetSent(ctx context.Context, emailID string) (SentEmail, error) {
+	var result SentEmail
+	if !c.Configured() {
+		return result, fmt.Errorf("resend API key is not configured")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/emails/"+emailID, nil)
+	if err != nil {
+		return result, fmt.Errorf("build Resend sent email request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	if err := c.doJSON(req, &result); err != nil {
+		return result, fmt.Errorf("retrieve Resend sent email: %w", err)
+	}
+	if strings.TrimSpace(result.MessageID) == "" {
+		return result, fmt.Errorf("Resend sent email is missing message_id")
 	}
 	return result, nil
 }

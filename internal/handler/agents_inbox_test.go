@@ -107,7 +107,6 @@ func TestAgentInboxProvisionAndGet(t *testing.T) {
 	thread := model.AgentEmailThread{
 		OrgID:         org.ID,
 		AgentID:       agent.ID,
-		ReplyToken:    uuid.NewString(),
 		LastMessageAt: time.Now().UTC(),
 	}
 	if err := db.Create(&thread).Error; err != nil {

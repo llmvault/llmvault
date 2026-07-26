@@ -18,7 +18,7 @@ func TestEmailReplyContextForSessionDerivesThreadRecipientAndSubject(t *testing.
 		t.Fatalf("open sqlite: %v", err)
 	}
 	for _, statement := range []string{
-		`CREATE TABLE agent_email_threads (id text PRIMARY KEY, org_id text NOT NULL, agent_id text NOT NULL, session_id text, root_message_id text NOT NULL, reply_token text NOT NULL, last_message_at datetime NOT NULL, created_at datetime, updated_at datetime)`,
+		`CREATE TABLE agent_email_threads (id text PRIMARY KEY, org_id text NOT NULL, agent_id text NOT NULL, session_id text, root_message_id text NOT NULL, last_message_at datetime NOT NULL, created_at datetime, updated_at datetime)`,
 		`CREATE TABLE agent_email_messages (id text PRIMARY KEY, org_id text NOT NULL, agent_id text NOT NULL, thread_id text NOT NULL, direction text NOT NULL, status text NOT NULL, resend_email_id text NOT NULL, message_id text NOT NULL, in_reply_to text NOT NULL, "references" text NOT NULL, from_address text NOT NULL, to_addresses text NOT NULL, cc_addresses text NOT NULL, subject text NOT NULL, text_body text NOT NULL, html_body text NOT NULL, headers text NOT NULL, provider_at datetime NOT NULL, created_at datetime, updated_at datetime)`,
 	} {
 		if err := db.Exec(statement).Error; err != nil {
@@ -26,7 +26,7 @@ func TestEmailReplyContextForSessionDerivesThreadRecipientAndSubject(t *testing.
 		}
 	}
 	orgID, agentID, sessionID, threadID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	thread := model.AgentEmailThread{ID: threadID, OrgID: orgID, AgentID: agentID, SessionID: &sessionID, ReplyToken: "reply-token", LastMessageAt: time.Now().UTC()}
+	thread := model.AgentEmailThread{ID: threadID, OrgID: orgID, AgentID: agentID, SessionID: &sessionID, LastMessageAt: time.Now().UTC()}
 	if err := db.Create(&thread).Error; err != nil {
 		t.Fatalf("create thread: %v", err)
 	}
@@ -35,12 +35,30 @@ func TestEmailReplyContextForSessionDerivesThreadRecipientAndSubject(t *testing.
 		t.Fatalf("create inbound message: %v", err)
 	}
 
-	got, err := emailReplyContextForSession(context.Background(), db, orgID, agentID, sessionID.String())
+	got, err := emailReplyContextForSession(context.Background(), db, orgID, agentID, sessionID)
 	if err != nil {
 		t.Fatalf("emailReplyContextForSession: %v", err)
 	}
 	if got == nil || got.thread.ID != threadID || got.recipient != "reply@example.test" || got.subject != "Re: Project update" {
 		t.Fatalf("reply context = %#v", got)
+	}
+}
+
+func TestNewOutboundThreadBindsOriginatingSession(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{DisableForeignKeyConstraintWhenMigrating: true})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.Exec(`CREATE TABLE agent_email_threads (id text PRIMARY KEY, org_id text NOT NULL, agent_id text NOT NULL, session_id text, root_message_id text NOT NULL DEFAULT '', last_message_at datetime NOT NULL, created_at datetime, updated_at datetime)`).Error; err != nil {
+		t.Fatalf("create inbox thread table: %v", err)
+	}
+	orgID, agentID, sessionID := uuid.New(), uuid.New(), uuid.New()
+	thread, err := newOutboundThread(t.Context(), db, orgID, agentID, sessionID)
+	if err != nil {
+		t.Fatalf("newOutboundThread: %v", err)
+	}
+	if thread.SessionID == nil || *thread.SessionID != sessionID {
+		t.Fatalf("thread session = %v, want %s", thread.SessionID, sessionID)
 	}
 }
 

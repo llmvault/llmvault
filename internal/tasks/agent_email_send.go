@@ -36,8 +36,13 @@ func NewAgentEmailSendTask(payload AgentEmailSendPayload) (*asynq.Task, []asynq.
 
 type AgentEmailSendHandler struct {
 	db     *gorm.DB
-	client *agentemail.Client
+	client agentEmailSender
 	domain string
+}
+
+type agentEmailSender interface {
+	Send(context.Context, agentemail.SendRequest, string) (agentemail.SendResponse, error)
+	GetSent(context.Context, string) (agentemail.SentEmail, error)
 }
 
 func NewAgentEmailSendHandler(db *gorm.DB, client *agentemail.Client, domain string) *AgentEmailSendHandler {
@@ -99,16 +104,46 @@ func (h *AgentEmailSendHandler) Handle(ctx context.Context, task *asynq.Task) er
 		return fmt.Errorf("load email thread reply target: %w", err)
 	}
 	from := agent.EmailInboxLocalPart + "@" + h.domain
-	result, err := h.client.Send(ctx, agentemail.SendRequest{From: from, To: to, CC: cc, Subject: message.Subject, Text: message.TextBody, HTML: message.HTMLBody, Headers: headers, ReplyTo: agentemail.ReplyLocalPart(thread.ReplyToken) + "@" + h.domain}, "agent-email/"+message.ID.String())
+	result, err := h.client.Send(ctx, agentemail.SendRequest{From: from, To: to, CC: cc, Subject: message.Subject, Text: message.TextBody, HTML: message.HTMLBody, Headers: headers}, "agent-email/"+message.ID.String())
 	if err != nil {
 		return err
 	}
-	now := time.Now().UTC()
-	if err := h.db.WithContext(ctx).Model(&model.AgentEmailMessage{}).Where("id = ? AND status = ?", message.ID, model.AgentEmailStatusQueued).Updates(map[string]any{"status": model.AgentEmailStatusSent, "resend_email_id": result.ID, "provider_at": now, "headers": stringMapJSON(headers)}).Error; err != nil {
-		return fmt.Errorf("mark outgoing email sent: %w", err)
+	sent, err := h.client.GetSent(ctx, result.ID)
+	if err != nil {
+		return err
 	}
-	if err := h.db.WithContext(ctx).Model(&model.AgentEmailThread{}).Where("id = ?", thread.ID).Update("last_message_at", now).Error; err != nil {
-		return fmt.Errorf("update outgoing email thread activity: %w", err)
+	providerAt := time.Now().UTC()
+	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		update := tx.Model(&model.AgentEmailMessage{}).
+			Where("id = ? AND status = ?", message.ID, model.AgentEmailStatusQueued).
+			Updates(map[string]any{
+				"status":          model.AgentEmailStatusSent,
+				"resend_email_id": result.ID,
+				"message_id":      strings.TrimSpace(sent.MessageID),
+				"provider_at":     providerAt,
+				"headers":         stringMapJSON(headers),
+			})
+		if update.Error != nil {
+			return fmt.Errorf("mark outgoing email sent: %w", update.Error)
+		}
+		if update.RowsAffected != 1 {
+			return fmt.Errorf("mark outgoing email sent: expected one updated message, got %d", update.RowsAffected)
+		}
+		threadUpdate := tx.Model(&model.AgentEmailThread{}).
+			Where("id = ? AND agent_id = ? AND org_id = ?", thread.ID, agent.ID, message.OrgID).
+			Updates(map[string]any{
+				"last_message_at": providerAt,
+				"root_message_id": gorm.Expr("CASE WHEN root_message_id = '' THEN ? ELSE root_message_id END", strings.TrimSpace(sent.MessageID)),
+			})
+		if threadUpdate.Error != nil {
+			return fmt.Errorf("update outgoing email thread activity: %w", threadUpdate.Error)
+		}
+		if threadUpdate.RowsAffected != 1 {
+			return fmt.Errorf("update outgoing email thread activity: expected one updated thread, got %d", threadUpdate.RowsAffected)
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	return nil
 }

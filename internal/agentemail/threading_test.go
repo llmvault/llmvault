@@ -12,9 +12,3 @@ func TestMessageIDsAndHeaders(t *testing.T) {
 		t.Fatalf("MessageIDs() = %#v", ids)
 	}
 }
-
-func TestReplyLocalPart(t *testing.T) {
-	if got := ReplyLocalPart(" AbC123 "); got != "reply-abc123" {
-		t.Fatalf("ReplyLocalPart() = %q", got)
-	}
-}

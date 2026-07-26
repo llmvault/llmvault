@@ -86,14 +86,21 @@ func registerSendEmail(server *mcp.Server, db *gorm.DB, enq enqueue.TaskEnqueuer
 		if strings.TrimSpace(agent.EmailInboxLocalPart) == "" {
 			return toolError("agent inbox is unavailable"), nil
 		}
-		reply, err := emailReplyContextForSession(ctx, db, token.OrgID, agentID, args.HivySessionID)
+		session, err := emailToolSession(ctx, db, token.OrgID, agentID, agent.TeamID, args.HivySessionID)
 		if err != nil {
 			return toolError(err.Error()), nil
 		}
 		to := args.To
 		subject := strings.TrimSpace(args.Subject)
 		var thread *model.AgentEmailThread
-		if reply != nil {
+		if len(to) == 0 {
+			reply, err := emailReplyContextForSession(ctx, db, token.OrgID, agentID, session.ID)
+			if err != nil {
+				return toolError(err.Error()), nil
+			}
+			if reply == nil {
+				return toolError("to and subject are required when starting a new email"), nil
+			}
 			to = []string{reply.recipient}
 			if subject == "" {
 				subject = reply.subject
@@ -102,12 +109,8 @@ func registerSendEmail(server *mcp.Server, db *gorm.DB, enq enqueue.TaskEnqueuer
 			}
 			thread = reply.thread
 		} else {
-			if len(to) == 0 || len(to) > 50 || subject == "" {
+			if len(to) > 50 || subject == "" {
 				return toolError("to and subject are required when starting a new email; to may contain at most 50 recipients"), nil
-			}
-			thread, err = newOutboundThread(ctx, db, token.OrgID, agentID)
-			if err != nil {
-				return toolError(err.Error()), nil
 			}
 		}
 		if !validAddresses(append(append([]string{}, to...), args.CC...)) {
@@ -119,8 +122,21 @@ func registerSendEmail(server *mcp.Server, db *gorm.DB, enq enqueue.TaskEnqueuer
 		now := time.Now().UTC()
 		toJSON, _ := json.Marshal(to)
 		ccJSON, _ := json.Marshal(args.CC)
-		message := model.AgentEmailMessage{OrgID: token.OrgID, AgentID: agentID, ThreadID: thread.ID, Direction: model.AgentEmailDirectionOutbound, Status: model.AgentEmailStatusQueued, ToAddresses: model.RawJSON(toJSON), CCAddresses: model.RawJSON(ccJSON), Subject: subject, TextBody: bodies.text, HTMLBody: bodies.html, Headers: model.RawJSON("{}"), ProviderAt: now}
-		if err := db.WithContext(ctx).Create(&message).Error; err != nil {
+		var message model.AgentEmailMessage
+		if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if thread == nil {
+				var createErr error
+				thread, createErr = newOutboundThread(ctx, tx, token.OrgID, agentID, session.ID)
+				if createErr != nil {
+					return createErr
+				}
+			}
+			message = model.AgentEmailMessage{OrgID: token.OrgID, AgentID: agentID, ThreadID: thread.ID, Direction: model.AgentEmailDirectionOutbound, Status: model.AgentEmailStatusQueued, ToAddresses: model.RawJSON(toJSON), CCAddresses: model.RawJSON(ccJSON), Subject: subject, TextBody: bodies.text, HTMLBody: bodies.html, Headers: model.RawJSON("{}"), ProviderAt: now}
+			if err := tx.WithContext(ctx).Create(&message).Error; err != nil {
+				return fmt.Errorf("create outgoing email: %w", err)
+			}
+			return nil
+		}); err != nil {
 			return toolError("failed to queue email"), nil
 		}
 		task, opts, err := NewSendTask(message.ID)
@@ -134,12 +150,26 @@ func registerSendEmail(server *mcp.Server, db *gorm.DB, enq enqueue.TaskEnqueuer
 	})
 }
 
-func newOutboundThread(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID) (*model.AgentEmailThread, error) {
-	token, err := NewReplyToken()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create email thread")
+func emailToolSession(ctx context.Context, db *gorm.DB, orgID, agentID, teamID uuid.UUID, rawSessionID string) (model.Session, error) {
+	sessionID, err := uuid.Parse(strings.TrimSpace(rawSessionID))
+	if err != nil || sessionID == uuid.Nil {
+		return model.Session{}, fmt.Errorf("email session context is unavailable")
 	}
-	thread := &model.AgentEmailThread{OrgID: orgID, AgentID: agentID, ReplyToken: token, LastMessageAt: time.Now().UTC()}
+	var session model.Session
+	err = db.WithContext(ctx).
+		Where("id = ? AND org_id = ? AND agent_id = ? AND team_id = ? AND status = ?", sessionID, orgID, agentID, teamID, "active").
+		First(&session).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return model.Session{}, fmt.Errorf("email session context is unavailable")
+	}
+	if err != nil {
+		return model.Session{}, fmt.Errorf("load email session context: %w", err)
+	}
+	return session, nil
+}
+
+func newOutboundThread(ctx context.Context, db *gorm.DB, orgID, agentID, sessionID uuid.UUID) (*model.AgentEmailThread, error) {
+	thread := &model.AgentEmailThread{OrgID: orgID, AgentID: agentID, SessionID: &sessionID, LastMessageAt: time.Now().UTC()}
 	if err := db.WithContext(ctx).Create(thread).Error; err != nil {
 		return nil, fmt.Errorf("failed to create email thread")
 	}
@@ -152,17 +182,14 @@ type emailReplyContext struct {
 	subject   string
 }
 
-func emailReplyContextForSession(ctx context.Context, db *gorm.DB, orgID, agentID uuid.UUID, rawSessionID string) (*emailReplyContext, error) {
-	rawSessionID = strings.TrimSpace(rawSessionID)
-	if rawSessionID == "" {
-		return nil, nil
-	}
-	sessionID, err := uuid.Parse(rawSessionID)
-	if err != nil || sessionID == uuid.Nil {
-		return nil, fmt.Errorf("_hivy_session_id must be a valid UUID")
-	}
+func emailReplyContextForSession(ctx context.Context, db *gorm.DB, orgID, agentID, sessionID uuid.UUID) (*emailReplyContext, error) {
 	var thread model.AgentEmailThread
-	err = db.WithContext(ctx).Where("session_id = ? AND org_id = ? AND agent_id = ?", sessionID, orgID, agentID).First(&thread).Error
+	err := db.WithContext(ctx).
+		Table("agent_email_threads").
+		Joins("JOIN agent_email_messages ON agent_email_messages.thread_id = agent_email_threads.id AND agent_email_messages.direction = ?", model.AgentEmailDirectionInbound).
+		Where("agent_email_threads.session_id = ? AND agent_email_threads.org_id = ? AND agent_email_threads.agent_id = ?", sessionID, orgID, agentID).
+		Order("agent_email_messages.provider_at DESC").
+		First(&thread).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -171,9 +198,6 @@ func emailReplyContextForSession(ctx context.Context, db *gorm.DB, orgID, agentI
 	}
 	var inbound model.AgentEmailMessage
 	err = db.WithContext(ctx).Where("thread_id = ? AND direction = ?", thread.ID, model.AgentEmailDirectionInbound).Order("provider_at DESC").First(&inbound).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf("email session has no inbound message")
-	}
 	if err != nil {
 		return nil, fmt.Errorf("load inbound email for session: %w", err)
 	}
