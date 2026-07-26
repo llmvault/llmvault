@@ -1,12 +1,14 @@
 "use client"
 
 import { useState } from "react"
+import { useQueries } from "@tanstack/react-query"
 import { Input, Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { cn } from "@/lib/utils"
 import type { components } from "@/lib/api/schema"
 import { useWorkspace } from "@/app/w/(chat)/_components/shell"
+import { CollectionState } from "@/app/w/(chat)/_components/collection-state"
 import { usePanelAppTargetStore } from "@/app/w/(chat)/_stores/panel-app-target-store"
 
 type Team = components["schemas"]["teamResponse"]
@@ -14,7 +16,7 @@ type AppView = components["schemas"]["appView"]
 
 export default function AppsPage() {
   const [query, setQuery] = useState("")
-  const { openView } = useWorkspace()
+  const { openView, startNewChat } = useWorkspace()
   const openApp = usePanelAppTargetStore((state) => state.openApp)
   const activeAppId = usePanelAppTargetStore(
     (state) => state.target?.appId ?? null
@@ -23,7 +25,36 @@ export default function AppsPage() {
   const teamsQuery = $api.useQuery("get", "/v1/orgs/current/teams", {
     params: { query: { limit: 100 } },
   })
-  const teams = teamsQuery.data?.data ?? []
+  const teams = (teamsQuery.data?.data ?? []).filter(
+    (team): team is Team & { id: string } => Boolean(team.id)
+  )
+  const appQueries = useQueries({
+    queries: teams.map((team) =>
+      $api.queryOptions("get", "/v1/apps", {
+        params: { query: { team_id: team.id } },
+      })
+    ),
+  })
+  const normalized = query.trim().toLowerCase()
+  const groups = teams.map((team, index) => {
+    const allApps = appQueries[index]?.data?.apps ?? []
+    const apps = allApps.filter(
+      (app) =>
+        !normalized ||
+        (app.name ?? "").toLowerCase().includes(normalized) ||
+        (app.description ?? "").toLowerCase().includes(normalized)
+    )
+    return { team, apps, total: allApps.length }
+  })
+  const totalApps = groups.reduce((total, group) => total + group.total, 0)
+  const matchingApps = groups.reduce(
+    (total, group) => total + group.apps.length,
+    0
+  )
+  const isLoading =
+    teamsQuery.isPending || appQueries.some((result) => result.isPending)
+  const isError =
+    teamsQuery.isError || appQueries.some((result) => result.isError)
 
   // Open the clicked app in the shared right panel (the same one that slides
   // open for a session), not a bespoke panel.
@@ -62,17 +93,60 @@ export default function AppsPage() {
             />
           </div>
 
-          {teamsQuery.isPending ? (
+          {isLoading ? (
             <ListSkeleton />
+          ) : isError ? (
+            <CollectionState
+              icon="triangle-alert"
+              title="Could not load apps"
+              description="Try again to load apps across your teams."
+              action={{
+                label: "Try again",
+                icon: "refresh-cw",
+                variant: "secondary",
+                onPress: () => {
+                  void teamsQuery.refetch()
+                  appQueries.forEach((result) => void result.refetch())
+                },
+              }}
+            />
           ) : teams.length === 0 ? (
-            <EmptyState message="No teams yet." />
+            <CollectionState
+              icon="users"
+              title="No teams yet"
+              description="Apps are organised by team. Create or join a team to get started."
+            />
+          ) : totalApps === 0 ? (
+            <CollectionState
+              icon="layout-grid"
+              title="No apps yet"
+              description="Ask an agent to build a custom app for your team. It will appear here when it is ready."
+              action={{
+                label: "Start a chat",
+                icon: "square-pen",
+                variant: "primary",
+                onPress: startNewChat,
+              }}
+            />
+          ) : matchingApps === 0 ? (
+            <CollectionState
+              icon="search"
+              title="No apps found"
+              description="Try a different search term or clear the current search."
+              action={{
+                label: "Clear search",
+                icon: "x",
+                variant: "secondary",
+                onPress: () => setQuery(""),
+              }}
+            />
           ) : (
             <div className="flex flex-col gap-8">
-              {teams.map((team) => (
+              {groups.map(({ team, apps }) => (
                 <TeamSection
                   key={team.id}
                   team={team}
-                  query={query}
+                  apps={apps}
                   activeAppId={activeAppId}
                   onOpen={handleOpen}
                 />
@@ -87,32 +161,15 @@ export default function AppsPage() {
 
 function TeamSection({
   team,
-  query,
+  apps,
   activeAppId,
   onOpen,
 }: {
-  team: Team
-  query: string
+  team: Team & { id: string }
+  apps: AppView[]
   activeAppId: string | null
   onOpen: (app: AppView) => void
 }) {
-  const teamId = team.id ?? ""
-  const appsQuery = $api.useQuery(
-    "get",
-    "/v1/apps",
-    { params: { query: { team_id: teamId } } },
-    { enabled: Boolean(teamId) }
-  )
-
-  const normalized = query.trim().toLowerCase()
-  const apps = (appsQuery.data?.apps ?? []).filter(
-    (app) =>
-      !normalized ||
-      (app.name ?? "").toLowerCase().includes(normalized) ||
-      (app.description ?? "").toLowerCase().includes(normalized)
-  )
-
-  // Keep the list quiet: teams with no (matching) apps are hidden.
   if (apps.length === 0) return null
 
   return (
@@ -208,18 +265,6 @@ function ListSkeleton() {
           </div>
         </div>
       ))}
-    </div>
-  )
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
-      <AppIcon icon="layout-grid" className="text-muted-foreground h-7 w-7" />
-      <p className="mt-3 text-sm font-medium text-foreground">{message}</p>
-      <p className="text-muted-foreground mt-1 max-w-sm text-sm">
-        Ask an agent to build an app and it will show up here.
-      </p>
     </div>
   )
 }

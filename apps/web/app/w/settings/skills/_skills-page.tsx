@@ -1,13 +1,13 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import NextLink from "next/link"
 import {
   Button,
   Input,
-  ListBox,
   Modal,
-  Select,
   TextArea,
+  buttonVariants,
   toast,
 } from "@heroui/react"
 import { useQueryClient } from "@tanstack/react-query"
@@ -17,7 +17,6 @@ import { $api } from "@/lib/api/hooks"
 import { queryKeys } from "@/lib/api/query-keys"
 import { extractErrorMessage } from "@/lib/api/error"
 import type { components } from "@/lib/api/schema"
-import { useIsAdmin } from "@/lib/auth/use-role"
 import {
   EmptyProvisioningRow,
   ProvisioningSkeleton,
@@ -27,12 +26,11 @@ type Skill = components["schemas"]["skillResponse"]
 
 export default function SkillsPageContent() {
   const queryClient = useQueryClient()
-  const isAdmin = useIsAdmin()
   const skillsQuery = $api.useQuery("get", "/v1/skills")
   const teamsQuery = $api.useQuery("get", "/v1/orgs/current/teams", {
     params: { query: { limit: 100 } },
   })
-  const [editing, setEditing] = useState<Skill | "new" | null>(null)
+  const [editing, setEditing] = useState<Skill | null>(null)
   const [deleting, setDeleting] = useState<Skill | null>(null)
   const skills = skillsQuery.data?.skills ?? []
   const teams = useMemo(
@@ -60,19 +58,7 @@ export default function SkillsPageContent() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold">Skills</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Reusable instructions available to agents. Team members manage their
-            team skills; admins can also manage workspace-wide skills.
-          </p>
-        </div>
-        <Button size="sm" variant="primary" onPress={() => setEditing("new")}>
-          <AppIcon icon="plus" className="h-4 w-4" />
-          Add skill
-        </Button>
-      </div>
+      <SkillsHeader />
       <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         {skillsQuery.isLoading || teamsQuery.isLoading ? (
           <ProvisioningSkeleton />
@@ -87,9 +73,7 @@ export default function SkillsPageContent() {
                   <p className="truncate text-xs text-muted">
                     {skillScopeLabel(skill, teamNamesByID)}
                     {" · "}
-                    {skill.human_description ||
-                      skill.description ||
-                      skill.slug}
+                    {skill.human_description || skill.description || skill.slug}
                   </p>
                 </div>
                 <Button
@@ -113,8 +97,6 @@ export default function SkillsPageContent() {
       </div>
       <SkillDialog
         skill={editing}
-        teams={teams}
-        isAdmin={isAdmin}
         onClose={() => setEditing(null)}
         onSaved={() => {
           setEditing(null)
@@ -137,6 +119,27 @@ export default function SkillsPageContent() {
   )
 }
 
+export function SkillsHeader() {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <h1 className="text-lg font-semibold">Skills</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Reusable instructions available to agents. Team members manage their
+          team skills; admins can also manage workspace-wide skills.
+        </p>
+      </div>
+      <NextLink
+        href="/w"
+        className={buttonVariants({ size: "sm", variant: "primary" })}
+      >
+        <AppIcon icon="plus" className="h-4 w-4" />
+        Add skill
+      </NextLink>
+    </div>
+  )
+}
+
 function skillScopeLabel(skill: Skill, teamNamesByID: Map<string, string>) {
   if (!skill.team_id) return "Workspace-wide"
   return `Team: ${teamNamesByID.get(skill.team_id) ?? "Unknown team"}`
@@ -144,31 +147,22 @@ function skillScopeLabel(skill: Skill, teamNamesByID: Map<string, string>) {
 
 function SkillDialog({
   skill,
-  teams,
-  isAdmin,
   onClose,
   onSaved,
 }: {
-  skill: Skill | "new" | null
-  teams: Array<{ id?: string; name?: string }>
-  isAdmin: boolean
+  skill: Skill | null
   onClose: () => void
   onSaved: () => void
 }) {
-  const current = skill === "new" || skill === null ? null : skill
-  const [name, setName] = useState(current?.name ?? "")
-  const [slug, setSlug] = useState(current?.slug ?? "")
+  const [name, setName] = useState(skill?.name ?? "")
+  const [slug, setSlug] = useState(skill?.slug ?? "")
   const [description, setDescription] = useState(
-    current?.human_description ?? current?.description ?? ""
+    skill?.human_description ?? skill?.description ?? ""
   )
   const [content, setContent] = useState(() => {
-    const bundle = current?.bundle as { content?: string } | undefined
+    const bundle = skill?.bundle as { content?: string } | undefined
     return bundle?.content ?? ""
   })
-  const [teamID, setTeamID] = useState(
-    current?.team_id ?? (isAdmin ? "org" : (teams[0]?.id ?? ""))
-  )
-  const create = $api.useMutation("post", "/v1/skills")
   const update = $api.useMutation("patch", "/v1/skills/{id}")
   if (!skill) return null
   const save = async () => {
@@ -177,7 +171,7 @@ function SkillDialog({
       slug,
       human_description: description,
       description,
-      team_id: teamID === "org" ? undefined : teamID,
+      team_id: skill.team_id,
       status: "published",
       bundle: {
         id: slug,
@@ -189,10 +183,9 @@ function SkillDialog({
       },
     }
     try {
-      if (current?.id)
-        await update.mutateAsync({ params: { path: { id: current.id } }, body })
-      else await create.mutateAsync({ body })
-      toast.success(current ? "Skill updated" : "Skill created")
+      if (!skill.id) return
+      await update.mutateAsync({ params: { path: { id: skill.id } }, body })
+      toast.success("Skill updated")
       onSaved()
     } catch (error) {
       toast.danger(extractErrorMessage(error, "Could not save skill"))
@@ -205,9 +198,7 @@ function SkillDialog({
           <Modal.Dialog className="w-full max-w-xl p-6">
             <Modal.CloseTrigger />
             <Modal.Header>
-              <Modal.Heading>
-                {current ? "Edit skill" : "Add skill"}
-              </Modal.Heading>
+              <Modal.Heading>Edit skill</Modal.Heading>
             </Modal.Header>
             <Modal.Body className="flex flex-col gap-4">
               <Input
@@ -228,31 +219,6 @@ function SkillDialog({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
-              {!current ? (
-                <Select
-                  aria-label="Scope"
-                  value={teamID}
-                  onChange={(key) => setTeamID(String(key))}
-                >
-                  <Select.Trigger>
-                    <Select.Value />
-                  </Select.Trigger>
-                  <Select.Popover>
-                    <ListBox>
-                      {isAdmin ? (
-                        <ListBox.Item id="org">Workspace-wide</ListBox.Item>
-                      ) : null}
-                      {teams.map((team) =>
-                        team.id ? (
-                          <ListBox.Item key={team.id} id={team.id}>
-                            {team.name ?? "Team"}
-                          </ListBox.Item>
-                        ) : null
-                      )}
-                    </ListBox>
-                  </Select.Popover>
-                </Select>
-              ) : null}
               <TextArea
                 aria-label="Instructions"
                 placeholder="Write the skill instructions…"
@@ -266,10 +232,8 @@ function SkillDialog({
               </Button>
               <Button
                 variant="primary"
-                isDisabled={
-                  !name.trim() || !slug.trim() || !content.trim() || !teamID
-                }
-                isPending={create.isPending || update.isPending}
+                isDisabled={!name.trim() || !slug.trim() || !content.trim()}
+                isPending={update.isPending}
                 onPress={save}
               >
                 Save skill

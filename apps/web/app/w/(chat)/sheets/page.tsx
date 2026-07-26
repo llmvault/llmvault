@@ -1,12 +1,14 @@
 "use client"
 
 import { useState } from "react"
+import { useQueries } from "@tanstack/react-query"
 import { Input, Skeleton } from "@heroui/react"
 import { AppIcon } from "@/components/icon"
 import { $api } from "@/lib/api/hooks"
 import { cn } from "@/lib/utils"
 import type { components } from "@/lib/api/schema"
 import { useWorkspace } from "@/app/w/(chat)/_components/shell"
+import { CollectionState } from "@/app/w/(chat)/_components/collection-state"
 import { usePanelSheetTargetStore } from "@/app/w/(chat)/_stores/panel-sheet-target-store"
 
 type Team = components["schemas"]["teamResponse"]
@@ -14,7 +16,7 @@ type SheetSummary = components["schemas"]["sheetSummary"]
 
 export default function SheetsPage() {
   const [query, setQuery] = useState("")
-  const { openView } = useWorkspace()
+  const { openView, startNewChat } = useWorkspace()
   const openSheet = usePanelSheetTargetStore((state) => state.openSheet)
   const activeSheetId = usePanelSheetTargetStore(
     (state) => state.target?.sheetId ?? null
@@ -23,7 +25,36 @@ export default function SheetsPage() {
   const teamsQuery = $api.useQuery("get", "/v1/orgs/current/teams", {
     params: { query: { limit: 100 } },
   })
-  const teams = teamsQuery.data?.data ?? []
+  const teams = (teamsQuery.data?.data ?? []).filter(
+    (team): team is Team & { id: string } => Boolean(team.id)
+  )
+  const sheetQueries = useQueries({
+    queries: teams.map((team) =>
+      $api.queryOptions("get", "/v1/sheets", {
+        params: { query: { team_id: team.id, limit: 200 } },
+      })
+    ),
+  })
+  const normalized = query.trim().toLowerCase()
+  const groups = teams.map((team, index) => {
+    const allSheets = sheetQueries[index]?.data?.sheets ?? []
+    const sheets = allSheets.filter(
+      (sheet) =>
+        !normalized ||
+        (sheet.name ?? "").toLowerCase().includes(normalized) ||
+        (sheet.description ?? "").toLowerCase().includes(normalized)
+    )
+    return { team, sheets, total: allSheets.length }
+  })
+  const totalSheets = groups.reduce((total, group) => total + group.total, 0)
+  const matchingSheets = groups.reduce(
+    (total, group) => total + group.sheets.length,
+    0
+  )
+  const isLoading =
+    teamsQuery.isPending || sheetQueries.some((result) => result.isPending)
+  const isError =
+    teamsQuery.isError || sheetQueries.some((result) => result.isError)
 
   // Open the clicked sheet in the shared right panel (the same one that
   // slides open for a session), not a bespoke panel.
@@ -62,17 +93,60 @@ export default function SheetsPage() {
             />
           </div>
 
-          {teamsQuery.isPending ? (
+          {isLoading ? (
             <ListSkeleton />
+          ) : isError ? (
+            <CollectionState
+              icon="triangle-alert"
+              title="Could not load sheets"
+              description="Try again to load sheets across your teams."
+              action={{
+                label: "Try again",
+                icon: "refresh-cw",
+                variant: "secondary",
+                onPress: () => {
+                  void teamsQuery.refetch()
+                  sheetQueries.forEach((result) => void result.refetch())
+                },
+              }}
+            />
           ) : teams.length === 0 ? (
-            <EmptyState message="No teams yet." />
+            <CollectionState
+              icon="users"
+              title="No teams yet"
+              description="Sheets are organised by team. Create or join a team to get started."
+            />
+          ) : totalSheets === 0 ? (
+            <CollectionState
+              icon="table"
+              title="No sheets yet"
+              description="Ask an agent to collect or organise data in a sheet. It will appear here when it is ready."
+              action={{
+                label: "Start a chat",
+                icon: "square-pen",
+                variant: "primary",
+                onPress: startNewChat,
+              }}
+            />
+          ) : matchingSheets === 0 ? (
+            <CollectionState
+              icon="search"
+              title="No sheets found"
+              description="Try a different search term or clear the current search."
+              action={{
+                label: "Clear search",
+                icon: "x",
+                variant: "secondary",
+                onPress: () => setQuery(""),
+              }}
+            />
           ) : (
             <div className="flex flex-col gap-8">
-              {teams.map((team) => (
+              {groups.map(({ team, sheets }) => (
                 <TeamSection
                   key={team.id}
                   team={team}
-                  query={query}
+                  sheets={sheets}
                   activeSheetId={activeSheetId}
                   onOpen={handleOpen}
                 />
@@ -87,32 +161,15 @@ export default function SheetsPage() {
 
 function TeamSection({
   team,
-  query,
+  sheets,
   activeSheetId,
   onOpen,
 }: {
-  team: Team
-  query: string
+  team: Team & { id: string }
+  sheets: SheetSummary[]
   activeSheetId: string | null
   onOpen: (teamId: string, sheetId: string) => void
 }) {
-  const teamId = team.id ?? ""
-  const sheetsQuery = $api.useQuery(
-    "get",
-    "/v1/sheets",
-    { params: { query: { team_id: teamId, limit: 200 } } },
-    { enabled: Boolean(teamId) }
-  )
-
-  const normalized = query.trim().toLowerCase()
-  const sheets = (sheetsQuery.data?.sheets ?? []).filter(
-    (sheet) =>
-      !normalized ||
-      (sheet.name ?? "").toLowerCase().includes(normalized) ||
-      (sheet.description ?? "").toLowerCase().includes(normalized)
-  )
-
-  // Keep the list quiet: teams with no (matching) sheets are hidden.
   if (sheets.length === 0) return null
 
   return (
@@ -132,7 +189,7 @@ function TeamSection({
             key={sheet.id}
             sheet={sheet}
             active={activeSheetId === sheet.id}
-            onOpen={() => onOpen(teamId, sheet.id ?? "")}
+            onOpen={() => onOpen(team.id, sheet.id ?? "")}
           />
         ))}
       </div>
@@ -207,18 +264,6 @@ function ListSkeleton() {
           </div>
         </div>
       ))}
-    </div>
-  )
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
-      <AppIcon icon="table" className="text-muted-foreground h-7 w-7" />
-      <p className="mt-3 text-sm font-medium text-foreground">{message}</p>
-      <p className="text-muted-foreground mt-1 max-w-sm text-sm">
-        Ask an agent to collect data into a sheet and it will show up here.
-      </p>
     </div>
   )
 }
