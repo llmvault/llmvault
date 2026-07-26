@@ -113,22 +113,39 @@ impl McpSpec {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
-pub struct ToolInputBinding {
-    pub tool: String,
-    pub kind: ToolInputBindingKind,
-    pub path_argument: String,
-    pub content_argument: String,
-    #[serde(default)]
-    pub allowed_extensions: Vec<String>,
-    pub max_bytes: u64,
-    pub encoding: String,
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ToolInputBinding {
+    WorkspaceTextFile {
+        tool: String,
+        path_argument: String,
+        content_argument: String,
+        #[serde(default)]
+        allowed_extensions: Vec<String>,
+        max_bytes: u64,
+        encoding: String,
+    },
+    WorkspaceBundle {
+        tool: String,
+        entrypoint_path_argument: String,
+        supporting_file_paths_argument: String,
+        entrypoint_content_argument: String,
+        files_argument: String,
+        entrypoint_filename: String,
+        #[serde(default)]
+        allowed_directories: Vec<String>,
+        max_files: u64,
+        max_file_bytes: u64,
+        max_total_bytes: u64,
+        encoding: String,
+    },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum ToolInputBindingKind {
-    WorkspaceTextFile,
+impl ToolInputBinding {
+    pub fn tool(&self) -> &str {
+        match self {
+            Self::WorkspaceTextFile { tool, .. } | Self::WorkspaceBundle { tool, .. } => tool,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -142,7 +159,7 @@ pub struct ToolFilter {
 
 #[cfg(test)]
 mod tests {
-    use super::{McpSpec, ToolInputBindingKind};
+    use super::{McpSpec, ToolInputBinding};
 
     #[test]
     fn deserializes_legacy_sse_transport_from_control_plane() {
@@ -189,7 +206,45 @@ mod tests {
         .expect("deserialize workspace text file binding");
 
         let binding = &spec.tool_input_bindings()[0];
-        assert_eq!(binding.kind, ToolInputBindingKind::WorkspaceTextFile);
-        assert_eq!(binding.max_bytes, 1_048_576);
+        assert!(matches!(
+            binding,
+            ToolInputBinding::WorkspaceTextFile {
+                max_bytes: 1_048_576,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn deserializes_workspace_bundle_binding() {
+        let spec: McpSpec = serde_json::from_value(serde_json::json!({
+            "transport": "streamable_http",
+            "name": "hivy",
+            "url": "https://mcp.example.test",
+            "tool_input_bindings": [{
+                "tool": "create_skill",
+                "kind": "workspace_bundle",
+                "entrypoint_path_argument": "entrypoint_file_path",
+                "supporting_file_paths_argument": "supporting_file_paths",
+                "entrypoint_content_argument": "entrypoint_content",
+                "files_argument": "files",
+                "entrypoint_filename": "SKILL.md",
+                "allowed_directories": ["references", "templates", "scripts", "assets"],
+                "max_files": 256,
+                "max_file_bytes": 4194304,
+                "max_total_bytes": 16777216,
+                "encoding": "utf-8"
+            }]
+        }))
+        .expect("deserialize workspace bundle binding");
+
+        assert!(matches!(
+            &spec.tool_input_bindings()[0],
+            ToolInputBinding::WorkspaceBundle {
+                tool,
+                max_files: 256,
+                ..
+            } if tool == "create_skill"
+        ));
     }
 }

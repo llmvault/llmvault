@@ -1313,7 +1313,7 @@ mod tests {
     use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
     use domain::{
         AgentMeta, ContextConfig, Limits, ListPromptSegment, McpSpec, ModelConfig,
-        StaticPromptSegment, SystemPromptConfig, SystemPromptSegment,
+        StaticPromptSegment, SystemPromptConfig, SystemPromptSegment, ToolFilter,
     };
     use futures::StreamExt;
     use tokio::io::{AsyncBufReadExt, BufReader};
@@ -2742,7 +2742,13 @@ mod tests {
                         "Authorization".to_string(),
                         "Bearer ${USER_OAUTH_TOKEN}".to_string(),
                     )]),
-                    tool_filter: None,
+                    tool_filter: Some(ToolFilter {
+                        allow: Some(vec![
+                            "oauth_echo".to_string(),
+                            "oauth_lookup_customer".to_string(),
+                        ]),
+                        deny: None,
+                    }),
                     tool_name_prefix: None,
                     tool_input_bindings: Vec::new(),
                 }],

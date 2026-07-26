@@ -16,10 +16,10 @@ const (
 	toolUpdateSkill  = "update_skill"
 	toolArchiveSkill = "archive_skill"
 
-	maxSkillContentBytes   = 256 * 1024
-	maxSkillFileBytes      = 256 * 1024
-	maxSkillTotalBytes     = 1024 * 1024
-	maxSkillFiles          = 32
+	maxSkillContentBytes   = 4 * 1024 * 1024
+	maxSkillFileBytes      = 4 * 1024 * 1024
+	maxSkillTotalBytes     = 16 * 1024 * 1024
+	maxSkillFiles          = 256
 	maxSkillNameLen        = 120
 	maxSkillDescriptionLen = 1024
 )

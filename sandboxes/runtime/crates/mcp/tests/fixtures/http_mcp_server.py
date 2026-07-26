@@ -204,6 +204,21 @@ class McpHandler(BaseHTTPRequestHandler):
                             "required": ["email"],
                         },
                     },
+                    {
+                        "name": "create_skill",
+                        "description": "Create a skill bundle.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "entrypoint_content": {"type": "string"},
+                                "files": {
+                                    "type": "object",
+                                    "additionalProperties": {"type": "string"},
+                                },
+                            },
+                            "required": ["entrypoint_content"],
+                        },
+                    },
                 ]
             }
         elif method == "tools/call":
@@ -213,6 +228,18 @@ class McpHandler(BaseHTTPRequestHandler):
                 if raw_name not in INTEROP_TOOL_NAMES:
                     return self._rpc_error_value(request_id, -32602, "unknown tool")
                 structured = {"raw_name": raw_name}
+                result = {
+                    "content": [{"type": "text", "text": json.dumps(structured)}],
+                    "structuredContent": structured,
+                    "isError": False,
+                }
+                return {"jsonrpc": "2.0", "id": request_id, "result": result}
+            if params.get("name") == "create_skill":
+                arguments = params.get("arguments") or {}
+                structured = {
+                    "entrypoint_content": arguments.get("entrypoint_content"),
+                    "files": arguments.get("files"),
+                }
                 result = {
                     "content": [{"type": "text", "text": json.dumps(structured)}],
                     "structuredContent": structured,

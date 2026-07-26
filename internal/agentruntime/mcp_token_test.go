@@ -68,8 +68,8 @@ func TestBuildHivyMCPServerSelectsAgentToken(t *testing.T) {
 		t.Fatalf("agent mcp url = %q, want suffix %q", got, agentToken.JTI)
 	}
 	bindings := agentMCP["tool_input_bindings"].([]any)
-	if len(bindings) != 1 {
-		t.Fatalf("tool input binding count = %d, want 1", len(bindings))
+	if len(bindings) != 3 {
+		t.Fatalf("tool input binding count = %d, want 3", len(bindings))
 	}
 	binding := bindings[0].(map[string]any)
 	if binding["tool"] != "send_email" || binding["path_argument"] != "markdown_file_path" || binding["content_argument"] != "markdown" {
@@ -80,6 +80,23 @@ func TestBuildHivyMCPServerSelectsAgentToken(t *testing.T) {
 	}
 	if _, exists := binding["allowed_roots"]; exists {
 		t.Fatalf("allowed_roots must not be configurable: %#v", binding)
+	}
+	for index, tool := range []string{"create_skill", "update_skill"} {
+		skillBinding := bindings[index+1].(map[string]any)
+		if skillBinding["tool"] != tool ||
+			skillBinding["kind"] != "workspace_bundle" ||
+			skillBinding["entrypoint_path_argument"] != "entrypoint_file_path" ||
+			skillBinding["supporting_file_paths_argument"] != "supporting_file_paths" ||
+			skillBinding["entrypoint_content_argument"] != "entrypoint_content" ||
+			skillBinding["files_argument"] != "files" {
+			t.Fatalf("unexpected %s bundle binding: %#v", tool, skillBinding)
+		}
+		if skillBinding["entrypoint_filename"] != "SKILL.md" ||
+			skillBinding["max_files"] != 256 ||
+			skillBinding["max_file_bytes"] != 4<<20 ||
+			skillBinding["max_total_bytes"] != 16<<20 {
+			t.Fatalf("unexpected %s bundle limits: %#v", tool, skillBinding)
+		}
 	}
 }
 

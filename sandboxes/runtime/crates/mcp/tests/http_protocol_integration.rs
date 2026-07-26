@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use domain::{McpSpec, ToolFilter, ToolInputBinding, ToolInputBindingKind};
+use domain::{McpSpec, ToolFilter, ToolInputBinding};
 use mcp::McpRegistry;
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -112,14 +112,14 @@ async fn streamable_http_auth_catalog_activation_and_calls_work_end_to_end() {
     let statuses = registry.connection_statuses();
     assert_eq!(statuses.len(), 5);
     assert!(statuses.iter().all(|status| status.connected));
-    assert!(statuses.iter().all(|status| status.tool_count == 2));
+    assert!(statuses.iter().all(|status| status.tool_count == 3));
     assert!(
         registry.live_connection_names().is_empty(),
         "discovery must close every transport"
     );
 
     let names = registry.available_tool_names();
-    assert_eq!(names.len(), 10);
+    assert_eq!(names.len(), 15);
     assert!(names.contains(&"oauth_echo".to_string()));
     assert!(names.contains(&"machine_lookup_customer".to_string()));
 
@@ -270,9 +270,8 @@ async fn workspace_text_file_binding_projects_schema_and_injects_file_contents()
         headers: HashMap::new(),
         tool_filter: None,
         tool_name_prefix: None,
-        tool_input_bindings: vec![ToolInputBinding {
+        tool_input_bindings: vec![ToolInputBinding::WorkspaceTextFile {
             tool: "echo".to_string(),
-            kind: ToolInputBindingKind::WorkspaceTextFile,
             path_argument: "message_file_path".to_string(),
             content_argument: "message".to_string(),
             allowed_extensions: vec![".md".to_string()],
@@ -313,6 +312,145 @@ async fn workspace_text_file_binding_projects_schema_and_injects_file_contents()
         result["structuredContent"]["message"],
         "# Cluster healthy\n"
     );
+
+    drop(registry);
+    tokio::fs::remove_dir_all(workspace)
+        .await
+        .expect("remove workspace");
+    fixture.stop().await;
+}
+
+#[tokio::test]
+async fn workspace_bundle_binding_projects_paths_and_injects_complete_skill_bundle() {
+    let fixture = FixtureServer::start().await;
+    let workspace = std::env::temp_dir().join(format!(
+        "hivy-mcp-skill-bundle-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos()
+    ));
+    tokio::fs::create_dir_all(workspace.join("skills/status/references"))
+        .await
+        .expect("create references directory");
+    tokio::fs::create_dir_all(workspace.join("skills/status/scripts"))
+        .await
+        .expect("create scripts directory");
+    let skill_md = "---\nname: status-check\ndescription: Use when checking status.\n---\n\n# Status\nRun the script.\n";
+    tokio::fs::write(workspace.join("skills/status/SKILL.md"), skill_md)
+        .await
+        .expect("write skill entrypoint");
+    tokio::fs::write(
+        workspace.join("skills/status/references/api.md"),
+        "# API\nUse the health endpoint.\n",
+    )
+    .await
+    .expect("write reference");
+    tokio::fs::write(
+        workspace.join("skills/status/scripts/check.sh"),
+        "#!/bin/sh\ncurl -fsS \"$STATUS_URL\"\n",
+    )
+    .await
+    .expect("write script");
+    tokio::fs::create_dir_all(workspace.join("other"))
+        .await
+        .expect("create unrelated directory");
+    tokio::fs::write(workspace.join("other/secret.txt"), "not part of the skill")
+        .await
+        .expect("write unrelated file");
+
+    let specs = vec![McpSpec::StreamableHttp {
+        name: "hivy".to_string(),
+        url: format!("{}/noauth", fixture.base_url),
+        headers: HashMap::new(),
+        tool_filter: None,
+        tool_name_prefix: None,
+        tool_input_bindings: vec![ToolInputBinding::WorkspaceBundle {
+            tool: "create_skill".to_string(),
+            entrypoint_path_argument: "entrypoint_file_path".to_string(),
+            supporting_file_paths_argument: "supporting_file_paths".to_string(),
+            entrypoint_content_argument: "entrypoint_content".to_string(),
+            files_argument: "files".to_string(),
+            entrypoint_filename: "SKILL.md".to_string(),
+            allowed_directories: vec![
+                "references".to_string(),
+                "templates".to_string(),
+                "scripts".to_string(),
+                "assets".to_string(),
+            ],
+            max_files: 256,
+            max_file_bytes: 4 * 1024 * 1024,
+            max_total_bytes: 16 * 1024 * 1024,
+            encoding: "utf-8".to_string(),
+        }],
+    }];
+    let registry = McpRegistry::from_specs_allowing_loopback_for_tests(
+        &specs,
+        &HashMap::new(),
+        workspace.clone(),
+    )
+    .await;
+
+    registry
+        .activate_tools_filtered(
+            "skill-session",
+            "skill-turn",
+            &["hivy_create_skill".to_string()],
+            None,
+        )
+        .await
+        .expect("activate bound create_skill");
+    let activated = registry.activated_tools_filtered("skill-session", "skill-turn", None);
+    let parameters = &activated[0].parameters;
+    assert_eq!(parameters["required"], json!(["entrypoint_file_path"]));
+    assert!(parameters["properties"].get("entrypoint_content").is_none());
+    assert!(parameters["properties"].get("files").is_none());
+    assert_eq!(
+        parameters["properties"]["entrypoint_file_path"]["type"],
+        "string"
+    );
+    assert_eq!(
+        parameters["properties"]["supporting_file_paths"]["items"]["type"],
+        "string"
+    );
+
+    let result = registry
+        .call_tool(
+            "hivy_create_skill",
+            json!({
+                "entrypoint_file_path": "skills/status/SKILL.md",
+                "supporting_file_paths": [
+                    "skills/status/references/api.md",
+                    "skills/status/scripts/check.sh"
+                ]
+            }),
+        )
+        .await
+        .expect("create skill from workspace bundle");
+    assert_eq!(result["structuredContent"]["entrypoint_content"], skill_md);
+    assert_eq!(
+        result["structuredContent"]["files"]["references/api.md"],
+        "# API\nUse the health endpoint.\n"
+    );
+    assert_eq!(
+        result["structuredContent"]["files"]["scripts/check.sh"],
+        "#!/bin/sh\ncurl -fsS \"$STATUS_URL\"\n"
+    );
+
+    let escaped_bundle = registry
+        .call_tool(
+            "hivy_create_skill",
+            json!({
+                "entrypoint_file_path": "skills/status/SKILL.md",
+                "supporting_file_paths": ["other/secret.txt"]
+            }),
+        )
+        .await
+        .expect_err("supporting file outside the entrypoint directory must fail");
+    assert!(escaped_bundle
+        .to_string()
+        .contains("beneath the skill entrypoint directory"));
 
     drop(registry);
     tokio::fs::remove_dir_all(workspace)
@@ -379,7 +517,7 @@ async fn config_reload_discovers_in_background_then_leaves_servers_dormant_until
         .connection_statuses()
         .iter()
         .all(|status| status.connected));
-    assert_eq!(registry.available_tool_names().len(), 4);
+    assert_eq!(registry.available_tool_names().len(), 6);
     assert!(
         registry.live_connection_names().is_empty(),
         "discovery transports must be shut down"
@@ -468,10 +606,14 @@ async fn legacy_http_sse_connects_discovers_activates_and_calls_with_oauth_heade
     let statuses = registry.connection_statuses();
     assert_eq!(statuses.len(), 1);
     assert!(statuses[0].connected, "legacy SSE status: {statuses:?}");
-    assert_eq!(statuses[0].tool_count, 2);
+    assert_eq!(statuses[0].tool_count, 3);
     assert_eq!(
         registry.available_tool_names(),
-        vec!["legacy_echo", "legacy_lookup_customer"]
+        vec![
+            "legacy_create_skill",
+            "legacy_echo",
+            "legacy_lookup_customer"
+        ]
     );
 
     let activation = registry

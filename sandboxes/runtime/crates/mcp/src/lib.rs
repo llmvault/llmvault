@@ -960,7 +960,7 @@ async fn discover_tools(
         }
         let input_bindings: Vec<ToolInputBinding> = tool_input_bindings
             .iter()
-            .filter(|binding| binding.tool == raw)
+            .filter(|binding| binding.tool() == raw)
             .cloned()
             .collect();
         let mut parameters = Value::Object((*tool.input_schema).clone());
@@ -970,7 +970,7 @@ async fn discover_tools(
             .map(|value| value.into_owned())
             .unwrap_or_default();
         if !input_bindings.is_empty() {
-            description.push_str(" File-backed inputs are read by the runtime from the sandbox workspace; pass the requested file path, not the file contents.");
+            description.push_str(" File-backed inputs are read by the runtime from the sandbox workspace; pass the requested file path or paths, not file contents.");
         }
         definitions.push(McpToolDefinition {
             server_name: server_name.to_string(),

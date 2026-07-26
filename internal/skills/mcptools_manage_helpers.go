@@ -100,7 +100,7 @@ func loadTeamOwnedSkill(ctx context.Context, db *gorm.DB, orgID, teamID uuid.UUI
 
 // validateSkillFields enforces the shared create/update invariants. Returns a
 // tool error result describing the first violation, or nil.
-func validateSkillFields(name, description, content string, files map[string]string, envVars []string) *mcp.CallToolResult {
+func validateSkillFields(name, description, content string, files map[string]string, envVars []string, entrypointBytes int) *mcp.CallToolResult {
 	if name == "" {
 		return skillToolError("name is required")
 	}
@@ -116,16 +116,13 @@ func validateSkillFields(name, description, content string, files map[string]str
 	if strings.TrimSpace(content) == "" {
 		return skillToolError("content is required — the SKILL.md body in markdown")
 	}
-	if strings.HasPrefix(strings.TrimSpace(content), "---") {
-		return skillToolError("content must be the SKILL.md body WITHOUT YAML frontmatter; name/description/category/tags are supplied as fields and the frontmatter is generated")
-	}
 	if len(content) > maxSkillContentBytes {
 		return skillToolError(fmt.Sprintf("content must be at most %d bytes", maxSkillContentBytes))
 	}
-	if len(files) > maxSkillFiles {
-		return skillToolError(fmt.Sprintf("at most %d files are allowed", maxSkillFiles))
+	if len(files)+1 > maxSkillFiles {
+		return skillToolError(fmt.Sprintf("at most %d files including SKILL.md are allowed", maxSkillFiles))
 	}
-	total := len(content)
+	total := entrypointBytes
 	for path, body := range files {
 		if err := validateSkillFilePath(path); err != nil {
 			return skillToolError(err.Error())

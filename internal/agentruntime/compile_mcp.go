@@ -61,7 +61,26 @@ func hivyMCPServer(baseURL, jti string) any {
 				"max_bytes":          1 << 20,
 				"encoding":           "utf-8",
 			},
+			skillBundleToolInputBinding("create_skill"),
+			skillBundleToolInputBinding("update_skill"),
 		},
+	}
+}
+
+func skillBundleToolInputBinding(tool string) map[string]any {
+	return map[string]any{
+		"tool":                           tool,
+		"kind":                           "workspace_bundle",
+		"entrypoint_path_argument":       "entrypoint_file_path",
+		"supporting_file_paths_argument": "supporting_file_paths",
+		"entrypoint_content_argument":    "entrypoint_content",
+		"files_argument":                 "files",
+		"entrypoint_filename":            "SKILL.md",
+		"allowed_directories":            []string{"references", "templates", "scripts", "assets"},
+		"max_files":                      256,
+		"max_file_bytes":                 4 << 20,
+		"max_total_bytes":                16 << 20,
+		"encoding":                       "utf-8",
 	}
 }
 
