@@ -312,7 +312,7 @@ test-apps-flagship-e2e: $(TEST_AGENT_SESSIONS_E2E_DEPS) sandbox-app-image
 test-apps-realtime-e2e: $(TEST_AGENT_SESSIONS_E2E_DEPS) sandbox-app-image
 	HIVY_API_BASE_URL="$(AGENT_SESSIONS_E2E_API_BASE_URL)" HIVY_WORKER_BASE_URL="$(AGENT_SESSIONS_E2E_WORKER_BASE_URL)" HIVY_AGENT_SESSIONS_E2E=1 $(GO_BIN) test ./e2e -run 'TestAppsRealtimeE2E' -count=1 -timeout=$(APPS_REALTIME_E2E_TIMEOUT) -v
 
-# Run the Redis-backed runtime sequencing E2E against a live compose stack.
+# Run live runtime-to-API SSE plus durable Redis/Postgres sequencing E2E against Compose.
 test-agent-streaming-e2e: $(TEST_AGENT_SESSIONS_E2E_DEPS)
 	@$(MAKE) -s dev-migrate
 	HIVY_API_BASE_URL="$(AGENT_SESSIONS_E2E_API_BASE_URL)" HIVY_WORKER_BASE_URL="$(AGENT_SESSIONS_E2E_WORKER_BASE_URL)" HIVY_AGENT_STREAMING_E2E=1 $(GO_BIN) test ./e2e -run 'TestAgentRuntimeRedisSequencingE2E' -count=1 -timeout=$(AGENT_SESSIONS_E2E_TIMEOUT) -v

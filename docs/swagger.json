@@ -11973,6 +11973,94 @@
                 }
             }
         },
+        "/v1/sessions/{id}/stream": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Proxies the private sandbox runtime's server-sent-events stream without routing live frames through Redis or Postgres.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Stream a live agent session (SSE)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Replay mode",
+                        "name": "replay",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Replay events after this runtime sequence",
+                        "name": "after_seq",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Replay from this turn ID",
+                        "name": "from_turn_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Continue following after replaying a turn",
+                        "name": "follow",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/sessions/{id}/subagents/{childSessionID}/events": {
             "get": {
                 "security": [

@@ -88,7 +88,7 @@ func TestAgentRuntimeRedisSequencingE2E(t *testing.T) {
 			wg.Add(1)
 			go func(tc streamingSessionCase, subscriberIndex int) {
 				defer wg.Done()
-				result, err := runSandboxSessionSubscriber(ctx, apiBase, token, orgID, tc.session.Session.ID, tc.marker, subscriberIndex, ready)
+				result, err := runAPISessionSubscriber(ctx, apiBase, token, orgID, tc.session.Session.ID, tc.marker, subscriberIndex, ready)
 				if err != nil {
 					errs <- err
 					return

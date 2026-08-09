@@ -110,7 +110,7 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 		}
 	}
 	resourceSpec, _ := model.TemplateSizeSpec(sandboxSize)
-	sandboxImage := model.NormalizeSandboxImage(agent.SandboxImage)
+	sandboxImage := runtimeSandboxImageForProvider(o.provider.ID(), agent.SandboxImage)
 	runtimeImage := AgentRuntimeImageRef(o.cfg, sandboxImage)
 	warmProfile := AgentWarmPoolProfile(o.cfg, sandboxImage, sandboxSize)
 	snapshotID := RuntimeTemplateRefForImageRef(o.cfg, runtimeImage, sandboxSize)

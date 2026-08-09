@@ -178,10 +178,15 @@ async function handler(
   if (isLogout && session) {
     const payload = body ? JSON.parse(new TextDecoder().decode(body)) : {}
     payload.refresh_token = session.refresh_token
-    upstreamBody = new TextEncoder().encode(JSON.stringify(payload)).buffer as ArrayBuffer
+    upstreamBody = new TextEncoder().encode(JSON.stringify(payload))
+      .buffer as ArrayBuffer
   }
 
-  if (session && !AUTH_PATHS.has(apiPath) && session.expires_at - Date.now() < 60_000) {
+  if (
+    session &&
+    !AUTH_PATHS.has(apiPath) &&
+    session.expires_at - Date.now() < 60_000
+  ) {
     const refreshed = await safeRefresh(session.refresh_token)
     if (refreshed.session) {
       session = refreshed.session
@@ -219,7 +224,12 @@ async function handler(
   let refreshedSession: SessionData | null = null
   let refreshDefinitivelyRejected = false
 
-  if (upstream.status === 401 && session && !AUTH_PATHS.has(apiPath) && !isLogout) {
+  if (
+    upstream.status === 401 &&
+    session &&
+    !AUTH_PATHS.has(apiPath) &&
+    !isLogout
+  ) {
     reqLog.info("got 401, attempting token refresh")
     const outcome = await safeRefresh(session.refresh_token)
     if (outcome.session) {
@@ -268,7 +278,12 @@ async function handler(
   }
 
   const responseHeaders = new Headers()
-  const skipHeaders = new Set(["transfer-encoding", "content-encoding", "content-length", "set-cookie"])
+  const skipHeaders = new Set([
+    "transfer-encoding",
+    "content-encoding",
+    "content-length",
+    "set-cookie",
+  ])
   upstream.headers.forEach((value, key) => {
     if (skipHeaders.has(key.toLowerCase())) return
     responseHeaders.set(key, value)
@@ -283,7 +298,13 @@ async function handler(
     reqLog.info("intercepting auth response")
     try {
       const data = await upstream.json()
-      reqLog.debug({ has_access_token: !!data.access_token, has_refresh_token: !!data.refresh_token }, "auth response parsed")
+      reqLog.debug(
+        {
+          has_access_token: !!data.access_token,
+          has_refresh_token: !!data.refresh_token,
+        },
+        "auth response parsed"
+      )
 
       if (data.access_token && data.refresh_token) {
         const newSession: SessionData = {
@@ -300,8 +321,16 @@ async function handler(
         authHeaders.append("set-cookie", cookie)
 
         // Strip tokens from what the client receives
-        const { access_token: _a, refresh_token: _r, expires_in: _e, ...safe } = data
-        reqLog.info({ response_keys: Object.keys(safe), status: upstream.status }, "auth response complete, session cookie set")
+        const {
+          access_token: _a,
+          refresh_token: _r,
+          expires_in: _e,
+          ...safe
+        } = data
+        reqLog.info(
+          { response_keys: Object.keys(safe), status: upstream.status },
+          "auth response complete, session cookie set"
+        )
         return NextResponse.json(safe, {
           status: upstream.status,
           headers: authHeaders,
@@ -312,14 +341,20 @@ async function handler(
       // The body was already consumed via upstream.json() above, so we must
       // re-serialize rather than falling through to `upstream.body` (which is
       // now disturbed and would throw a 500).
-      reqLog.info({ status: upstream.status }, "auth path without tokens, re-serializing body")
+      reqLog.info(
+        { status: upstream.status },
+        "auth path without tokens, re-serializing body"
+      )
       return NextResponse.json(data, {
         status: upstream.status,
         headers: responseHeaders,
       })
     } catch (err) {
       reqLog.error({ err }, "auth response interception failed")
-      return NextResponse.json({ error: "session_creation_failed" }, { status: 502 })
+      return NextResponse.json(
+        { error: "session_creation_failed" },
+        { status: 502 }
+      )
     }
   }
 
@@ -330,22 +365,17 @@ async function handler(
     )
   }
 
-  if (
-    !AUTH_PATHS.has(apiPath) &&
-    !refreshedSession &&
-    session &&
-    rawCookies
-  ) {
+  if (!AUTH_PATHS.has(apiPath) && !refreshedSession && session && rawCookies) {
     const original = await getSessionFromHeader(rawCookies)
     if (original && original.access_token !== session.access_token) {
-      responseHeaders.append(
-        "set-cookie",
-        await createSessionCookie(session)
-      )
+      responseHeaders.append("set-cookie", await createSessionCookie(session))
     }
   }
 
-  if (isLogout && upstream.ok) {
+  // A stale cookie may be undecryptable after the local session secret changes.
+  // Explicit logout must still recover the browser even when upstream cannot
+  // revoke a token it was unable to read.
+  if (isLogout) {
     responseHeaders.append("set-cookie", clearSessionCookie())
   }
 

@@ -34,13 +34,17 @@ vi.mock("@/lib/logger", () => ({
 vi.mock("@/lib/auth/session", () => ({
   getSessionFromHeader: vi.fn().mockResolvedValue(null),
   stripSessionCookie: vi.fn().mockReturnValue(""),
-  createSessionCookie: vi.fn().mockResolvedValue("__session=mock; HttpOnly; Path=/"),
+  createSessionCookie: vi
+    .fn()
+    .mockResolvedValue("__session=mock; HttpOnly; Path=/"),
   clearSessionCookie: vi.fn().mockReturnValue("__session=; Max-Age=0"),
 }))
 
 vi.mock("@/lib/auth/refresh", () => ({
   refreshCoordinator: {
-    refresh: vi.fn().mockResolvedValue({ session: null, definitivelyRejected: false }),
+    refresh: vi
+      .fn()
+      .mockResolvedValue({ session: null, definitivelyRejected: false }),
   },
 }))
 
@@ -49,7 +53,10 @@ process.env.HIVY_API_URL = "http://backend-test"
 
 const { GET, POST } = await import("./route")
 
-function makeRequest(path: string, options: { method?: string; body?: unknown } = {}) {
+function makeRequest(
+  path: string,
+  options: { method?: string; body?: unknown } = {}
+) {
   const method = options.method ?? "GET"
   const url = `http://localhost/api/proxy/${path}`
   if (options.body !== undefined) {
@@ -88,12 +95,9 @@ describe("org current proxy diagnostics", () => {
       })
     )
 
-    const req = new NextRequest(
-      "http://localhost/api/proxy/v1/orgs/current",
-      {
-        headers: { cookie: "hivy_active_org=org-secret-value" },
-      }
-    )
+    const req = new NextRequest("http://localhost/api/proxy/v1/orgs/current", {
+      headers: { cookie: "hivy_active_org=org-secret-value" },
+    })
     const res = await GET(req, {
       params: Promise.resolve({ path: ["v1", "orgs", "current"] }),
     })
@@ -151,7 +155,9 @@ describe("Set-Cookie header forwarding", () => {
     )
 
     const req = makeRequest("v1/some-endpoint", { method: "POST", body: {} })
-    const res = await POST(req, { params: Promise.resolve({ path: ["v1", "some-endpoint"] }) })
+    const res = await POST(req, {
+      params: Promise.resolve({ path: ["v1", "some-endpoint"] }),
+    })
 
     const setCookieValues = res.headers.getSetCookie()
     expect(setCookieValues.length).toBe(2)
@@ -173,7 +179,9 @@ describe("Set-Cookie header forwarding", () => {
     )
 
     const req = makeRequest("v1/other", { method: "POST", body: {} })
-    const res = await POST(req, { params: Promise.resolve({ path: ["v1", "other"] }) })
+    const res = await POST(req, {
+      params: Promise.resolve({ path: ["v1", "other"] }),
+    })
 
     const setCookieValues = res.headers.getSetCookie()
     expect(setCookieValues.length).toBe(1)
@@ -202,8 +210,13 @@ describe("AUTH_PATHS consumed-body fallthrough", () => {
       })
     )
 
-    const req = makeRequest("auth/login", { method: "POST", body: { email: "a@b.com", password: "pass" } })
-    const res = await POST(req, { params: Promise.resolve({ path: ["auth", "login"] }) })
+    const req = makeRequest("auth/login", {
+      method: "POST",
+      body: { email: "a@b.com", password: "pass" },
+    })
+    const res = await POST(req, {
+      params: Promise.resolve({ path: ["auth", "login"] }),
+    })
 
     expect(res.status).toBe(200)
     const json = await res.json()
@@ -223,8 +236,13 @@ describe("AUTH_PATHS consumed-body fallthrough", () => {
       })
     )
 
-    const req = makeRequest("auth/login", { method: "POST", body: { email: "x@y.com", password: "wrong" } })
-    const res = await POST(req, { params: Promise.resolve({ path: ["auth", "login"] }) })
+    const req = makeRequest("auth/login", {
+      method: "POST",
+      body: { email: "x@y.com", password: "wrong" },
+    })
+    const res = await POST(req, {
+      params: Promise.resolve({ path: ["auth", "login"] }),
+    })
 
     expect(res.status).toBe(401)
     const json = await res.json()
@@ -246,8 +264,13 @@ describe("AUTH_PATHS consumed-body fallthrough", () => {
       })
     )
 
-    const req = makeRequest("auth/login", { method: "POST", body: { email: "a@b.com", password: "pass" } })
-    const res = await POST(req, { params: Promise.resolve({ path: ["auth", "login"] }) })
+    const req = makeRequest("auth/login", {
+      method: "POST",
+      body: { email: "a@b.com", password: "pass" },
+    })
+    const res = await POST(req, {
+      params: Promise.resolve({ path: ["auth", "login"] }),
+    })
 
     expect(res.status).toBe(200)
     const json = await res.json()
@@ -256,5 +279,37 @@ describe("AUTH_PATHS consumed-body fallthrough", () => {
     expect(json.user).toEqual({ id: "u1" })
     const cookies = res.headers.getSetCookie()
     expect(cookies.some((c) => c.startsWith("__session=mock"))).toBe(true)
+  })
+})
+
+describe("logout recovery", () => {
+  const originalFetch = global.fetch
+
+  afterEach(() => {
+    global.fetch = originalFetch
+  })
+
+  it("clears a stale web session even when upstream rejects logout", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: "missing refresh token" }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      })
+    )
+
+    const req = new NextRequest("http://localhost/api/proxy/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({}),
+      headers: {
+        "content-type": "application/json",
+        cookie: "__session=stale-local-cookie",
+      },
+    })
+    const res = await POST(req, {
+      params: Promise.resolve({ path: ["auth", "logout"] }),
+    })
+
+    expect(res.status).toBe(401)
+    expect(res.headers.getSetCookie()).toContain("__session=; Max-Age=0")
   })
 })

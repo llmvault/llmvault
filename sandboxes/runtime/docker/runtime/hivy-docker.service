@@ -1,0 +1,13 @@
+[Unit]
+Description=Hivy nested Docker daemon
+After=network.target
+Before=hivy-runtime.service
+
+[Service]
+Type=oneshot
+ExecCondition=/bin/sh -c 'test "${HIVY_RUNTIME_START_DOCKERD:-0}" = "1"'
+ExecStart=/usr/local/bin/hivy-start-docker
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

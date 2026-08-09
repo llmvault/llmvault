@@ -56,12 +56,24 @@ yarn -v
 docker --version
 dockerd --version
 docker compose version
+docker buildx version
 command -v hivy-start-docker
 
 if docker info >/dev/null 2>&1; then
   echo "docker must not be running before an explicit start" >&2
   exit 1
 fi
+
+hivy-start-docker
+docker info >/tmp/docker-info.txt
+mkdir -p /tmp/compose-smoke
+cat >/tmp/compose-smoke/compose.yaml <<'YAML'
+services:
+  smoke:
+    image: hivy-compose-smoke:local
+    command: ["true"]
+YAML
+docker compose -f /tmp/compose-smoke/compose.yaml config >/tmp/docker-compose-config.txt
 
 if command -v rails >/dev/null; then
   echo "rails should not be globally installed in the image" >&2
@@ -111,6 +123,7 @@ fi
 
 "$DOCKER_BIN" run --rm \
   "${run_args[@]+"${run_args[@]}"}" \
+  --privileged \
   --entrypoint /bin/bash \
   -v "$TMP_DIR/smoke.sh:/tmp/smoke.sh:ro" \
   "$IMAGE" \

@@ -1,192 +1,144 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
-
-	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/runtimestream"
+	"github.com/usehivy/hivy/internal/logging"
 )
 
-const sessionStreamBatchSize = 500
+var sessionRuntimeStreamQueryKeys = []string{
+	"replay",
+	"after_seq",
+	"from_turn_id",
+	"follow",
+}
 
+// Stream handles GET /v1/sessions/{id}/stream.
+// @Summary Stream a live agent session (SSE)
+// @Description Proxies the private sandbox runtime's server-sent-events stream without routing live frames through Redis or Postgres.
+// @Tags sessions
+// @Produce text/event-stream
+// @Param id path string true "Session ID"
+// @Param replay query string false "Replay mode"
+// @Param after_seq query integer false "Replay events after this runtime sequence"
+// @Param from_turn_id query string false "Replay from this turn ID"
+// @Param follow query boolean false "Continue following after replaying a turn"
+// @Success 200 {string} string
+// @Failure 401 {object} errorResponse
+// @Failure 403 {object} errorResponse
+// @Failure 404 {object} errorResponse
+// @Failure 502 {object} errorResponse
+// @Failure 503 {object} errorResponse
+// @Security BearerAuth
+// @Router /v1/sessions/{id}/stream [get]
 func (h *SessionHandler) Stream(w http.ResponseWriter, r *http.Request) {
-	if h == nil || h.runtimeStreamStore == nil || h.runtimeStreamStore.Redis() == nil {
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "session stream is not configured"})
-		return
-	}
-	session, _, ok := h.authorizeSession(w, r, false)
+	session, _, ok := h.authorizeSession(w, r, true)
 	if !ok {
 		return
 	}
-	afterSeq, err := parseAfterSeq(r)
+	sb, err := h.sessionSandboxForAccess(r.Context(), &session)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
-		return
-	}
-	ctx := r.Context()
-	sessionID := session.ID.String()
-	pubsub := h.runtimeStreamStore.Redis().Subscribe(ctx, runtimestream.LiveChannel(sessionID))
-	defer pubsub.Close()
-	if _, err := pubsub.Receive(ctx); err != nil {
-		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "failed to subscribe to session stream"})
-		return
-	}
-	liveCh := pubsub.Channel(redis.WithChannelSize(1024))
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache, no-transform")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-	rc := http.NewResponseController(w)
-	_ = rc.Flush()
-
-	cursor, err := h.emitCommittedSince(ctx, rc, w, session.ID, afterSeq)
-	if err != nil {
-		_ = writeSessionSSE(rc, w, "session.control", "", map[string]any{
-			"type":  "resync",
-			"error": "failed to load committed events",
-		})
-		return
-	}
-	if err := h.drainBufferedLive(rc, w, liveCh, sessionID, &cursor); err != nil {
-		return
-	}
-
-	keepalive := time.NewTicker(15 * time.Second)
-	defer keepalive.Stop()
-	poll := time.NewTicker(5 * time.Second)
-	defer poll.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load session sandbox for stream", "session_id", session.ID, "error", err)
+		if errors.Is(err, errSessionSandboxUnavailable) {
+			writeJSON(w, http.StatusNotFound, errorResponse{Error: "session sandbox is not available yet"})
 			return
-		case msg, ok := <-liveCh:
-			if !ok {
-				_ = writeSessionSSE(rc, w, "session.control", "", map[string]any{
-					"type": "resync",
-				})
-				return
-			}
-			if err := h.emitLiveMessage(rc, w, msg.Payload, sessionID, &cursor); err != nil {
-				return
-			}
-		case <-keepalive.C:
-			if err := writeSessionSSE(rc, w, "session.control", "", map[string]any{
-				"type":      "keepalive",
-				"cursor":    cursor,
-				"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
-			}); err != nil {
-				return
-			}
-		case <-poll.C:
-			next, err := h.emitCommittedSince(ctx, rc, w, session.ID, cursor)
-			if err != nil {
-				_ = writeSessionSSE(rc, w, "session.control", "", map[string]any{
-					"type":  "resync",
-					"error": "failed to poll committed events",
-				})
-				return
-			}
-			cursor = next
 		}
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "session stream is not available"})
+		return
+	}
+	client, err := h.runtimeClientForSessionSandbox(r.Context(), sb)
+	if err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "create runtime client for session stream", "session_id", session.ID, "sandbox_id", sb.ID, "error", err)
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "session stream is not available"})
+		return
+	}
+
+	path := "/sessions/" + url.PathEscape(session.ID.String()) + "/stream"
+	if query := sessionRuntimeStreamQuery(r).Encode(); query != "" {
+		path += "?" + query
+	}
+	resp, err := client.StreamHTTP(r.Context(), path)
+	if err != nil {
+		if r.Context().Err() != nil {
+			return
+		}
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "open runtime session stream", "session_id", session.ID, "sandbox_id", sb.ID, "error", err)
+		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "failed to open session stream"})
+		return
+	}
+	defer resp.Body.Close()
+	if !strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "text/event-stream") {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "runtime session stream returned invalid content type", "session_id", session.ID, "sandbox_id", sb.ID, "content_type", resp.Header.Get("Content-Type"))
+		writeJSON(w, http.StatusBadGateway, errorResponse{Error: "runtime returned an invalid session stream"})
+		return
+	}
+
+	copySessionRuntimeStreamHeaders(w.Header(), resp.Header)
+	w.WriteHeader(resp.StatusCode)
+	rc := http.NewResponseController(w)
+	if err := rc.Flush(); err != nil {
+		return
+	}
+	_, err = io.CopyBuffer(&flushingSessionStreamWriter{w: w, rc: rc}, resp.Body, make([]byte, 32*1024))
+	if err != nil && r.Context().Err() == nil {
+		logging.FromContext(r.Context()).WarnContext(r.Context(), "relay runtime session stream", "session_id", session.ID, "sandbox_id", sb.ID, "error", err)
 	}
 }
 
-func parseAfterSeq(r *http.Request) (int64, error) {
-	raw := r.URL.Query().Get("after_seq")
-	if raw == "" {
-		raw = r.URL.Query().Get("after")
+func sessionRuntimeStreamQuery(r *http.Request) url.Values {
+	query := make(url.Values)
+	for _, key := range sessionRuntimeStreamQueryKeys {
+		for _, value := range r.URL.Query()[key] {
+			query.Add(key, value)
+		}
 	}
-	if raw == "" {
-		return 0, nil
+	if query.Get("after_seq") == "" {
+		lastEventID := strings.TrimSpace(r.Header.Get("Last-Event-ID"))
+		if sequence, err := strconv.ParseUint(lastEventID, 10, 64); err == nil {
+			query.Set("after_seq", strconv.FormatUint(sequence, 10))
+		}
 	}
-	seq, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil || seq < 0 {
-		return 0, fmt.Errorf("after_seq must be a non-negative integer")
-	}
-	return seq, nil
+	return query
 }
 
-func (h *SessionHandler) drainBufferedLive(rc *http.ResponseController, w http.ResponseWriter, liveCh <-chan *redis.Message, sessionID string, cursor *int64) error {
-	for {
-		select {
-		case msg, ok := <-liveCh:
-			if !ok {
-				return nil
-			}
-			if err := h.emitLiveMessage(rc, w, msg.Payload, sessionID, cursor); err != nil {
-				return err
-			}
-		default:
-			return nil
+func copySessionRuntimeStreamHeaders(dst, src http.Header) {
+	for _, key := range []string{
+		"Content-Type",
+		"Cache-Control",
+		"X-Hivy-Stream-Id",
+		"X-Hivy-Stream-Next-Sequence",
+	} {
+		if value := src.Get(key); value != "" {
+			dst.Set(key, value)
 		}
 	}
+	dst.Set("Cache-Control", "no-cache, no-transform")
+	dst.Set("X-Accel-Buffering", "no")
 }
 
-func (h *SessionHandler) emitCommittedSince(ctx context.Context, rc *http.ResponseController, w http.ResponseWriter, sessionID uuid.UUID, after int64) (int64, error) {
-	cursor := after
-	for {
-		var events []model.SessionEvent
-		if err := h.db.WithContext(ctx).
-			Where("session_id = ? AND sequence_number > ?", sessionID, cursor).
-			Order("sequence_number ASC, created_at ASC, id ASC").
-			Limit(sessionStreamBatchSize).
-			Find(&events).Error; err != nil {
-			return cursor, err
-		}
-		for _, event := range events {
-			view := runtimestream.SessionEventToView(event)
-			if err := writeSessionSSE(rc, w, "session.event", strconv.FormatInt(event.SequenceNumber, 10), view); err != nil {
-				return cursor, err
-			}
-			if event.SequenceNumber > cursor {
-				cursor = event.SequenceNumber
-			}
-		}
-		if len(events) < sessionStreamBatchSize {
-			return cursor, nil
-		}
-	}
+type flushingSessionStreamWriter struct {
+	w  http.ResponseWriter
+	rc *http.ResponseController
 }
 
-func (h *SessionHandler) emitLiveMessage(rc *http.ResponseController, w http.ResponseWriter, raw string, sessionID string, cursor *int64) error {
-	var msg runtimestream.LiveMessage
-	if err := json.Unmarshal([]byte(raw), &msg); err != nil {
-		return nil
+func (w *flushingSessionStreamWriter) Write(raw []byte) (int, error) {
+	_ = w.rc.SetWriteDeadline(time.Now().Add(20 * time.Second))
+	n, err := w.w.Write(raw)
+	if err != nil {
+		return n, err
 	}
-	if msg.SessionID != sessionID {
-		return nil
+	if err := w.rc.Flush(); err != nil {
+		return n, err
 	}
-	switch msg.Kind {
-	case runtimestream.LiveKindRuntime:
-		if msg.Event == nil {
-			return nil
-		}
-		return writeSessionSSE(rc, w, "session.preview", "", msg.Event)
-	case runtimestream.LiveKindCommitted:
-		if msg.Committed == nil {
-			return nil
-		}
-		if msg.Committed.SequenceNumber <= *cursor {
-			return nil
-		}
-		if err := writeSessionSSE(rc, w, "session.event", strconv.FormatInt(msg.Committed.SequenceNumber, 10), msg.Committed); err != nil {
-			return err
-		}
-		*cursor = msg.Committed.SequenceNumber
-		return nil
-	default:
-		return nil
-	}
+	return n, nil
 }
 
 func writeSessionSSE(rc *http.ResponseController, w http.ResponseWriter, eventName, id string, data any) error {

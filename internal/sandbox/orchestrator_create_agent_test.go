@@ -165,7 +165,7 @@ func TestCreateAgentSandboxUsesOrgSandboxExposedPorts(t *testing.T) {
 	}
 }
 
-func TestCreateAgentSandboxUsesAgentSandboxImage(t *testing.T) {
+func TestCreateAgentSandboxUsesDeveloperImageForDockerProvider(t *testing.T) {
 	db := connectSandboxTestDB(t)
 	orgID := uuid.New()
 	org := model.Org{ID: orgID, Name: "Sandbox Image Test", RateLimit: 1000, Active: true}
@@ -180,8 +180,8 @@ func TestCreateAgentSandboxUsesAgentSandboxImage(t *testing.T) {
 		ID:            uuid.New(),
 		OrgID:         &orgID,
 		TeamID:        team.ID,
-		Name:          "Developer Agent",
-		SandboxImage:  model.SandboxImageDeveloper,
+		Name:          "Docker Agent",
+		SandboxImage:  model.SandboxImageDefault,
 		SandboxSize:   "large",
 		Model:         "gpt-5.4",
 		Status:        "active",
@@ -211,9 +211,9 @@ func TestCreateAgentSandboxUsesAgentSandboxImage(t *testing.T) {
 	}))
 	defer runtime.Close()
 
-	provider := &agentCreateProvider{endpoint: runtime.URL}
+	provider := &agentCreateProvider{endpoint: runtime.URL, providerID: ProviderDocker}
 	orch := NewOrchestrator(db, provider, sandboxTestSymmetricKey(t), &config.Config{
-		SandboxProviderID:        ProviderMicrosandbox,
+		SandboxProviderID:        ProviderDocker,
 		SandboxesRuntimeImageTag: "v3.4.0-amd64",
 		APIWebhookBaseURL:        "https://api.example",
 		ProxyHost:                "https://proxy.example",

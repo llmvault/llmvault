@@ -12647,6 +12647,64 @@ paths:
       summary: Mint read-only sandbox access
       tags:
       - sessions
+  /v1/sessions/{id}/stream:
+    get:
+      description: Proxies the private sandbox runtime's server-sent-events stream
+        without routing live frames through Redis or Postgres.
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Replay mode
+        in: query
+        name: replay
+        type: string
+      - description: Replay events after this runtime sequence
+        in: query
+        name: after_seq
+        type: integer
+      - description: Replay from this turn ID
+        in: query
+        name: from_turn_id
+        type: string
+      - description: Continue following after replaying a turn
+        in: query
+        name: follow
+        type: boolean
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Stream a live agent session (SSE)
+      tags:
+      - sessions
   /v1/sessions/{id}/subagents/{childSessionID}/events:
     get:
       description: Lists transcript events for one child session of an authorized

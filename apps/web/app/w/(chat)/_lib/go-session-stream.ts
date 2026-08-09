@@ -1,6 +1,4 @@
 import { fetchEventSource } from "@microsoft/fetch-event-source"
-import { withDaytonaPreviewWarningBypass } from "@/app/w/(chat)/_lib/daytona-preview"
-import type { SessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
 
 export interface GoSessionStreamFrame {
   sessionId: string
@@ -44,23 +42,22 @@ export class GoSessionStreamHTTPError extends Error {
 
 export function subscribeToGoSessionStream({
   sessionId,
-  access,
   replay,
   signal,
   onOpen,
   onEvent,
 }: {
   sessionId: string
-  access: SessionSandboxAccess
   replay?: GoSessionStreamReplayMode
   signal: AbortSignal
   onOpen?: (meta: GoSessionStreamOpen) => void
   onEvent?: (frame: GoSessionStreamFrame) => void
 }) {
-  return fetchEventSource(goSessionStreamURL(sessionId, access, replay), {
+  return fetchEventSource(goSessionStreamURL(sessionId, replay), {
     method: "GET",
-    headers: goSessionStreamHeaders(access),
-    credentials: "omit",
+    // SSE stream through the authenticated Next.js API proxy.
+    headers: { Accept: "text/event-stream" },
+    credentials: "include",
     signal,
     openWhenHidden: true,
     async onopen(response) {
@@ -103,39 +100,24 @@ export function subscribeToGoSessionStream({
 
 export function goSessionStreamURL(
   sessionId: string,
-  access: Pick<SessionSandboxAccess, "sandbox_base_url">,
   replay: GoSessionStreamReplayMode = { mode: "all" }
 ) {
-  const baseURL = access.sandbox_base_url?.replace(/\/+$/, "")
-  if (!baseURL) throw new Error("Sandbox stream URL is not available.")
-  const parsed = new URL(
-    `/sessions/${encodeURIComponent(sessionId)}/stream`,
-    baseURL
-  )
+  const path = `/api/proxy/v1/sessions/${encodeURIComponent(sessionId)}/stream`
+  const search = new URLSearchParams()
   if (replay.mode === "none") {
-    parsed.searchParams.set("replay", "none")
+    search.set("replay", "none")
   }
   if (replay.mode === "after_seq") {
-    parsed.searchParams.set("after_seq", `${replay.afterSeq}`)
+    search.set("after_seq", `${replay.afterSeq}`)
   }
   if (replay.mode === "from_turn_id" || replay.mode === "from_turn_id_follow") {
-    parsed.searchParams.set("from_turn_id", replay.turnId)
+    search.set("from_turn_id", replay.turnId)
   }
   if (replay.mode === "from_turn_id_follow") {
-    parsed.searchParams.set("follow", "true")
+    search.set("follow", "true")
   }
-  return parsed.toString()
-}
-
-export function goSessionStreamHeaders(
-  access: Pick<SessionSandboxAccess, "token">
-) {
-  const token = access.token?.trim()
-  if (!token) throw new Error("Sandbox stream token is not available.")
-  return withDaytonaPreviewWarningBypass({
-    Accept: "text/event-stream",
-    Authorization: `Bearer ${token}`,
-  })
+  const query = search.toString()
+  return query ? `${path}?${query}` : path
 }
 
 export function goSessionStreamHTTPStatus(error: unknown) {

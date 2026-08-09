@@ -1,9 +1,12 @@
 package docker
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/docker/docker/api/types/container"
+
+	"github.com/usehivy/hivy/internal/model"
 )
 
 func TestContainerConfigsTiniModeUnchanged(t *testing.T) {
@@ -12,6 +15,7 @@ func TestContainerConfigsTiniModeUnchanged(t *testing.T) {
 	driver := &Driver{labelPrefix: "hivy"}
 	cfg, hostCfg := driver.containerConfigs(dockerContainerSpec{
 		ImageRef:            "example:latest",
+		Labels:              map[string]string{"sandbox_image": model.SandboxImageDeveloper},
 		PublishDefaultPorts: true,
 	})
 
@@ -30,6 +34,9 @@ func TestContainerConfigsTiniModeUnchanged(t *testing.T) {
 	if !hostCfg.Privileged {
 		t.Fatal("Privileged should be true")
 	}
+	if !slices.Contains(cfg.Env, runtimeStartDockerEnv+"=1") {
+		t.Fatalf("container env = %v, want nested Docker startup enabled", cfg.Env)
+	}
 }
 
 func TestContainerConfigsSystemdMode(t *testing.T) {
@@ -38,6 +45,7 @@ func TestContainerConfigsSystemdMode(t *testing.T) {
 	driver := &Driver{labelPrefix: "hivy", systemd: true}
 	cfg, hostCfg := driver.containerConfigs(dockerContainerSpec{
 		ImageRef:            "example:latest",
+		Labels:              map[string]string{"sandbox_image": model.SandboxImageDeveloper},
 		PublishDefaultPorts: true,
 	})
 

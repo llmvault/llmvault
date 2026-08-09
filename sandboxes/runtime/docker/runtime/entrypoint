@@ -44,6 +44,14 @@ terminate_children() {
 
 trap 'terminate_children; exit 143' INT TERM
 
+if [ "${HIVY_RUNTIME_START_DOCKERD:-0}" = "1" ]; then
+  if ! command -v hivy-start-docker >/dev/null 2>&1; then
+    echo "nested Docker was requested but hivy-start-docker is not installed" >&2
+    exit 127
+  fi
+  hivy-start-docker
+fi
+
 "$@" &
 runtime_pid="$!"
 wait "$runtime_pid"

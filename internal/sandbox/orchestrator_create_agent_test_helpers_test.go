@@ -39,11 +39,17 @@ func sandboxTestSymmetricKey(t *testing.T) *crypto.SymmetricKey {
 }
 
 type agentCreateProvider struct {
-	endpoint string
-	created  []CreateSandboxOpts
+	endpoint   string
+	providerID string
+	created    []CreateSandboxOpts
 }
 
-func (p *agentCreateProvider) ID() string { return ProviderMicrosandbox }
+func (p *agentCreateProvider) ID() string {
+	if p.providerID != "" {
+		return p.providerID
+	}
+	return ProviderMicrosandbox
+}
 
 func (p *agentCreateProvider) Validate(context.Context) error { return nil }
 

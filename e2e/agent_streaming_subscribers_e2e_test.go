@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,20 +27,13 @@ type subscriberReady struct {
 	index     int
 }
 
-func runSandboxSessionSubscriber(ctx context.Context, apiBase, token, orgID, sessionID, marker string, index int, ready chan<- subscriberReady) (subscriberResult, error) {
+func runAPISessionSubscriber(ctx context.Context, apiBase, token, orgID, sessionID, marker string, index int, ready chan<- subscriberReady) (subscriberResult, error) {
 	streamCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
-	access, err := fetchAgentSessionsSandboxAccessClient(streamCtx, apiBase, token, orgID, sessionID)
+	resp, err := openAPISessionStreamClient(streamCtx, apiBase, token, orgID, sessionID, url.Values{"after_seq": []string{"0"}})
 	if err != nil {
-		return subscriberResult{}, fmt.Errorf("subscriber %s/%d sandbox access: %w", sessionID, index, err)
-	}
-	if err := validateAgentSessionsSandboxStreamAccess(access, sessionID); err != nil {
-		return subscriberResult{}, fmt.Errorf("subscriber %s/%d sandbox access: %w", sessionID, index, err)
-	}
-	resp, err := openSandboxSessionStreamClient(streamCtx, sessionID, access)
-	if err != nil {
-		return subscriberResult{}, fmt.Errorf("subscriber %s/%d open stream: %w", sessionID, index, err)
+		return subscriberResult{}, fmt.Errorf("subscriber %s/%d open API stream: %w", sessionID, index, err)
 	}
 	defer resp.Body.Close()
 	if ready != nil {
@@ -71,6 +66,58 @@ func runSandboxSessionSubscriber(ctx context.Context, apiBase, token, orgID, ses
 		committed = append(committed, seq)
 	}
 	return subscriberResult{sessionID: sessionID, index: index, committed: committed, events: events}, nil
+}
+
+func openAPISessionStreamClient(ctx context.Context, apiBase, token, orgID, sessionID string, values url.Values) (*http.Response, error) {
+	endpoint := strings.TrimRight(apiBase, "/") + "/v1/sessions/" + url.PathEscape(sessionID) + "/stream"
+	if query := values.Encode(); query != "" {
+		endpoint += "?" + query
+	}
+	deadline := time.Now().Add(3 * time.Minute)
+	var lastStatus int
+	var lastBody []byte
+	var lastErr error
+	for {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		if err != nil {
+			return nil, fmt.Errorf("new API session stream request: %w", err)
+		}
+		req.Header.Set("Accept", "text/event-stream")
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("X-Org-ID", orgID)
+		resp, err := http.DefaultClient.Do(req)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			if !strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "text/event-stream") {
+				resp.Body.Close()
+				return nil, fmt.Errorf("API session stream content type=%q", resp.Header.Get("Content-Type"))
+			}
+			return resp, nil
+		}
+		if err != nil {
+			lastErr = err
+		} else {
+			lastStatus = resp.StatusCode
+			lastBody, _ = io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if lastStatus == http.StatusBadRequest || lastStatus == http.StatusUnauthorized || lastStatus == http.StatusForbidden {
+				return nil, fmt.Errorf("API session stream status=%d body=%s", lastStatus, lastBody)
+			}
+		}
+		if time.Now().After(deadline) {
+			if lastErr != nil {
+				return nil, fmt.Errorf("open API session stream: %w", lastErr)
+			}
+			return nil, fmt.Errorf("API session stream status=%d body=%s", lastStatus, lastBody)
+		}
+		select {
+		case <-ctx.Done():
+			if lastErr != nil {
+				return nil, fmt.Errorf("API session stream wait canceled: %w", lastErr)
+			}
+			return nil, fmt.Errorf("API session stream wait canceled after status=%d body=%s: %w", lastStatus, lastBody, ctx.Err())
+		case <-time.After(2 * time.Second):
+		}
+	}
 }
 
 func waitForStreamingSubscribersReady(t *testing.T, ctx context.Context, ready <-chan subscriberReady, errs <-chan error, want int) {

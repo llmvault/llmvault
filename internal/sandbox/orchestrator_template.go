@@ -15,11 +15,13 @@ func (o *Orchestrator) resolveBuildOpts(tmpl *model.SandboxTemplate, templateNam
 	if tmpl.BuildCommands != "" {
 		cmds = strings.Split(tmpl.BuildCommands, "\n")
 	}
+	baseImage := AgentRuntimeImageRef(o.cfg,
+		runtimeSandboxImageForProvider(o.provider.ID(), model.SandboxImageDefault))
 
 	opts := TemplateBuildRequest{
 		Name:          templateName,
 		BuildCommands: cmds,
-		BaseImage:     AgentRuntimeImageRef(o.cfg, model.SandboxImageDefault),
+		BaseImage:     baseImage,
 		OrgID:         "system",
 	}
 	if tmpl.OrgID != nil {

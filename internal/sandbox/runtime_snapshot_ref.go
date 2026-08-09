@@ -45,6 +45,16 @@ func AgentRuntimeImageRef(cfg *config.Config, sandboxImage string) string {
 	return runtimeImageRepository(profile) + ":latest"
 }
 
+func runtimeSandboxImageForProvider(providerID, sandboxImage string) string {
+	if providerID == ProviderDocker {
+		// Docker-backed sandboxes are the self-hosted/VPS execution environment.
+		// Always use the developer image there so agents can run a private nested
+		// Docker daemon without exposing the host Docker socket.
+		return model.SandboxImageDeveloper
+	}
+	return model.NormalizeSandboxImage(sandboxImage)
+}
+
 func AgentRuntimeImageRefs(cfg *config.Config) []string {
 	out := make([]string, 0, len(model.BuiltInSandboxImages()))
 	seen := map[string]bool{}

@@ -1,10 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query"
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest"
 
-vi.mock("@/app/w/(chat)/_lib/session-sandbox-access", () => ({
-  getSessionSandboxAccess: vi.fn(),
-}))
-
 vi.mock("@/app/w/(chat)/_lib/go-session-stream", async (importOriginal) => {
   const actual =
     await importOriginal<
@@ -23,15 +19,12 @@ import {
   suspendSessionConnectionsForOrg,
 } from "@/app/w/(chat)/_stores/session-stream-manager"
 import { useSessionRuntimeStore } from "@/app/w/(chat)/_stores/session-runtime-store"
-import { getSessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
 import {
   GoSessionStreamHTTPError,
   subscribeToGoSessionStream,
   type GoSessionStreamFrame,
 } from "@/app/w/(chat)/_lib/go-session-stream"
-import type { SessionSandboxAccess } from "@/app/w/(chat)/_lib/session-sandbox-access"
 
-const getSessionSandboxAccessMock = getSessionSandboxAccess as unknown as Mock
 const subscribeToGoSessionStreamMock =
   subscribeToGoSessionStream as unknown as Mock
 
@@ -49,43 +42,28 @@ describe("session stream manager", () => {
     })
   })
 
-  it("opens the chat stream with sandbox access instead of a backend stream", async () => {
+  it("opens the chat stream through the API without sandbox access", async () => {
     markTurnActive()
-    const access = sandboxAccess({ token: "token-1" })
-    getSessionSandboxAccessMock.mockResolvedValueOnce(access)
     subscribeToGoSessionStreamMock.mockResolvedValueOnce(undefined)
 
     const queryClient = testQueryClient()
     ensureSessionStream("session-1", { queryClient })
     await flushAsync()
 
-    expect(getSessionSandboxAccessMock).toHaveBeenCalledWith(
-      "session-1",
-      queryClient,
-      {
-        force: undefined,
-      }
-    )
     expect(subscribeToGoSessionStreamMock).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: "session-1",
-        access,
         replay: { mode: "all" },
       })
     )
   })
 
-  it("refreshes sandbox access once after a direct stream auth failure", async () => {
+  it("stops after an API stream authorization failure", async () => {
     vi.useFakeTimers()
     markTurnActive()
-    const firstAccess = sandboxAccess({ token: "expired-token" })
-    const refreshedAccess = sandboxAccess({ token: "fresh-token" })
-    getSessionSandboxAccessMock
-      .mockResolvedValueOnce(firstAccess)
-      .mockResolvedValueOnce(refreshedAccess)
-    subscribeToGoSessionStreamMock
-      .mockRejectedValueOnce(new GoSessionStreamHTTPError(401, "expired"))
-      .mockResolvedValueOnce(undefined)
+    subscribeToGoSessionStreamMock.mockRejectedValueOnce(
+      new GoSessionStreamHTTPError(401, "expired")
+    )
 
     const queryClient = testQueryClient()
     ensureSessionStream("session-1", { queryClient })
@@ -95,25 +73,14 @@ describe("session stream manager", () => {
     await vi.advanceTimersByTimeAsync(400)
     await flushAsync()
 
-    expect(getSessionSandboxAccessMock).toHaveBeenNthCalledWith(
-      2,
-      "session-1",
-      queryClient,
-      {
-        force: true,
-      }
-    )
-    expect(subscribeToGoSessionStreamMock).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        access: refreshedAccess,
-      })
-    )
+    expect(subscribeToGoSessionStreamMock).toHaveBeenCalledTimes(1)
+    expect(
+      useSessionRuntimeStore.getState().liveEventsBySessionId["session-1"]
+    ).toEqual(expect.any(Array))
   })
 
   it("keeps one stream open when the loaded replay mode changes", async () => {
     markTurnActive()
-    getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
     let firstSignal: AbortSignal | undefined
     subscribeToGoSessionStreamMock.mockImplementationOnce(({ signal }) => {
       firstSignal = signal
@@ -143,7 +110,6 @@ describe("session stream manager", () => {
   })
 
   it("suspends an active workspace stream and resumes from its cursor", async () => {
-    getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
     const signals: AbortSignal[] = []
     subscribeToGoSessionStreamMock.mockImplementation(({ signal }) => {
       signals.push(signal)
@@ -192,7 +158,6 @@ describe("session stream manager", () => {
   it("preserves from_turn_id across an early reconnect before a cursor exists", async () => {
     vi.useFakeTimers()
     markTurnActive()
-    getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
     subscribeToGoSessionStreamMock
       .mockRejectedValueOnce(new Error("network closed"))
       .mockResolvedValueOnce(undefined)
@@ -216,7 +181,6 @@ describe("session stream manager", () => {
   it("preserves durable from_turn_id follow across an early reconnect before a cursor exists", async () => {
     vi.useFakeTimers()
     markTurnActive()
-    getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
     subscribeToGoSessionStreamMock
       .mockRejectedValueOnce(new Error("network closed"))
       .mockResolvedValueOnce(undefined)
@@ -240,7 +204,6 @@ describe("session stream manager", () => {
   it("reconnects a durable stream that closes without an error", async () => {
     vi.useFakeTimers()
     markTurnActive()
-    getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
     subscribeToGoSessionStreamMock
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce(undefined)
@@ -263,9 +226,8 @@ describe("session stream manager", () => {
     )
   })
 
-  it("stops the direct stream as soon as the turn becomes idle", async () => {
+  it("stops the API stream as soon as the turn becomes idle", async () => {
     markTurnActive()
-    getSessionSandboxAccessMock.mockResolvedValueOnce(sandboxAccess())
     let signal: AbortSignal | undefined
     subscribeToGoSessionStreamMock.mockImplementationOnce(
       async ({ onEvent, signal: streamSignal }) => {
@@ -298,9 +260,8 @@ describe("session stream manager", () => {
     })
   })
 
-  it("stops the direct stream as soon as the turn fails", async () => {
+  it("stops the API stream as soon as the turn fails", async () => {
     markTurnActive()
-    getSessionSandboxAccessMock.mockResolvedValueOnce(sandboxAccess())
     let signal: AbortSignal | undefined
     subscribeToGoSessionStreamMock.mockImplementationOnce(
       async ({ onEvent, signal: streamSignal }) => {
@@ -336,7 +297,6 @@ describe("session stream manager", () => {
 
   it("finishes the session when a final frame arrives before turn_completed", async () => {
     markTurnActive()
-    getSessionSandboxAccessMock.mockResolvedValueOnce(sandboxAccess())
     subscribeToGoSessionStreamMock.mockImplementationOnce(
       async ({ onEvent }) => {
         onEvent?.(
@@ -364,7 +324,7 @@ describe("session stream manager", () => {
     expect(subscribeToGoSessionStreamMock).toHaveBeenCalledTimes(1)
   })
 
-  it("does not open a direct stream while the session is idle", async () => {
+  it("does not open an API stream while the session is idle", async () => {
     useSessionRuntimeStore.setState({
       statusBySessionId: {
         "session-1": {
@@ -380,13 +340,11 @@ describe("session stream manager", () => {
     })
     await flushAsync()
 
-    expect(getSessionSandboxAccessMock).not.toHaveBeenCalled()
     expect(subscribeToGoSessionStreamMock).not.toHaveBeenCalled()
   })
 
-  it("opens a new direct stream when the next agent turn starts", async () => {
+  it("opens a new API stream when the next agent turn starts", async () => {
     markTurnActive()
-    getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
     subscribeToGoSessionStreamMock
       .mockImplementationOnce(async ({ onEvent }) => {
         onEvent?.(frame("turn_completed", { turn_id: "turn-1" }))
@@ -419,7 +377,6 @@ describe("session stream manager", () => {
   it("reconnects with a full replay after resync_required", async () => {
     vi.useFakeTimers()
     markTurnActive()
-    getSessionSandboxAccessMock.mockResolvedValue(sandboxAccess())
     subscribeToGoSessionStreamMock
       .mockImplementationOnce(async ({ onEvent }) => {
         onEvent?.(frame("resync_required", { reason: "projection_gap" }))
@@ -441,9 +398,8 @@ describe("session stream manager", () => {
     )
   })
 
-  it("keeps repo-change invalidation on direct runtime frames", async () => {
+  it("keeps repo-change invalidation on proxied runtime frames", async () => {
     markTurnActive()
-    getSessionSandboxAccessMock.mockResolvedValueOnce(sandboxAccess())
     subscribeToGoSessionStreamMock.mockImplementationOnce(
       async ({ onEvent }) => {
         onEvent?.(
@@ -474,20 +430,6 @@ function markTurnActive() {
       },
     },
   })
-}
-
-function sandboxAccess(
-  overrides: Partial<SessionSandboxAccess> = {}
-): SessionSandboxAccess {
-  return {
-    session_id: "session-1",
-    sandbox_id: "sandbox-1",
-    sandbox_base_url: "https://sandbox.example.test",
-    token: "token",
-    expires_at: "2026-06-20T12:00:00Z",
-    scopes: ["repo:read", "stream:read"],
-    ...overrides,
-  }
 }
 
 function frame(

@@ -280,6 +280,10 @@ RUN mise settings set ruby.compile false \
 
 RUN printf '%s\n' 'if [ -n "${BASH_VERSION:-}" ]; then' '  eval "$(mise activate bash)"' 'fi' >/etc/profile.d/mise.sh
 
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends docker-buildx \
+  && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY hivy-sandboxes-runtime /usr/local/bin/hivy-sandboxes-runtime
@@ -382,6 +386,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY docker/runtime/hivy-runtime.service /etc/systemd/system/hivy-runtime.service
+COPY docker/runtime/hivy-docker.service /etc/systemd/system/hivy-docker.service
 COPY docker/runtime/hivy-log-forwarder.service /etc/systemd/system/hivy-log-forwarder.service
 COPY docker/runtime/hivy-log-forwarder /usr/local/bin/hivy-log-forwarder
 COPY docker/runtime/hivy-sandbox-env-generator /usr/lib/systemd/system-generators/hivy-sandbox-env-generator
@@ -389,6 +394,7 @@ COPY docker/runtime/hivy-sandbox-env-generator /usr/lib/systemd/system-generator
 RUN chmod +x /usr/local/bin/hivy-log-forwarder \
   /usr/lib/systemd/system-generators/hivy-sandbox-env-generator \
   && mkdir -p /var/lib/systemd/journal-upload \
+  && systemctl enable hivy-docker.service \
   && systemctl enable hivy-runtime.service \
   && systemctl enable hivy-log-forwarder.service
 

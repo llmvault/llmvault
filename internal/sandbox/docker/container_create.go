@@ -9,8 +9,11 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
 
+	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
+
+const runtimeStartDockerEnv = "HIVY_RUNTIME_START_DOCKERD"
 
 type dockerContainerSpec struct {
 	Name                string
@@ -79,7 +82,7 @@ func (d *Driver) containerConfigs(spec dockerContainerSpec) (*container.Config, 
 	}
 	cfg := &container.Config{
 		Image:        spec.ImageRef,
-		Env:          envList(spec.EnvVars),
+		Env:          envList(dockerInDockerEnv(spec.EnvVars, spec.Labels)),
 		Labels:       d.labels(spec.Labels),
 		ExposedPorts: portSetFromBindings(bindings),
 	}
@@ -96,6 +99,17 @@ func (d *Driver) containerConfigs(spec dockerContainerSpec) (*container.Config, 
 		hostCfg.CgroupnsMode = container.CgroupnsMode("private")
 	}
 	return cfg, hostCfg
+}
+
+func dockerInDockerEnv(input, labels map[string]string) map[string]string {
+	out := make(map[string]string, len(input)+1)
+	for key, value := range input {
+		out[key] = value
+	}
+	if labels["sandbox_image"] == model.SandboxImageDeveloper {
+		out[runtimeStartDockerEnv] = "1"
+	}
+	return out
 }
 
 func defaultPortBindings() nat.PortMap {
