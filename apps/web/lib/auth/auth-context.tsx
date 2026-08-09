@@ -22,7 +22,6 @@ import {
 import { clearPersistedSessionWorkspaces } from "@/app/w/(chat)/_stores/session-workspace-store"
 import {
   getActiveOrgIdFromCookie,
-  setActiveOrgCookie,
   switchActiveOrg,
 } from "@/lib/auth/workspace-switch"
 
@@ -90,10 +89,12 @@ export function AuthProvider({
   useEffect(() => {
     const nextOrgId = activeOrg?.id
     if (nextOrgId && nextOrgId !== activeOrgId) {
-      queueMicrotask(() => setActiveOrgId(nextOrgId))
-      setActiveOrgCookie(nextOrgId)
+      void switchActiveOrg(queryClient, nextOrgId, {
+        previousOrgId: activeOrgId,
+        activate: () => setActiveOrgId(nextOrgId),
+      })
     }
-  }, [activeOrg?.id, activeOrgId])
+  }, [activeOrg?.id, activeOrgId, queryClient])
 
   const setActiveOrg = useCallback(
     async (org: Org) => {
