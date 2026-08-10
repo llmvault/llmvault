@@ -154,13 +154,21 @@ export function usagePatchForFrame(
     }
   }
   const current = state.usageBySessionId[sessionId]
-  const costUsd = (current?.costUsd ?? 0) + cost
+  const modelCostUsd = (current?.modelCostUsd ?? 0) + cost
+  const modelCredits = creditsForCostUSD(modelCostUsd)
+  const sandboxCostUsd = current?.sandboxCostUsd ?? 0
+  const sandboxCredits = current?.sandboxCredits ?? 0
   return {
     usageBySessionId: {
       ...state.usageBySessionId,
       [sessionId]: {
-        costUsd,
-        credits: creditsForCostUSD(costUsd),
+        costUsd: modelCostUsd + sandboxCostUsd,
+        credits: modelCredits + sandboxCredits,
+        modelCostUsd,
+        modelCredits,
+        sandboxCostUsd,
+        sandboxCredits,
+        sandboxVCPUSeconds: current?.sandboxVCPUSeconds ?? 0,
         updatedAt: Date.now(),
       },
     },

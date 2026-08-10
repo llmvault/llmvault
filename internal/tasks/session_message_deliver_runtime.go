@@ -11,10 +11,10 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/observability/correlation"
-	"github.com/usehivy/hivy/internal/orgtier"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -28,12 +28,12 @@ func (h *SessionMessageDeliverHandler) loadRuntimeSandbox(ctx context.Context, s
 	return loadAgentSandboxByID(ctx, h.db, *agent.OrgID, agent.ID, *session.SandboxID)
 }
 
-func (h *SessionMessageDeliverHandler) ensureRuntimeClient(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, *agentruntime.Client, orgtier.WakeReservation, error) {
+func (h *SessionMessageDeliverHandler) ensureRuntimeClient(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, *agentruntime.Client, sandbox.WakeReservation, error) {
 	return h.ensureRuntimeClientUnlocked(ctx, session, agent)
 }
 
-func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, *agentruntime.Client, orgtier.WakeReservation, error) {
-	reservation := orgtier.WakeReservation{}
+func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.Context, session model.Session, agent *model.Agent) (*model.Sandbox, *agentruntime.Client, sandbox.WakeReservation, error) {
+	reservation := sandbox.WakeReservation{}
 	if h.compileDeps.EncKey == nil {
 		return nil, nil, reservation, fmt.Errorf("session message delivery: runtime encryption key is required")
 	}
@@ -52,10 +52,6 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 		if !h.allowProvisioning {
 			return nil, nil, reservation, ErrSessionRuntimeNotReady
 		}
-		effectiveSandboxSize, sizeErr := orgtier.EffectiveSandboxSize(ctx, h.db, session.OrgID, agent.SandboxSize, agent.SandboxTemplateID)
-		if sizeErr != nil {
-			return nil, nil, reservation, sizeErr
-		}
 		provisioning := correlation.NewProvisioning(session.ID)
 		provisioning.OrgID = session.OrgID.String()
 		provisioning.AgentID = agent.ID.String()
@@ -68,7 +64,7 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 			phaseStarted = time.Now()
 		}
 		logPhase("start")
-		err = orgtier.WithSessionCreate(ctx, h.db, session.OrgID, effectiveSandboxSize, func() error {
+		err = func() error {
 			runtimeAgent, runtimeOptions := sessionRuntimeAgent(agent, session)
 			runtimeOptions.TeamID = session.TeamID
 			runtimeOptions.SessionID = session.ID
@@ -98,15 +94,18 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 			if err := h.db.WithContext(ctx).Model(&model.Session{}).
 				Where("id = ? AND org_id = ?", session.ID, session.OrgID).
 				Updates(map[string]any{
-					"sandbox_id":                 sb.ID,
-					"runtime_mcp_actor_user_id":  runtimeMCPActorID(runtimeOptions.MCPContext),
-					"runtime_mcp_config_version": mcpConfigVersion,
+					"sandbox_id":                      sb.ID,
+					"sandbox_vcpu":                    sb.VCPU,
+					"sandbox_pricing_version":         billing.SandboxPricingVersion,
+					"sandbox_credits_per_vcpu_minute": billing.SandboxCreditsPerVCPUMinute,
+					"runtime_mcp_actor_user_id":       runtimeMCPActorID(runtimeOptions.MCPContext),
+					"runtime_mcp_config_version":      mcpConfigVersion,
 				}).Error; err != nil {
 				return fmt.Errorf("attach session sandbox: %w", err)
 			}
 			logPhase("attach session sandbox", "sandbox_id", sb.ID)
 			return nil
-		})
+		}()
 		if err != nil {
 			logging.FromContext(ctx).ErrorContext(ctx, "session lazy provisioning failed",
 				"event", "session provisioning",
@@ -130,7 +129,7 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 	} else if err != nil {
 		return nil, nil, reservation, fmt.Errorf("load agent sandbox: %w", err)
 	} else {
-		reservation, err = orgtier.ReserveSessionWake(ctx, h.db, session.OrgID, sb.ID)
+		reservation, err = sandbox.ReserveWake(ctx, h.db, session.OrgID, sb.ID)
 		if err != nil {
 			return nil, nil, reservation, err
 		}
@@ -143,13 +142,13 @@ func (h *SessionMessageDeliverHandler) ensureRuntimeClientUnlocked(ctx context.C
 	return sb, client, reservation, nil
 }
 
-func (h *SessionMessageDeliverHandler) commitWakeReservation(ctx context.Context, reservation orgtier.WakeReservation) {
+func (h *SessionMessageDeliverHandler) commitWakeReservation(ctx context.Context, reservation sandbox.WakeReservation) {
 	if err := reservation.Commit(ctx, h.db); err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "commit session delivery wake reservation", "org_id", reservation.OrgID, "sandbox_id", reservation.SandboxID, "error", err)
 	}
 }
 
-func (h *SessionMessageDeliverHandler) rollbackWakeReservation(ctx context.Context, reservation orgtier.WakeReservation) {
+func (h *SessionMessageDeliverHandler) rollbackWakeReservation(ctx context.Context, reservation sandbox.WakeReservation) {
 	cleanupCtx := context.WithoutCancel(ctx)
 	if err := reservation.Rollback(cleanupCtx, h.db); err != nil {
 		logging.FromContext(cleanupCtx).ErrorContext(cleanupCtx, "rollback session delivery wake reservation", "org_id", reservation.OrgID, "sandbox_id", reservation.SandboxID, "error", err)

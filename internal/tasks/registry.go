@@ -102,6 +102,7 @@ func NewServeMux(deps *WorkerDeps) *asynq.ServeMux {
 
 	if deps.Credits != nil {
 		mux.HandleFunc(TypeBillingBatchProcess, NewBillingBatchProcessHandler(deps.DB, deps.Credits).Handle)
+		mux.HandleFunc(TypeSandboxBillingProcess, NewSandboxBillingProcessHandler(deps.DB, deps.UsageNotices).Handle)
 	}
 
 	if deps.CacheManager != nil {

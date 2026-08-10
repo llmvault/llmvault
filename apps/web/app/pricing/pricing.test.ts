@@ -2,6 +2,7 @@ import React from "react"
 import { renderToString } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import PricingPage from "./page"
+import { pricingComparisons } from "./_components/pricing-comparison-data"
 import { calculateDeposit } from "./_components/pricing-model"
 
 describe("deposit calculator", () => {
@@ -44,18 +45,9 @@ describe("pricing page", () => {
     expect(html).toContain('aria-label="Select $250 deposit"')
     expect(html).toContain('aria-label="Select $500 deposit"')
     expect(html).not.toContain('aria-label="Select $2 deposit"')
-    expect(html).toContain('data-tier-indicator="1"')
-    expect(html).toContain('data-tier-indicator="2"')
-    expect(html).toContain('data-tier-indicator="3"')
-    expect(html).toContain('data-tier-indicator="4"')
-    expect(html).toContain("Tier 2 unlocks at $100 in lifetime deposits")
-    expect(html).toContain("Tier 3 unlocks at $250 in lifetime deposits")
-    expect(html).toContain(
-      "2 concurrent agent sessions, Small sandboxes, and 3 GB of knowledge storage."
-    )
-    expect(html).toContain(
-      "10 concurrent agent sessions, Large sandboxes, and 10 GB of knowledge storage."
-    )
+    expect(html).not.toContain("data-tier-indicator")
+    expect(html).not.toContain("lifetime deposits")
+    expect(html).toContain("one credit per active vCPU-minute")
     expect(html).toContain("transition-[width]")
     expect(html).toContain(
       "transition-[left,background-color,transform,box-shadow]"
@@ -76,10 +68,8 @@ describe("pricing page", () => {
     expect(html).toContain("Unlimited automations")
     expect(html).toContain("Role-based access control")
     expect(html).toContain("API and MCP access")
-    expect(html).toContain("Unlimited usage, tiered capacity.")
-    expect(html).toContain(
-      "Your organisation tier sets concurrent agent sessions, maximum sandbox size, and burst capacity"
-    )
+    expect(html).toContain("Every sandbox size is available.")
+    expect(html).toContain("Nano and Small cost 1 credit per active minute")
     expect(html).not.toContain("Everything included")
     expect(html).not.toContain("Build the whole company")
     expect(html).not.toContain("No feature tiers")
@@ -87,14 +77,13 @@ describe("pricing page", () => {
     expect(html).toContain("0%")
     expect(html).toContain("Kept in your balance")
     expect(html).toContain("Will Hivy charge me every month?")
-    expect(html).toContain("What capacity do deposits unlock?")
-    expect(html).toContain("Concurrent agent sessions")
-    expect(html).not.toContain("Concurrent sessions")
-    expect(html).toContain("Why does Hivy use capacity tiers?")
+    expect(html).toContain("How is sandbox compute charged?")
+    expect(html).toContain("Can I choose any sandbox size?")
     expect(html).toContain(
-      "Capacity tiers keep entry-level deposits small without making light users subsidize bursty workloads."
+      "There are no deposit tiers or sandbox-size unlocks."
     )
-    expect(html).toContain("Unlocks are permanent and never downgrade.")
+    expect(html).not.toContain("capacity tiers")
+    expect(html).not.toContain("Unlocks are permanent")
     expect(html).toContain('data-slot="accordion"')
     expect(html).toContain('data-slot="accordion-panel"')
     expect(html).toContain("pricing-faq-panel")
@@ -107,5 +96,56 @@ describe("pricing page", () => {
     expect(html).not.toContain("Pricing explorations")
     expect(html).not.toContain("10%")
     expect(html).toContain("marketing-link-scope")
+    expect(html).toContain("Your business is overpaying for AI work.")
+    expect(html).toContain(
+      "These providers charge recurring platform or seat fees before your agents do any work."
+    )
+    expect(html).toContain("Choose a provider to compare with Hivy")
+    expect(html).toContain("Hivy vs. Claude Team")
+    expect(html).toContain("$50 / month")
+    expect(html).toContain("Public prices checked August 10, 2026")
+    expect(html).toContain(
+      "This compares billing mechanics, not feature equivalence."
+    )
+  })
+})
+
+describe("provider pricing comparisons", () => {
+  it("keeps one complete comparison for each requested provider", () => {
+    expect(pricingComparisons.map((comparison) => comparison.id)).toEqual([
+      "claude",
+      "chatgpt",
+      "gumloop",
+      "notion",
+    ])
+    expect(pricingComparisons.at(-1)?.tabLabel).toBe("Notion agents")
+
+    for (const comparison of pricingComparisons) {
+      expect(comparison.rows.map((row) => row.label)).toEqual([
+        "Monthly floor",
+        "Five-person team",
+        "Agent usage",
+        "When agents are idle",
+        "Seat model",
+      ])
+      expect(comparison.sources.length).toBeGreaterThan(0)
+    }
+  })
+
+  it("uses the published monthly cost for a five-person team", () => {
+    const fivePersonCosts = Object.fromEntries(
+      pricingComparisons.map((comparison) => [
+        comparison.id,
+        comparison.rows.find((row) => row.label === "Five-person team")
+          ?.competitor,
+      ])
+    )
+
+    expect(fivePersonCosts).toEqual({
+      claude: "$125 / month",
+      chatgpt: "$125 / month",
+      gumloop: "$37 / month",
+      notion: "$100 / month + credits",
+    })
   })
 })

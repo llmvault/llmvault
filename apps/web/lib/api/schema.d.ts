@@ -14722,7 +14722,7 @@ export interface paths {
         };
         /**
          * Get session usage
-         * @description Returns model usage cost and estimated credits for one visible session.
+         * @description Returns model and sandbox usage for one visible session.
          */
         get: {
             parameters: {
@@ -18673,7 +18673,6 @@ export interface components {
         };
         orgMemberDTO: {
             byok?: boolean;
-            capacity_tier?: number;
             credits?: number;
             id?: string;
             logo_url?: string;
@@ -18690,13 +18689,9 @@ export interface components {
         };
         orgResponse: {
             active?: boolean;
-            capacity_tier?: number;
-            concurrent_session_limit?: number;
             created_at?: string;
             id?: string;
-            knowledge_storage_limit_gb?: number;
             logo_url?: string;
-            max_sandbox_size?: string;
             name?: string;
             onboarding_step?: string;
             prompt_company?: string;
@@ -19223,6 +19218,11 @@ export interface components {
         sessionUsageResponse: {
             cost_usd?: number;
             credits?: number;
+            model_cost_usd?: number;
+            model_credits?: number;
+            sandbox_cost_usd?: number;
+            sandbox_credits?: number;
+            sandbox_vcpu_seconds?: number;
         };
         sheetArchivedRowsResponse: {
             archived?: number;

@@ -4,28 +4,59 @@ import { AppIcon } from "@/components/icon"
 import { AnimatePresence, motion } from "motion/react"
 import { cn } from "@/lib/utils"
 import {
+  formatSessionCredits,
   formatSessionCostUSD,
   type SessionUsageSummary,
 } from "@/app/w/(chat)/_lib/session-usage"
 
 export function SessionSpendPill({ usage }: { usage?: SessionUsageSummary }) {
-  const costUsd = usage?.costUsd ?? 0
-  const credits = usage?.credits ?? 0
-  const formattedCredits = credits.toLocaleString("en-NG")
-  const formattedCost = formatSessionCostUSD(costUsd)
+  const modelCredits = formatSessionCredits(usage?.modelCredits ?? 0)
+  const modelCost = formatSessionCostUSD(usage?.modelCostUsd ?? 0)
+  const sandboxCredits = formatSessionCredits(usage?.sandboxCredits ?? 0)
+  const sandboxCost = formatSessionCostUSD(usage?.sandboxCostUsd ?? 0)
 
   return (
     <div
-      aria-label={`Session spend: ${formattedCredits} credits, ${formattedCost}`}
-      className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-transparent px-2 text-xs text-muted"
+      aria-label={`Session spend. Model: ${modelCredits} credits, ${modelCost}. Sandbox: ${sandboxCredits} credits, ${sandboxCost}.`}
+      className="flex h-8 shrink-0 items-center gap-2 rounded-full border border-transparent px-2 text-xs text-muted"
     >
-      <AppIcon icon="coins" className="h-3.5 w-3.5" />
-      <AnimatedSpendNumber value={formattedCredits} />
-      <AnimatedSpendNumber
-        value={formattedCost}
-        className="hidden sm:inline-grid"
+      <SpendSegment
+        icon="coins"
+        label="Model"
+        credits={modelCredits}
+        cost={modelCost}
+      />
+      <span aria-hidden="true" className="h-3.5 w-px bg-border" />
+      <SpendSegment
+        icon="cpu"
+        label="Sandbox"
+        credits={sandboxCredits}
+        cost={sandboxCost}
       />
     </div>
+  )
+}
+
+function SpendSegment({
+  icon,
+  label,
+  credits,
+  cost,
+}: {
+  icon: "coins" | "cpu"
+  label: string
+  credits: string
+  cost: string
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <AppIcon icon={icon} className="h-3.5 w-3.5 shrink-0" />
+      <span className="hidden font-medium text-foreground lg:inline">
+        {label}
+      </span>
+      <AnimatedSpendNumber value={`${credits} cr`} />
+      <AnimatedSpendNumber value={cost} className="hidden sm:inline-grid" />
+    </span>
   )
 }
 

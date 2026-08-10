@@ -14,7 +14,6 @@ import (
 
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/orgtier"
 )
 
 // agentActor resolves the requesting actor's org role and user id for
@@ -244,26 +243,26 @@ func normalizeAgentSandboxSizeForRequest(w http.ResponseWriter, value *string) (
 	return normalized, true
 }
 
-func (h *AgentHandler) validateAgentSandboxCapacityForRequest(
+func (h *AgentHandler) validateAgentSandboxTemplateForRequest(
 	ctx context.Context,
 	w http.ResponseWriter,
 	orgID uuid.UUID,
-	capacityTier int,
-	size string,
 	templateID *uuid.UUID,
 ) bool {
-	effectiveSize, err := orgtier.EffectiveSandboxSize(ctx, h.db, orgID, size, templateID)
+	if templateID == nil {
+		return true
+	}
+	var tmpl model.SandboxTemplate
+	err := h.db.WithContext(ctx).
+		Where("id = ? AND (org_id = ? OR org_id IS NULL)", *templateID, orgID).
+		First(&tmpl).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "sandbox template not found"})
 		return false
 	}
 	if err != nil {
-		logging.FromContext(ctx).ErrorContext(ctx, "load agent sandbox template capacity", "org_id", orgID, "error", err)
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to validate sandbox capacity"})
-		return false
-	}
-	if err := orgtier.ValidateSandboxSize(capacityTier, effectiveSize); err != nil {
-		writeOrgTierError(w, err)
+		logging.FromContext(ctx).ErrorContext(ctx, "load agent sandbox template", "org_id", orgID, "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to validate sandbox template"})
 		return false
 	}
 	return true

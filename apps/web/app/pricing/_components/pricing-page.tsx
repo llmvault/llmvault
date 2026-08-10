@@ -3,6 +3,7 @@ import { AppIcon } from "@/components/icon"
 import { LandingHeader } from "../../home/_components/landing-header"
 import { LandingFooter } from "../../home/_components/landing-shared"
 import { PricingCalculator } from "./pricing-calculator"
+import { PricingComparisonSection } from "./pricing-comparison"
 
 const includedFeatures = [
   "Unlimited users",
@@ -33,8 +34,8 @@ function PricingHero() {
         </h1>
         <div className="mt-12 grid gap-8 border-t border-border pt-8 md:grid-cols-[1fr_300px] md:items-end">
           <p className="max-w-[720px] text-lg leading-8">
-            Add $100 in credits and pay $112 once. Hivy never marks up the model
-            or provider costs your agents create.
+            Add $100 in credits and pay $112 once. Credits cover model usage and
+            sandbox compute at one credit per active vCPU-minute.
           </p>
           <div className="md:text-right">
             <p className="text-7xl font-medium tracking-[-0.07em] md:text-8xl">
@@ -90,7 +91,7 @@ function IncludedSection() {
         ))}
       </div>
       <aside
-        aria-label="Organisation tier limits"
+        aria-label="Sandbox compute pricing"
         className="mt-6 flex max-w-[78ch] items-start gap-3"
       >
         <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-surface-secondary text-muted">
@@ -98,12 +99,12 @@ function IncludedSection() {
         </span>
         <div>
           <p className="text-sm font-medium">
-            Unlimited usage, tiered capacity.
+            Every sandbox size is available.
           </p>
           <p className="mt-1 text-sm leading-6 text-muted">
-            There’s no cap on total usage or storage. Your organisation tier
-            sets concurrent agent sessions, maximum sandbox size, and burst
-            capacity; higher tiers unlock permanently as lifetime deposits grow.
+            Sandbox compute costs one credit per active vCPU-minute. Nano and
+            Small cost 1 credit per active minute, Medium costs 2, and Large
+            costs 4. Idle time does not spend sandbox credits.
           </p>
         </div>
       </aside>
@@ -113,7 +114,8 @@ function IncludedSection() {
 
 function AtCostSection() {
   const passThrough = [
-    ["Model and provider bill", "Charged at cost"],
+    ["Model usage", "Charged at cost"],
+    ["Sandbox compute", "1 credit / active vCPU-min"],
     ["Prompt-cache savings", "Kept in your balance"],
     ["Quantized-model savings", "Kept in your balance"],
   ] as const
@@ -129,8 +131,8 @@ function AtCostSection() {
             Cheaper models should lower your bill.
           </h2>
           <p className="mt-6 max-w-[58ch] text-sm leading-6 text-muted">
-            Your balance covers the model and provider costs your agents create.
-            When caching or a quantized model cuts that cost, you keep the
+            Your balance covers model usage and active sandbox compute. When
+            caching or a quantized model cuts model cost, you keep the
             difference.
           </p>
         </div>
@@ -172,22 +174,22 @@ function PricingFaq() {
     {
       question: "What do I get without a plan?",
       answer:
-        "Unlimited users, teams, agents, total sessions, sandboxes, knowledge sources, and connections. Concurrent agent sessions, sandbox size, and knowledge storage grow with your permanent org tier.",
+        "Unlimited users, teams, agents, sessions, sandboxes, knowledge sources, and connections. Choose any sandbox size and pay only for its active vCPU time.",
     },
     {
-      question: "What capacity do deposits unlock?",
+      question: "How is sandbox compute charged?",
       answer:
-        "Every org starts with 1 concurrent agent session, nano sandboxes, and 1 GB of knowledge storage. Lifetime deposits of $100 unlock 2 concurrent agent sessions, small sandboxes, and 3 GB; $250 unlocks 5 concurrent agent sessions, medium sandboxes, and 5 GB; $500 unlocks 10 concurrent agent sessions, large sandboxes, and 10 GB. Unlocks are permanent and never downgrade.",
+        "One credit buys one active vCPU-minute. Nano and Small use 1 vCPU, Medium uses 2, and Large uses 4. Billing accumulates by the second across active agent turns; idle time does not spend sandbox credits.",
     },
     {
-      question: "Why does Hivy use capacity tiers?",
+      question: "Can I choose any sandbox size?",
       answer:
-        "Sandboxes reserve real compute even when model usage is low. Capacity tiers keep entry-level deposits small without making light users subsidize bursty workloads. As your lifetime deposits grow, your org permanently unlocks more concurrent agent sessions, larger sandboxes, and more knowledge storage. All product features remain included, and your org never downgrades.",
+        "Yes. There are no deposit tiers or sandbox-size unlocks. Larger sandboxes simply spend credits faster while they are active.",
     },
     {
       question: "What spends my credits?",
       answer:
-        "Only the underlying model and provider costs created by agent work. Hivy doesn’t take a cut when your agents spend credits.",
+        "Model usage and active sandbox compute. Sandbox compute costs one credit per active vCPU-minute; idle time costs nothing.",
     },
     {
       question: "Do you mark up model prices?",
@@ -262,6 +264,7 @@ export function PricingPage() {
       <LandingHeader />
       <PricingHero />
       <CalculatorSection />
+      <PricingComparisonSection />
       <IncludedSection />
       <AtCostSection />
       <PricingFaq />

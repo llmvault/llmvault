@@ -26,10 +26,6 @@ type Org struct {
 	// When false, agents fall back to platform-owned system credentials.
 	BYOK bool `gorm:"not null;default:false"`
 
-	// CapacityTier is a permanent org unlock promoted by lifetime completed
-	// deposits. It never decreases automatically.
-	CapacityTier int `gorm:"not null;default:1"`
-
 	// LogoURL is a CDN-served URL to the org's square logo. Stored as the
 	// asset_url returned from POST /v1/uploads/sign with asset_type=org_logo.
 	// Empty string when no logo is set.

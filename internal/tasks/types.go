@@ -44,6 +44,7 @@ const (
 	TypeSandboxResourceCheck  = "periodic:sandbox_resource_check"
 	TypeSandboxReap           = "periodic:sandbox_reap"
 	TypeBillingBatchProcess   = "periodic:billing_batch_process"
+	TypeSandboxBillingProcess = "periodic:sandbox_billing_process"
 	TypeAgentScheduleScan     = "periodic:agent_schedule_scan"
 	TypeSessionReflectionScan = "periodic:session_reflection_scan"
 	TypeSandboxAutoSleep      = "periodic:sandbox_auto_sleep"

@@ -17,7 +17,7 @@ func (o *Orchestrator) RefreshAgentSandboxURL(ctx context.Context, sb *model.San
 		return fmt.Errorf("get agent sandbox endpoint: %w", err)
 	}
 	expiresAt := time.Now().Add(runtimeURLTTL)
-	if err := o.db.Model(sb).Updates(map[string]any{
+	if err := o.db.WithContext(ctx).Model(sb).Updates(map[string]any{
 		"runtime_url":            url,
 		"runtime_url_expires_at": expiresAt,
 	}).Error; err != nil {
@@ -37,8 +37,8 @@ func (o *Orchestrator) StartAgentSandbox(ctx context.Context, sb *model.Sandbox)
 	defer unlock()
 
 	var fresh model.Sandbox
-	if err := o.db.First(&fresh, "id = ?", sb.ID).Error; err == nil {
-		sb = &fresh
+	if err := o.db.WithContext(ctx).First(&fresh, "id = ?", sb.ID).Error; err == nil {
+		*sb = fresh
 	}
 	if sb.Status != string(StatusRunning) {
 		if err := o.provider.StartSandbox(ctx, sb.ExternalID); err != nil {
@@ -52,7 +52,7 @@ func (o *Orchestrator) StartAgentSandbox(ctx context.Context, sb *model.Sandbox)
 		return fmt.Errorf("waiting for agent runtime: %w", err)
 	}
 	now := time.Now()
-	if err := o.db.Model(sb).Updates(map[string]any{
+	if err := o.db.WithContext(ctx).Model(sb).Updates(map[string]any{
 		"status":         string(StatusRunning),
 		"last_active_at": now,
 		"stopped_at":     nil,
@@ -88,7 +88,7 @@ func (o *Orchestrator) RestartAgentSandbox(ctx context.Context, sb *model.Sandbo
 			return fmt.Errorf("waiting for agent runtime: %w", err)
 		}
 		now := time.Now()
-		if err := o.db.Model(sb).Updates(map[string]any{
+		if err := o.db.WithContext(ctx).Model(sb).Updates(map[string]any{
 			"status":         string(StatusRunning),
 			"last_active_at": now,
 			"stopped_at":     nil,

@@ -148,43 +148,34 @@ export function UsageBilling() {
           </p>
         </DocSection>
 
-        <DocSection title="Lifetime deposits unlock permanent capacity">
+        <DocSection title="Sandbox compute uses credits while active">
           <p>
-            Capacity depends on the total credits the workspace has purchased,
-            not the current balance. Reaching a threshold permanently unlocks
-            more simultaneous agent sessions, a larger maximum sandbox, and more
-            indexed knowledge storage.
+            Every sandbox size is available. Active compute costs one credit per
+            vCPU-minute and billing accumulates by the second across active agent
+            turns. Idle time does not spend sandbox credits.
           </p>
           <div className="mt-6 overflow-hidden rounded-xl border border-border bg-surface">
             <div className="grid grid-cols-[4.5rem_1fr] gap-4 border-b border-border px-4 py-3 text-sm">
-              <strong className="text-foreground">Start</strong>
-              <span className="text-muted">
-                1 session, Nano sandbox, 1 GB knowledge
-              </span>
+              <strong className="text-foreground">Nano</strong>
+              <span className="text-muted">1 credit per active minute</span>
             </div>
             <div className="grid grid-cols-[4.5rem_1fr] gap-4 border-b border-border px-4 py-3 text-sm">
-              <strong className="text-foreground">$100</strong>
-              <span className="text-muted">
-                2 sessions, Small sandbox, 3 GB knowledge
-              </span>
+              <strong className="text-foreground">Small</strong>
+              <span className="text-muted">1 credit per active minute</span>
             </div>
             <div className="grid grid-cols-[4.5rem_1fr] gap-4 border-b border-border px-4 py-3 text-sm">
-              <strong className="text-foreground">$250</strong>
-              <span className="text-muted">
-                5 sessions, Medium sandbox, 5 GB knowledge
-              </span>
+              <strong className="text-foreground">Medium</strong>
+              <span className="text-muted">2 credits per active minute</span>
             </div>
             <div className="grid grid-cols-[4.5rem_1fr] gap-4 px-4 py-3 text-sm">
-              <strong className="text-foreground">$500</strong>
-              <span className="text-muted">
-                10 sessions, Large sandbox, 10 GB knowledge
-              </span>
+              <strong className="text-foreground">Large</strong>
+              <span className="text-muted">4 credits per active minute</span>
             </div>
           </div>
           <p className="mt-4">
-            Thresholds use the USD value of completed deposits, including NGN
-            purchases. Spending credits or receiving a refund never lowers an
-            unlocked capacity tier.
+            Hivy aggregates fractional vCPU-seconds before deducting whole
+            credits, so frequent sleep and wake cycles do not round every run up
+            to a full minute.
           </p>
         </DocSection>
 

@@ -1,51 +1,20 @@
 import { describe, expect, it } from "vitest"
 
-import { AGENT_SANDBOX_SIZE_OPTIONS, sandboxSizeOptionsForTier } from "./_lib"
+import { AGENT_SANDBOX_SIZE_OPTIONS, sandboxSizeOptions } from "./_lib"
 
-describe("agent sandbox tier options", () => {
-  it("keeps every size visible and disables sizes above the permanent org tier", () => {
-    expect(sandboxSizeOptionsForTier(1)).toEqual([
-      expect.objectContaining({ key: "nano", isDisabled: false }),
-      expect.objectContaining({
-        key: "small",
-        isDisabled: true,
-        disabledReason: "Tier 2 required",
-      }),
-      expect.objectContaining({
-        key: "medium",
-        isDisabled: true,
-        disabledReason: "Tier 3 required",
-      }),
-      expect.objectContaining({
-        key: "large",
-        isDisabled: true,
-        disabledReason: "Tier 4 required",
-      }),
-    ])
+describe("agent sandbox pricing options", () => {
+  it("makes every size available and prices allocated vCPU time", () => {
     expect(
-      sandboxSizeOptionsForTier(4).map(({ key, isDisabled }) => ({
+      sandboxSizeOptions().map(({ key, isDisabled, price }) => ({
         key,
         isDisabled,
+        price,
       }))
     ).toEqual([
-      { key: "nano", isDisabled: false },
-      { key: "small", isDisabled: false },
-      { key: "medium", isDisabled: false },
-      { key: "large", isDisabled: false },
-    ])
-  })
-
-  it("treats missing tier data as tier 1", () => {
-    expect(
-      sandboxSizeOptionsForTier(undefined)
-        .filter(({ isDisabled }) => !isDisabled)
-        .map(({ key }) => key)
-    ).toEqual(["nano"])
-    expect(sandboxSizeOptionsForTier(undefined).map(({ key }) => key)).toEqual([
-      "nano",
-      "small",
-      "medium",
-      "large",
+      { key: "nano", isDisabled: false, price: "1 credit/active min" },
+      { key: "small", isDisabled: false, price: "1 credit/active min" },
+      { key: "medium", isDisabled: false, price: "2 credits/active min" },
+      { key: "large", isDisabled: false, price: "4 credits/active min" },
     ])
   })
 

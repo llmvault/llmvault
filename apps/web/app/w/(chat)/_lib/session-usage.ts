@@ -3,11 +3,21 @@ const CREDIT_USD_VALUE = 0.001
 export interface SessionUsageSnapshot {
   cost_usd?: number
   credits?: number
+  model_cost_usd?: number
+  model_credits?: number
+  sandbox_cost_usd?: number
+  sandbox_credits?: number
+  sandbox_vcpu_seconds?: number
 }
 
 export interface SessionUsageSummary {
   costUsd: number
   credits: number
+  modelCostUsd: number
+  modelCredits: number
+  sandboxCostUsd: number
+  sandboxCredits: number
+  sandboxVCPUSeconds: number
   updatedAt: number
 }
 
@@ -15,9 +25,25 @@ export function sessionUsageSummaryFromSnapshot(
   snapshot: SessionUsageSnapshot
 ): SessionUsageSummary {
   const costUsd = positiveNumber(snapshot.cost_usd)
+  const credits = positiveNumber(snapshot.credits) || creditsForCostUSD(costUsd)
+  const sandboxCredits = nonNegativeNumber(snapshot.sandbox_credits)
+  const sandboxCostUsd =
+    nonNegativeNumber(snapshot.sandbox_cost_usd) ||
+    sandboxCredits * CREDIT_USD_VALUE
+  const modelCredits =
+    nonNegativeNumber(snapshot.model_credits) ||
+    Math.max(0, credits - sandboxCredits)
+  const modelCostUsd =
+    nonNegativeNumber(snapshot.model_cost_usd) ||
+    Math.max(0, costUsd - sandboxCostUsd)
   return {
     costUsd,
-    credits: positiveInteger(snapshot.credits) || creditsForCostUSD(costUsd),
+    credits,
+    modelCostUsd,
+    modelCredits,
+    sandboxCostUsd,
+    sandboxCredits,
+    sandboxVCPUSeconds: nonNegativeNumber(snapshot.sandbox_vcpu_seconds),
     updatedAt: Date.now(),
   }
 }
@@ -34,6 +60,13 @@ export function formatSessionCostUSD(costUsd: number) {
     minimumFractionDigits: 4,
     maximumFractionDigits: 4,
   }).format(positiveNumber(costUsd))
+}
+
+export function formatSessionCredits(credits: number) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(nonNegativeNumber(credits))
 }
 
 export function modelUsageEventKey(payload: Record<string, unknown>) {
@@ -76,8 +109,8 @@ function positiveNumber(value: unknown) {
     : 0
 }
 
-function positiveInteger(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) && value > 0
-    ? Math.trunc(value)
+function nonNegativeNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value
     : 0
 }

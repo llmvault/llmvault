@@ -29,44 +29,41 @@ export const AGENT_SANDBOX_SIZE_OPTIONS: Array<{
   key: AgentSandboxSize
   label: string
   specs: string
-  requiredTier: number
+  creditsPerActiveMinute: number
 }> = [
   {
     key: "nano",
     label: "Nano",
     specs: "1 CPU / 1 GB RAM / 5 GB disk",
-    requiredTier: 1,
+    creditsPerActiveMinute: 1,
   },
   {
     key: "small",
     label: "Small",
     specs: "1 CPU / 2 GB RAM / 10 GB disk",
-    requiredTier: 2,
+    creditsPerActiveMinute: 1,
   },
   {
     key: "medium",
     label: "Medium",
     specs: "2 CPU / 4 GB RAM / 20 GB disk",
-    requiredTier: 3,
+    creditsPerActiveMinute: 2,
   },
   {
     key: "large",
     label: "Large",
     specs: "4 CPU / 8 GB RAM / 40 GB disk",
-    requiredTier: 4,
+    creditsPerActiveMinute: 4,
   },
 ]
 
-export function sandboxSizeOptionsForTier(tier: number | undefined) {
-  const currentTier = Math.min(Math.max(tier ?? 1, 1), 4)
+export function sandboxSizeOptions() {
   return AGENT_SANDBOX_SIZE_OPTIONS.map((option) => {
-    const isDisabled = option.requiredTier > currentTier
     return {
       ...option,
-      isDisabled,
-      disabledReason: isDisabled
-        ? `Tier ${option.requiredTier} required`
-        : undefined,
+      isDisabled: false,
+      disabledReason: undefined,
+      price: `${option.creditsPerActiveMinute} credit${option.creditsPerActiveMinute === 1 ? "" : "s"}/active min`,
     }
   })
 }

@@ -181,8 +181,6 @@ var migratedTables = []string{
 	"otp_codes",
 	"password_resets",
 	"rag_embedding_models",
-	"rag_document_storage_usage",
-	"org_session_capacity_reservations",
 	"rag_index_attempt_errors",
 	"rag_index_attempts",
 	"rag_search_settings",
@@ -191,6 +189,7 @@ var migratedTables = []string{
 	"rag_sync_states",
 	"refresh_tokens",
 	"sandbox_templates",
+	"sandbox_turn_usage",
 	"sandbox_warm_slots",
 	"sandboxes",
 	"session_events",
@@ -222,4 +221,4 @@ var migratedTables = []string{
 	"users",
 }
 
-const latestMigrationVersion = 11
+const latestMigrationVersion = 12

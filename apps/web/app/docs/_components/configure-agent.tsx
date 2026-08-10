@@ -161,8 +161,9 @@ export function ConfigureAgent() {
           <p>
             Use the default sandbox image for general work; choose the developer
             image when the job needs preinstalled developer tools. Start with
-            the smallest size your workspace tier allows, then raise its CPU,
-            memory, or disk only after a session hits a resource limit.
+            the smallest size that fits the work, then raise its CPU, memory, or
+            disk only after a session hits a resource limit. Larger sandboxes
+            spend more credits per active minute.
           </p>
           <p className="mt-3">
             Saving the form doesn&apos;t create a sandbox. Hivy waits until the

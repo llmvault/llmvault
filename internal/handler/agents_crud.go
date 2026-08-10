@@ -133,7 +133,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !h.validateAgentSandboxCapacityForRequest(ctx, w, org.ID, org.CapacityTier, sandboxSize, sandboxTemplateID) {
+	if !h.validateAgentSandboxTemplateForRequest(ctx, w, org.ID, sandboxTemplateID) {
 		return
 	}
 	if req.McpServers != nil {

@@ -24,12 +24,20 @@ var ErrAlreadyRecorded = errors.New("billing: spend already recorded (idempotent
 
 // Grant reasons (stored in credit_ledger_entries.reason).
 const (
-	ReasonTopup        = "topup"
-	ReasonAdjustment   = "adjustment"
-	ReasonRefund       = "refund"
-	ReasonAgentRun     = "agent_run"
-	ReasonLLMTokens    = "llm_tokens"
-	ReasonWelcomeGrant = "welcome_grant"
+	ReasonTopup          = "topup"
+	ReasonAdjustment     = "adjustment"
+	ReasonRefund         = "refund"
+	ReasonAgentRun       = "agent_run"
+	ReasonLLMTokens      = "llm_tokens"
+	ReasonSandboxCompute = "sandbox_compute"
+	ReasonWelcomeGrant   = "welcome_grant"
+)
+
+// Sandbox pricing is snapshotted onto each session so future price changes do
+// not rewrite already-recorded turn usage.
+const (
+	SandboxPricingVersion       = 1
+	SandboxCreditsPerVCPUMinute = 1
 )
 
 // RefType for welcome grants: ref_id is the new user's ID. Deployments should

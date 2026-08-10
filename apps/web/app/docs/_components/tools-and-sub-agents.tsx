@@ -145,9 +145,9 @@ export function ToolsAndSubAgents() {
             ))}
           </dl>
           <p className="mt-4">
-            Start with the smallest size your workspace tier allows. Move up
-            only after a session runs short of memory, disk, or processing
-            capacity; lifetime credit deposits permanently unlock larger sizes.
+            Start with the smallest size that fits the work. Move up only after
+            a session runs short of memory, disk, or processing capacity because
+            larger sandboxes spend more credits while active.
           </p>
         </DocSection>
 

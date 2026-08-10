@@ -134,6 +134,7 @@ func (o *Orchestrator) CreateAgentSandboxWithRuntimeOptions(ctx context.Context,
 		ProviderID:             o.provider.ID(),
 		EncryptedRuntimeSecret: encryptedSecret,
 		Status:                 "creating",
+		VCPU:                   resourceSpec.CPU,
 		ExposedPorts:           model.SandboxExposedPortsInt64Array(exposedPorts),
 	}
 	if err := o.db.Create(&sb).Error; err != nil {

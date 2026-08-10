@@ -1,38 +1,11 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Slider, Tooltip } from "@heroui/react"
+import { Slider } from "@heroui/react"
 import { calculateDeposit } from "./pricing-model"
 
 const depositMarkers = [0, 5, 10, 20, 50, 100, 200, 250, 500] as const
 const minimumDepositIndex = 1
-
-const tierMilestones = {
-  0: {
-    tier: 1,
-    title: "Tier 1 is included for every org",
-    capacity:
-      "1 concurrent agent session, Nano sandboxes, and 1 GB of knowledge storage.",
-  },
-  100: {
-    tier: 2,
-    title: "Tier 2 unlocks at $100 in lifetime deposits",
-    capacity:
-      "2 concurrent agent sessions, Small sandboxes, and 3 GB of knowledge storage.",
-  },
-  250: {
-    tier: 3,
-    title: "Tier 3 unlocks at $250 in lifetime deposits",
-    capacity:
-      "5 concurrent agent sessions, Medium sandboxes, and 5 GB of knowledge storage.",
-  },
-  500: {
-    tier: 4,
-    title: "Tier 4 unlocks at $500 in lifetime deposits",
-    capacity:
-      "10 concurrent agent sessions, Large sandboxes, and 10 GB of knowledge storage.",
-  },
-} as const
 
 function money(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -69,8 +42,8 @@ function DepositForm({
         How much should your agents have to spend?
       </h3>
       <p className="mt-3 max-w-[52ch] text-sm leading-6 text-muted">
-        Every dollar stays available for model and provider costs. Hivy’s 12%
-        deposit fee appears separately.
+        Every dollar stays available for model usage and active sandbox time.
+        Hivy’s 12% deposit fee appears separately.
       </p>
 
       <div className="mt-10">
@@ -122,8 +95,6 @@ function DepositForm({
                 </Slider.Track>
                 <Slider.Marks className="relative col-span-2 mx-3 mt-2 h-14">
                   {depositMarkers.map((amount, index) => {
-                    const tier =
-                      tierMilestones[amount as keyof typeof tierMilestones]
                     const markerPosition = {
                       left: `${(index / (depositMarkers.length - 1)) * 100}%`,
                       transform:
@@ -158,34 +129,6 @@ function DepositForm({
                             ${amount}
                           </button>
                         )}
-
-                        {tier ? (
-                          <Tooltip delay={200} closeDelay={0}>
-                            <Tooltip.Trigger>
-                              <button
-                                type="button"
-                                data-tier-indicator={tier.tier}
-                                aria-label={`${tier.title}. ${tier.capacity} Tier unlocks are permanent and never downgrade.`}
-                                className="focus-visible:ring-ring cursor-help rounded-sm border border-border bg-surface-secondary px-1.5 py-0.5 text-[9px] leading-none font-medium whitespace-nowrap text-muted transition-colors outline-none hover:border-foreground/30 hover:text-foreground focus-visible:ring-2 sm:text-[10px]"
-                              >
-                                Tier {tier.tier}
-                              </button>
-                            </Tooltip.Trigger>
-                            <Tooltip.Content
-                              placement="bottom"
-                              offset={8}
-                              className="max-w-72 p-3"
-                            >
-                              <p className="text-xs font-medium">
-                                {tier.title}
-                              </p>
-                              <p className="mt-1 text-xs leading-5 text-muted">
-                                {tier.capacity} Tier unlocks are permanent and
-                                never downgrade.
-                              </p>
-                            </Tooltip.Content>
-                          </Tooltip>
-                        ) : null}
                       </span>
                     )
                   })}

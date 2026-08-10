@@ -187,8 +187,35 @@ export const useSessionRuntimeStore = create<SessionRuntimeStoreState>()(
       const incoming = sessionUsageSummaryFromSnapshot(snapshot)
       setState((state) => {
         const existing = state.usageBySessionId[sessionId]
-        const usage =
-          existing && existing.costUsd > incoming.costUsd ? existing : incoming
+        const modelCostUsd = Math.max(
+          existing?.modelCostUsd ?? 0,
+          incoming.modelCostUsd
+        )
+        const modelCredits = Math.max(
+          existing?.modelCredits ?? 0,
+          incoming.modelCredits
+        )
+        const sandboxCostUsd = Math.max(
+          existing?.sandboxCostUsd ?? 0,
+          incoming.sandboxCostUsd
+        )
+        const sandboxCredits = Math.max(
+          existing?.sandboxCredits ?? 0,
+          incoming.sandboxCredits
+        )
+        const usage = {
+          costUsd: modelCostUsd + sandboxCostUsd,
+          credits: modelCredits + sandboxCredits,
+          modelCostUsd,
+          modelCredits,
+          sandboxCostUsd,
+          sandboxCredits,
+          sandboxVCPUSeconds: Math.max(
+            existing?.sandboxVCPUSeconds ?? 0,
+            incoming.sandboxVCPUSeconds
+          ),
+          updatedAt: Date.now(),
+        }
         return {
           usageBySessionId: {
             ...state.usageBySessionId,

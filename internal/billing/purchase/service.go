@@ -15,7 +15,6 @@ import (
 	"github.com/usehivy/hivy/internal/crypto"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/orgtier"
 )
 
 const (
@@ -263,9 +262,6 @@ func (s *Service) Verify(ctx context.Context, orgID, purchaseID uuid.UUID) (*mod
 		}
 		if res.RowsAffected != 1 {
 			return ErrNotFound
-		}
-		if err := orgtier.PromoteForCompletedDeposits(ctx, tx, orgID); err != nil {
-			return err
 		}
 		if err := tx.Where("id = ?", fresh.ID).First(&purchase).Error; err != nil {
 			return err

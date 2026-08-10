@@ -11,10 +11,10 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/usehivy/hivy/internal/agentruntime"
+	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/observability/correlation"
-	"github.com/usehivy/hivy/internal/orgtier"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -115,28 +115,8 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	var sessionSandbox *model.Sandbox
 	provisionStarted := time.Now()
-	effectiveSandboxSize, err := orgtier.EffectiveSandboxSize(ctx, h.db, org.ID, agent.SandboxSize, agent.SandboxTemplateID)
+	sessionSandbox, err = h.provisionSessionSandbox(ctx, session.ID, &agent, agent.TeamID, session.Model, session.ReasoningEffort, mcpContext)
 	if err != nil {
-		logging.FromContext(ctx).ErrorContext(ctx, "resolve effective sandbox size for session create",
-			"event", "session provisioning",
-			"phase", "resolve capacity",
-			"status", "error",
-			"duration_ms", time.Since(provisionStarted).Milliseconds(),
-			"agent_id", agent.ID,
-			"error", err,
-		)
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to validate sandbox capacity"})
-		return
-	}
-	err = orgtier.WithSessionCreate(ctx, h.db, org.ID, effectiveSandboxSize, func() error {
-		var provisionErr error
-		sessionSandbox, provisionErr = h.provisionSessionSandbox(ctx, session.ID, &agent, agent.TeamID, session.Model, session.ReasoningEffort, mcpContext)
-		return provisionErr
-	})
-	if err != nil {
-		if writeOrgTierError(w, err) {
-			return
-		}
 		logging.FromContext(ctx).ErrorContext(ctx, "provision session sandbox for session create failed",
 			"event", "session provisioning",
 			"phase", "provision sandbox",
@@ -156,6 +136,9 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	session.SandboxID = &sessionSandbox.ID
+	session.SandboxVCPU = sessionSandbox.VCPU
+	session.SandboxPricingVersion = billing.SandboxPricingVersion
+	session.SandboxCreditsPerVCPUMinute = billing.SandboxCreditsPerVCPUMinute
 	logging.FromContext(ctx).InfoContext(ctx, "session provisioning complete",
 		"event", "session provisioning",
 		"phase", "complete",

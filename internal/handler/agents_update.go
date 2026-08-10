@@ -71,7 +71,7 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updates := map[string]any{}
-	if !h.applyAgentUpdateFields(w, ctx, org.CapacityTier, &agent, &req, updates) {
+	if !h.applyAgentUpdateFields(w, ctx, &agent, &req, updates) {
 		return
 	}
 	// Sub-agents are only owned by user-created (non-catalog) agents; editing them
@@ -131,7 +131,7 @@ func (h *AgentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, agentMutationResponse{Agent: item})
 }
 
-func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context.Context, capacityTier int, agent *model.Agent, req *agentMutationRequest, updates map[string]any) bool {
+func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context.Context, agent *model.Agent, req *agentMutationRequest, updates map[string]any) bool {
 	if req.Name != nil {
 		name := cleanStringPtr(req.Name)
 		if name == "" {
@@ -190,7 +190,7 @@ func (h *AgentHandler) applyAgentUpdateFields(w http.ResponseWriter, ctx context
 		agent.SandboxTemplateID = id
 	}
 	if (req.SandboxSize != nil || req.SandboxTemplateID != nil) &&
-		!h.validateAgentSandboxCapacityForRequest(ctx, w, *agent.OrgID, capacityTier, agent.SandboxSize, agent.SandboxTemplateID) {
+		!h.validateAgentSandboxTemplateForRequest(ctx, w, *agent.OrgID, agent.SandboxTemplateID) {
 		return false
 	}
 	if req.Model != nil {

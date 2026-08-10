@@ -42,6 +42,7 @@ type agentCreateProvider struct {
 	endpoint   string
 	providerID string
 	created    []CreateSandboxOpts
+	started    []string
 }
 
 func (p *agentCreateProvider) ID() string {
@@ -62,7 +63,10 @@ func (p *agentCreateProvider) CreateSandbox(_ context.Context, opts CreateSandbo
 	return &SandboxInfo{ExternalID: fmt.Sprintf("external-%d", len(p.created)), Status: StatusRunning}, nil
 }
 
-func (p *agentCreateProvider) StartSandbox(context.Context, string) error { return nil }
+func (p *agentCreateProvider) StartSandbox(_ context.Context, externalID string) error {
+	p.started = append(p.started, externalID)
+	return nil
+}
 
 func (p *agentCreateProvider) StopSandbox(context.Context, string) error { return nil }
 

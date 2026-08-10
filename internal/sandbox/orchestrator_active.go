@@ -18,9 +18,21 @@ func (o *Orchestrator) EnsureSandboxActive(ctx context.Context, sb *model.Sandbo
 		return sb, nil
 
 	case string(StatusStopped):
+		if o.provider.ID() == ProviderDocker {
+			if err := o.StartAgentSandbox(ctx, sb); err != nil {
+				return nil, err
+			}
+			return sb, nil
+		}
 		return o.markAssumedActive(ctx, sb)
 
 	case string(StatusCreating), string(StatusStarting):
+		if sb.Status == string(StatusStarting) && o.provider.ID() == ProviderDocker {
+			if err := o.StartAgentSandbox(ctx, sb); err != nil {
+				return nil, err
+			}
+			return sb, nil
+		}
 		// A 'creating'/'starting' row may not have runtime_url yet (concurrent warm
 		// claim in flight). Probing an empty URL hammers localhost/healthz for the
 		// full timeout, so poll for a populated URL first and fail fast otherwise.

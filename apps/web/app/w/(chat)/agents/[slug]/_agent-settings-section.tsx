@@ -6,11 +6,10 @@ import { modelLogoURL } from "@/lib/model-logos"
 import {
   AGENT_SANDBOX_IMAGE_OPTIONS,
   AGENT_SANDBOX_SIZE_OPTIONS,
-  sandboxSizeOptionsForTier,
+  sandboxSizeOptions,
   type AgentSandboxImage,
   type AgentSandboxSize,
 } from "../_lib"
-import { useAuth } from "@/lib/auth/auth-context"
 
 export function AgentSettingsSection({
   availableModels,
@@ -150,8 +149,7 @@ export function SandboxSizeSection({
   isBusy: boolean
   onSandboxSizeChange: (size: AgentSandboxSize) => void
 }) {
-  const { activeOrg } = useAuth()
-  const sandboxSizeOptions = sandboxSizeOptionsForTier(activeOrg?.capacity_tier)
+  const options = sandboxSizeOptions()
   const selectedSandboxOption =
     AGENT_SANDBOX_SIZE_OPTIONS.find(
       (option) => option.key === selectedSandboxSize
@@ -170,7 +168,7 @@ export function SandboxSizeSection({
         selectedKey={selectedSandboxSize}
         onSelectionChange={(key) => {
           if (key === null) return
-          const option = sandboxSizeOptions.find(
+          const option = options.find(
             (item) => item.key === String(key)
           )
           if (!option?.isDisabled) {
@@ -195,7 +193,7 @@ export function SandboxSizeSection({
         </Select.Trigger>
         <Select.Popover className="p-1.5">
           <ListBox>
-            {sandboxSizeOptions.map((option) => (
+            {options.map((option) => (
               <ListBox.Item
                 key={option.key}
                 id={option.key}
@@ -205,7 +203,7 @@ export function SandboxSizeSection({
                 <span className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <span className="text-sm font-medium">{option.label}</span>
                   <span className="text-muted-foreground text-xs">
-                    {option.specs}
+                    {option.specs} · {option.price}
                     {option.disabledReason
                       ? ` · ${option.disabledReason}`
                       : null}

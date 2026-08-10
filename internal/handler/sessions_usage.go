@@ -4,16 +4,22 @@ import (
 	"net/http"
 
 	"github.com/usehivy/hivy/internal/billing"
+	"github.com/usehivy/hivy/internal/logging"
 )
 
 type sessionUsageResponse struct {
-	CostUSD float64 `json:"cost_usd"`
-	Credits int64   `json:"credits"`
+	CostUSD            float64 `json:"cost_usd"`
+	Credits            float64 `json:"credits"`
+	ModelCostUSD       float64 `json:"model_cost_usd"`
+	ModelCredits       int64   `json:"model_credits"`
+	SandboxCostUSD     float64 `json:"sandbox_cost_usd"`
+	SandboxCredits     float64 `json:"sandbox_credits"`
+	SandboxVCPUSeconds int64   `json:"sandbox_vcpu_seconds"`
 }
 
 // GetUsage handles GET /v1/sessions/{id}/usage.
 // @Summary Get session usage
-// @Description Returns model usage cost and estimated credits for one visible session.
+// @Description Returns model and sandbox usage for one visible session.
 // @Tags sessions
 // @Produce json
 // @Param id path string true "Session ID"
@@ -46,12 +52,30 @@ func (h *SessionHandler) GetUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	credits := row.DebitedCredits + billing.CostUSDToCredits(row.UnbilledCost)
-	if credits < 0 {
-		credits = 0
+	modelCredits := row.DebitedCredits + billing.CostUSDToCredits(row.UnbilledCost)
+	if modelCredits < 0 {
+		modelCredits = 0
 	}
+	var sandboxRow struct {
+		WeightedMilliseconds int64
+		VCPUMilliseconds     int64
+	}
+	if err := h.db.WithContext(r.Context()).Raw(`
+		SELECT COALESCE(SUM(active_milliseconds * sandbox_vcpu * credits_per_vcpu_minute), 0) AS weighted_milliseconds,
+		       COALESCE(SUM(active_milliseconds * sandbox_vcpu), 0) AS v_cpu_milliseconds
+		FROM sandbox_turn_usage
+		WHERE session_id = ?`, session.ID).Scan(&sandboxRow).Error; err != nil {
+		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load session sandbox usage", "session_id", session.ID, "error", err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load session sandbox usage"})
+		return
+	}
+	sandboxCredits := float64(sandboxRow.WeightedMilliseconds) / 60_000
+	modelCostUSD := float64(modelCredits) * billing.CreditUSDValue
+	sandboxCostUSD := sandboxCredits * billing.CreditUSDValue
 	writeJSON(w, http.StatusOK, sessionUsageResponse{
-		CostUSD: float64(credits) * billing.CreditUSDValue,
-		Credits: credits,
+		CostUSD: modelCostUSD + sandboxCostUSD, Credits: float64(modelCredits) + sandboxCredits,
+		ModelCostUSD: modelCostUSD, ModelCredits: modelCredits,
+		SandboxCostUSD: sandboxCostUSD, SandboxCredits: sandboxCredits,
+		SandboxVCPUSeconds: sandboxRow.VCPUMilliseconds / 1_000,
 	})
 }

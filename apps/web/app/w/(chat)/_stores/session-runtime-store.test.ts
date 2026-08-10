@@ -174,8 +174,13 @@ describe("session runtime store", () => {
 
   it("hydrates session usage totals and increments model usage frames once", () => {
     useSessionRuntimeStore.getState().hydrateSessionUsage("session-1", {
-      cost_usd: 0.0012,
-      credits: 2,
+      cost_usd: 0.0017,
+      credits: 2.5,
+      model_cost_usd: 0.0012,
+      model_credits: 2,
+      sandbox_cost_usd: 0.0005,
+      sandbox_credits: 0.5,
+      sandbox_vcpu_seconds: 30,
     })
 
     const usageFrame = frame("model_usage", {
@@ -197,25 +202,49 @@ describe("session runtime store", () => {
 
     const usage =
       useSessionRuntimeStore.getState().usageBySessionId["session-1"]
-    expect(usage?.costUsd).toBeCloseTo(0.0035)
-    expect(usage?.credits).toBe(4)
+    expect(usage).toMatchObject({
+      modelCredits: 4,
+      sandboxCostUsd: 0.0005,
+      sandboxCredits: 0.5,
+      sandboxVCPUSeconds: 30,
+      costUsd: 0.004,
+      credits: 4.5,
+    })
+    expect(usage?.modelCostUsd).toBeCloseTo(0.0035)
   })
 
   it("does not let a late usage snapshot decrease live usage totals", () => {
     useSessionRuntimeStore.getState().hydrateSessionUsage("session-1", {
-      cost_usd: 0.0035,
-      credits: 4,
+      cost_usd: 0.004,
+      credits: 4.5,
+      model_cost_usd: 0.0035,
+      model_credits: 4,
+      sandbox_cost_usd: 0.0005,
+      sandbox_credits: 0.5,
+      sandbox_vcpu_seconds: 30,
     })
 
     useSessionRuntimeStore.getState().hydrateSessionUsage("session-1", {
       cost_usd: 0.0012,
       credits: 2,
+      model_cost_usd: 0.001,
+      model_credits: 1,
+      sandbox_cost_usd: 0.0002,
+      sandbox_credits: 0.2,
+      sandbox_vcpu_seconds: 12,
     })
 
     const usage =
       useSessionRuntimeStore.getState().usageBySessionId["session-1"]
-    expect(usage?.costUsd).toBeCloseTo(0.0035)
-    expect(usage?.credits).toBe(4)
+    expect(usage).toMatchObject({
+      modelCostUsd: 0.0035,
+      modelCredits: 4,
+      sandboxCostUsd: 0.0005,
+      sandboxCredits: 0.5,
+      sandboxVCPUSeconds: 30,
+      costUsd: 0.004,
+      credits: 4.5,
+    })
   })
 
   it("preserves live final and tool events when the stream finishes before history catches up", () => {

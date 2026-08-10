@@ -12242,7 +12242,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns model usage cost and estimated credits for one visible session.",
+                "description": "Returns model and sandbox usage for one visible session.",
                 "produces": [
                     "application/json"
                 ],
@@ -18754,9 +18754,6 @@ const docTemplate = `{
                 "byok": {
                     "type": "boolean"
                 },
-                "capacity_tier": {
-                    "type": "integer"
-                },
                 "credits": {
                     "type": "integer"
                 },
@@ -18803,25 +18800,13 @@ const docTemplate = `{
                 "active": {
                     "type": "boolean"
                 },
-                "capacity_tier": {
-                    "type": "integer"
-                },
-                "concurrent_session_limit": {
-                    "type": "integer"
-                },
                 "created_at": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
-                "knowledge_storage_limit_gb": {
-                    "type": "integer"
-                },
                 "logo_url": {
-                    "type": "string"
-                },
-                "max_sandbox_size": {
                     "type": "string"
                 },
                 "name": {
@@ -20431,6 +20416,21 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "credits": {
+                    "type": "number"
+                },
+                "model_cost_usd": {
+                    "type": "number"
+                },
+                "model_credits": {
+                    "type": "integer"
+                },
+                "sandbox_cost_usd": {
+                    "type": "number"
+                },
+                "sandbox_credits": {
+                    "type": "number"
+                },
+                "sandbox_vcpu_seconds": {
                     "type": "integer"
                 }
             }

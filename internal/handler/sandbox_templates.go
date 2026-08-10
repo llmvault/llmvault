@@ -14,7 +14,6 @@ import (
 	"github.com/usehivy/hivy/internal/enqueue"
 	"github.com/usehivy/hivy/internal/middleware"
 	"github.com/usehivy/hivy/internal/model"
-	"github.com/usehivy/hivy/internal/orgtier"
 	"github.com/usehivy/hivy/internal/sandbox"
 )
 
@@ -162,10 +161,6 @@ func (h *SandboxTemplateHandler) Create(w http.ResponseWriter, r *http.Request) 
 		tmpl.Size = name
 	default:
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "vcpu, memory_gb, and disk_gb must be provided together"})
-		return
-	}
-	if err := orgtier.ValidateSandboxSize(org.CapacityTier, tmpl.Size); err != nil {
-		writeOrgTierError(w, err)
 		return
 	}
 	if tmpl.Config == nil {

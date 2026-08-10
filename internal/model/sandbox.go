@@ -22,6 +22,7 @@ type Sandbox struct {
 	RuntimeURLExpiresAt    *time.Time       // when RuntimeURL expires (nil = never)
 	EncryptedRuntimeSecret []byte           `gorm:"type:bytea;not null"`         // AES-256-GCM encrypted Runtime API key
 	Status                 string           `gorm:"not null;default:'creating'"` // creating, running, stopped, starting, archived, archiving, error
+	VCPU                   int              `gorm:"column:vcpu;not null;default:1"`
 	ExposedPorts           pq.Int64Array    `gorm:"type:integer[];not null;default:'{3000,5173,8000,8080}'"`
 	ErrorMessage           *string
 	LastActiveAt           *time.Time

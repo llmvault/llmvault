@@ -49,6 +49,14 @@ func PeriodicTaskConfigs(cfg *config.Config, ragSched *scheduler.Deps) []*asynq.
 			},
 		},
 		{
+			Cronspec: "@every 30s",
+			Task:     asynq.NewTask(TypeSandboxBillingProcess, nil),
+			Opts: []asynq.Option{
+				asynq.Queue(QueuePeriodic), asynq.MaxRetry(1),
+				asynq.Timeout(2 * time.Minute), asynq.Unique(30 * time.Second),
+			},
+		},
+		{
 			// Stranded-facts sweep: finds channels with unconsolidated reflection
 			// facts (consolidated_at IS NULL) and re-enqueues consolidation. The
 			// primary trigger is the immediate post-reflection enqueue; this
