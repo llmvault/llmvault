@@ -21,7 +21,7 @@ export function getActiveOrgIdFromCookie(): string | null {
   return match ? decodeURIComponent(match[1]) : null
 }
 
-export function setActiveOrgCookie(orgId: string) {
+function setActiveOrgCookie(orgId: string) {
   if (typeof document === "undefined") return
   document.cookie = `${ACTIVE_ORG_COOKIE}=${encodeURIComponent(orgId)}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
 }

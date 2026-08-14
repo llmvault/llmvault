@@ -1,4 +1,4 @@
-export type PricingComparison = {
+type PricingComparison = {
   id: "claude" | "chatgpt" | "gumloop" | "notion"
   tabLabel: string
   name: string

@@ -15,18 +15,18 @@ interface TauriCore {
   Channel?: ChannelConstructor
 }
 
-export interface DesktopInfo {
+interface DesktopInfo {
   desktop: true
   runtime_base_url: string
   runtime_ready: boolean
 }
 
-export interface DesktopRuntimeResponse<T = unknown> {
+interface DesktopRuntimeResponse<T = unknown> {
   status: number
   body: T
 }
 
-export interface DesktopSessionStreamFrame {
+interface DesktopSessionStreamFrame {
   sessionId: string
   event: string
   id: string
@@ -50,7 +50,7 @@ export function isDesktopApp(): boolean {
   return tauriInvoke() !== null
 }
 
-export async function desktopInfo(): Promise<DesktopInfo> {
+async function desktopInfo(): Promise<DesktopInfo> {
   const invoke = tauriInvoke()
   if (!invoke) throw new Error("Hivy desktop bridge is unavailable")
   return invoke<DesktopInfo>("desktop_info")
