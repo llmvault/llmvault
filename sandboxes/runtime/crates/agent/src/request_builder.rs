@@ -311,6 +311,29 @@ mod tests {
     }
 
     #[test]
+    fn omits_generic_reasoning_for_thesean_models() {
+        let caps = ModelCapabilities {
+            reasoning: Some(true),
+            tool_call: Some(true),
+            parallel_tool_calls: Some(true),
+            structured_output: Some(true),
+        };
+        let mut req = request_with_profile(ModelProfile::detect(
+            None,
+            Some("thesean"),
+            Some("thesean-gpt-5.6-sol"),
+            Some("ship-like/gpt-5.6-sol"),
+            "thesean-gpt-5.6-sol",
+            Some(&caps),
+        ));
+        req.reasoning_effort = Some("low".to_string());
+
+        let body = build_openai_compatible_request(&req);
+
+        assert!(body.get("reasoning_effort").is_none());
+    }
+
+    #[test]
     fn emits_generic_reasoning_only_when_profile_supports_it() {
         let caps = ModelCapabilities {
             reasoning: Some(true),

@@ -85,6 +85,8 @@ func detectModelProfile(providerID, canonicalModelID, upstreamModelID, modelID s
 		return "mimo"
 	case strings.Contains(haystack, "qwen"):
 		return "qwen"
+	case strings.Contains(haystack, "thesean") || strings.Contains(haystack, "ship-like"):
+		return "thesean"
 	default:
 		return "openai_compatible"
 	}
