@@ -324,10 +324,9 @@ jobs:
           HIVY_SANDBOXES_APP_IMAGE_ARCH_SUFFIX: amd64
         run: |
           : "${HIVY_MICROSANDBOX_RUNNER_URLS:?production runner forwards are required}"
-          bash ./scripts/release/write-manifest.sh \
-            "sha-${{ github.sha }}" \
-            "${RUNNER_TEMP}/release-manifest.json" \
-            "${{ github.sha }}"
+          bash ./scripts/release/write-main-manifest.sh \
+            "${{ github.sha }}" \
+            "${RUNNER_TEMP}/release-manifest.json"
           read -r -a runner_urls <<<"${HIVY_MICROSANDBOX_RUNNER_URLS}"
           bash ./scripts/release/warm-microsandbox-runner-images.sh \
             "${RUNNER_TEMP}/release-manifest.json" \

@@ -55,6 +55,7 @@ fi
 
 bash ./scripts/deploy/kubernetes-images_test.sh
 bash ./scripts/deploy/setup-kubernetes-tunnel_test.sh
+bash ./scripts/release/write-main-manifest_test.sh
 bash ./scripts/release/warm-microsandbox-runner-images_test.sh
 
 echo "✓ Main and stable releases deploy coherent production tuples after warming every runner."
