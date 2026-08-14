@@ -3,9 +3,8 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 config_root="${repo_root}/kubernetes/config"
-kubeconfig="${KUBECONFIG:-${config_root}/kubeconfigs/k8s0/local.yaml}"
 s3_env="${config_root}/env/infrastructure/hetzner-s3.env"
-staging_env="${config_root}/env/staging/backend.env"
+microsandbox_env="${config_root}/env/production/microsandbox-control.env"
 extra_env="${config_root}/env/infrastructure/backend-overrides.env"
 expected_project_id="55776e03-e6c2-4a9b-828b-4e759495aa70"
 refresh="false"
@@ -17,15 +16,15 @@ elif [[ $# -gt 0 ]]; then
   exit 1
 fi
 
-for command_name in railway jq kubectl awk openssl; do
+for command_name in railway jq awk openssl; do
   if ! command -v "${command_name}" >/dev/null; then
     echo "missing required command: ${command_name}" >&2
     exit 1
   fi
 done
 
-if [[ ! -f "${kubeconfig}" || ! -f "${s3_env}" ]]; then
-  echo "missing centralized kubeconfig or Hetzner S3 environment file" >&2
+if [[ ! -f "${s3_env}" || ! -f "${microsandbox_env}" ]]; then
+  echo "missing Hetzner S3 or production Microsandbox environment file" >&2
   exit 1
 fi
 
@@ -67,8 +66,8 @@ for key in \
 done
 unset api_value worker_value
 
-microsandbox_token="$(kubectl --kubeconfig "${kubeconfig}" -n production get secret microsandbox-control-secrets -o jsonpath='{.data.HIVY_MICROSANDBOX_API_TOKEN}' | base64 -d)"
-preview_activity_token="$(read_env_value "${staging_env}" HIVY_PREVIEW_ACTIVITY_TOKEN 2>/dev/null || true)"
+microsandbox_token="$(read_env_value "${microsandbox_env}" HIVY_MICROSANDBOX_API_TOKEN)"
+preview_activity_token="$(jq -r '.HIVY_PREVIEW_ACTIVITY_TOKEN // empty' <<<"${api_vars}")"
 if [[ -z "${preview_activity_token}" ]]; then
   preview_activity_token="$(openssl rand -hex 32)"
 fi
@@ -96,11 +95,8 @@ railway_secret_keys=(
   HIVY_GITHUB_TOKEN
 )
 
-write_environment() {
-  local environment_name="$1"
-  local s3_prefix="$2"
-  local paystack_key="$3"
-  local destination="${config_root}/env/${environment_name}/backend.env"
+write_production() {
+  local destination="${config_root}/env/production/backend.env"
   local temp_file
   temp_file="$(mktemp)"
   chmod 600 "${temp_file}"
@@ -118,9 +114,9 @@ write_environment() {
 
   printf '%s=%s\n' HIVY_MICROSANDBOX_CONTROL_API_TOKEN "${microsandbox_token}" >>"${temp_file}"
   printf '%s=%s\n' HIVY_PREVIEW_ACTIVITY_TOKEN "${preview_activity_token}" >>"${temp_file}"
-  printf '%s=%s\n' HIVY_PAYSTACK_SECRET_KEY "${paystack_key}" >>"${temp_file}"
-  printf '%s=%s\n' HIVY_AWS_ACCESS_KEY_ID "$(read_env_value "${s3_env}" "${s3_prefix}_ACCESS_KEY_ID")" >>"${temp_file}"
-  printf '%s=%s\n' HIVY_AWS_SECRET_ACCESS_KEY "$(read_env_value "${s3_env}" "${s3_prefix}_SECRET_ACCESS_KEY")" >>"${temp_file}"
+  printf '%s=%s\n' HIVY_PAYSTACK_SECRET_KEY "${production_paystack}" >>"${temp_file}"
+  printf '%s=%s\n' HIVY_AWS_ACCESS_KEY_ID "$(read_env_value "${s3_env}" HETZNER_S3_PROD_APP_ACCESS_KEY_ID)" >>"${temp_file}"
+  printf '%s=%s\n' HIVY_AWS_SECRET_ACCESS_KEY "$(read_env_value "${s3_env}" HETZNER_S3_PROD_APP_SECRET_ACCESS_KEY)" >>"${temp_file}"
 
   if [[ -f "${extra_env}" ]]; then
     while IFS= read -r line; do
@@ -142,7 +138,7 @@ write_environment() {
 
   mv "${temp_file}" "${destination}"
   chmod 600 "${destination}"
-  echo "generated ${environment_name} backend secrets"
+  echo "generated production backend secrets"
 }
 
 production_paystack="$(read_json_value "${api_vars}" HIVY_PAYSTACK_SECRET_KEY)"
@@ -151,19 +147,8 @@ if [[ "${production_paystack}" != sk_live_* ]]; then
   exit 1
 fi
 
-if [[ ! -f "${staging_env}" ]]; then
-  echo "missing ${staging_env} containing the staging Paystack test key" >&2
-  exit 1
-fi
-staging_paystack="$(read_env_value "${staging_env}" HIVY_PAYSTACK_SECRET_KEY)"
-if [[ "${staging_paystack}" != sk_test_* ]]; then
-  echo "staging Paystack key is not a test key" >&2
-  exit 1
-fi
-
 umask 077
-write_environment staging HETZNER_S3_STAGING_APP "${staging_paystack}"
-write_environment production HETZNER_S3_PROD_APP "${production_paystack}"
+write_production
 
-unset api_vars worker_vars microsandbox_token preview_activity_token production_paystack staging_paystack value
-echo "backend secrets are ready"
+unset api_vars worker_vars microsandbox_token preview_activity_token production_paystack value
+echo "production backend secrets are ready"

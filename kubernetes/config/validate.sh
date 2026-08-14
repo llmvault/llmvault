@@ -26,41 +26,23 @@ required_env_files=(
   env/production/redis-backup.env
   env/production/redis.env
   env/production/web.env
-  env/staging/backend.env
-  env/staging/nango-backend.env
-  env/staging/nango-postgres-backup.env
-  env/staging/nango-postgres.env
-  env/staging/nango-runtime.env
-  env/staging/postgres-backup.env
-  env/staging/postgres.env
-  env/staging/qdrant-backup.env
-  env/staging/qdrant.env
-  env/staging/redis-backup.env
-  env/staging/redis.env
-  env/staging/web.env
 )
 
 required_kubeconfigs=(
   kubeconfigs/github-actions/production.yaml
-  kubeconfigs/github-actions/staging.yaml
   kubeconfigs/k8s0/admin.yaml
   kubeconfigs/k8s0/local.yaml
   kubeconfigs/k8s0/tunnel.yaml
-  kubeconfigs/k8s1/admin.yaml
   kubeconfigs/platform-engineering-agent.yaml
 )
 
 required_credentials=(
   credentials/github-actions/production
   credentials/github-actions/production.pub
-  credentials/github-actions/staging
-  credentials/github-actions/staging.pub
   credentials/k3s/k8s0/cluster-secrets.yaml
   credentials/k3s/k8s0/k3s-etcd-s3.yaml
   credentials/k3s/k8s0/node-token
   credentials/k3s/k8s0/server-token
-  credentials/k3s/k8s1/node-token
-  credentials/k3s/k8s1/server-token
   credentials/providers/hetzner-token
   credentials/providers/vercel-token
   credentials/platform-engineering-agent/known_hosts
@@ -73,9 +55,6 @@ tracked_config_env_files=(
   env/production/microsandbox-control.config.env
   env/production/nango.config.env
   env/production/web.config.env
-  env/staging/backend.config.env
-  env/staging/nango.config.env
-  env/staging/web.config.env
   env/platform-engineering/platform-engineering-agent.config.env
 )
 

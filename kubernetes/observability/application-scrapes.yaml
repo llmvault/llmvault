@@ -8,7 +8,6 @@ spec:
   namespaceSelector:
     matchNames:
       - production
-      - staging
   selector:
     matchLabels:
       app.kubernetes.io/name: hivy-backend
@@ -28,7 +27,6 @@ spec:
   namespaceSelector:
     matchNames:
       - production
-      - staging
   selector:
     matchLabels:
       app.kubernetes.io/name: hivy-backend
@@ -67,7 +65,6 @@ spec:
   namespaceSelector:
     matchNames:
       - production
-      - staging
   selector:
     matchExpressions:
       - key: cnpg.io/cluster
@@ -106,32 +103,6 @@ spec:
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMServiceScrape
 metadata:
-  name: qdrant-staging
-  labels:
-    app.kubernetes.io/part-of: hivy-observability
-spec:
-  namespaceSelector:
-    matchNames:
-      - staging
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: qdrant
-    matchExpressions:
-      - key: app.kubernetes.io/component
-        operator: DoesNotExist
-  endpoints:
-    - port: http
-      path: /metrics
-      interval: 30s
-      authorization:
-        type: Bearer
-        credentials:
-          name: observability-qdrant-metrics
-          key: STAGING_QDRANT_API_KEY
----
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMServiceScrape
-metadata:
   name: backend-redis
   labels:
     app.kubernetes.io/part-of: hivy-observability
@@ -139,7 +110,6 @@ spec:
   namespaceSelector:
     matchNames:
       - production
-      - staging
   selector:
     matchLabels:
       app.kubernetes.io/name: backend-redis-exporter

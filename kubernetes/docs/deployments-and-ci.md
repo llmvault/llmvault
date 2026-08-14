@@ -5,7 +5,7 @@ GitHub Actions changes live images for three Deployments only:
 `kubectl` apply manage every other workload. There is no in-cluster GitOps
 controller.
 
-## Staging on every push to `main`
+## Production on every push to `main`
 
 `.github/workflows/publish-main-images.yml` starts on each push to `main`.
 It builds multi-platform images for the Go backend and Next.js web application,
@@ -39,23 +39,24 @@ The same workflow builds `ghcr.io/usehivy/msb` and
 Their Kubernetes manifests remain pinned until an operator changes and applies
 them.
 
-After the backend, web, runtime, and app builds finish, `deploy-staging` takes
+After the backend, web, runtime, and app builds finish, `deploy-production` takes
 the application registry digests and the commit-specific sandbox tags, opens a
-restricted SSH tunnel to the Kubernetes API, and deploys that tuple to all
-three staging Deployments. The backend digest goes into the API and worker init
+restricted SSH tunnel to the Kubernetes API, warms the sandbox images on every
+production runner, and deploys that tuple to all three production Deployments.
+The backend digest goes into the API and worker init
 containers as well as their main containers. Explicit runtime and app tags are
 written into both backend pod templates, overriding older ConfigMap values.
 The job succeeds only when every desired replica has updated, become available,
 and the old ReplicaSets have no remaining Pods.
 
-A push to `main` is the staging trigger. In GitHub, open the
+A push to `main` is the production trigger. In GitHub, open the
 `publish-main-images` run for that commit and check these jobs:
 
 1. `Go API image`
 2. `Next.js web image`
 3. `Sandbox runtime images`
 4. `Sandbox app image`
-5. `Deploy staging application images`
+5. `Deploy production application images`
 
 ## Production on a stable release
 
@@ -73,7 +74,7 @@ image on every production runner. This leaves the Microsandbox image layers in
 each runner's local cache. A pull failure on any runner aborts the release
 without changing the production Deployments. After all runner caches are warm,
 the job patches production with the application digests and `vX.Y.Z-amd64`
-sandbox tags, then waits using the same procedure as staging.
+sandbox tags, then waits using the same procedure as the main-branch deployment.
 
 A tag containing a suffix, such as `v7.3.0-rc.1`, counts as a prerelease and
 does not deploy production. The decision comes from the tag string, not the
@@ -98,7 +99,7 @@ gh workflow run release.yml -f tag=vX.Y.Z
 ```
 
 GitHub Environment protection rules, if configured in repository settings,
-run before the `staging` or `production` deployment job. They are external to
+run before the `production` deployment job. They are external to
 this repository, so the manifests cannot prove that an approval rule exists.
 
 ## Private Kubernetes API access
@@ -107,23 +108,22 @@ The Kubernetes API is not exposed as a general public endpoint. Each deployment
 job tries the addresses in `K8S_TUNNEL_HOSTS` and forwards a local port to
 `127.0.0.1:6443` on the first reachable K3s server. SSH checks pinned host keys.
 
-Ansible creates two system users on every K3s server:
+Ansible creates a restricted production deployment user on every K3s server:
 
 ```text
-hivy-deploy-staging
 hivy-deploy-production
 ```
 
-They have `/usr/sbin/nologin`, locked passwords, and an `authorized_keys` rule
+It has `/usr/sbin/nologin`, a locked password, and an `authorized_keys` rule
 that permits forwarding only to `127.0.0.1:6443`. The SSH tunnel grants network
 reachability, not Kubernetes permissions.
 
-Each namespace contains its own `github-actions-deployer` ServiceAccount. Its
-Role can only `get` and `patch` the named `backend-api`, `backend-worker`, and
-`web` Deployments in that namespace. It cannot list Deployments, inspect Pods,
+The production namespace contains a `github-actions-deployer` ServiceAccount.
+Its Role can only `get` and `patch` the named `backend-api`, `backend-worker`, and
+`web` Deployments. It cannot list Deployments, inspect Pods,
 read Secrets or ConfigMaps, touch data services, or modify cluster-wide objects.
 
-Set these entries in both GitHub Environments:
+Set these entries in the `production` GitHub Environment:
 
 | Name | Type | Contents |
 | --- | --- | --- |
@@ -131,15 +131,14 @@ Set these entries in both GitHub Environments:
 | `K8S_TUNNEL_SSH_KEY_B64` | Secret | Base64 private Ed25519 key for that environment's tunnel user |
 | `K8S_TUNNEL_KNOWN_HOSTS_B64` | Secret | Base64 pinned SSH host-key file for every tunnel host |
 | `K8S_TUNNEL_HOSTS` | Variable | Space-separated K3s server public addresses, in failover order |
-| `K8S_TUNNEL_USER` | Variable | `hivy-deploy-staging` or `hivy-deploy-production` |
-| `HIVY_MICROSANDBOX_RUNNER_FORWARD_TARGETS` | Production variable | Space-separated `LOCAL_PORT:PRIVATE_RUNNER_IP:8081` mappings |
-| `HIVY_MICROSANDBOX_RUNNER_API_TOKEN` | Production secret | Shared runner control token used only through the restricted private forwards |
+| `K8S_TUNNEL_USER` | Variable | `hivy-deploy-production` |
+| `HIVY_MICROSANDBOX_RUNNER_FORWARD_TARGETS` | Variable | Space-separated `LOCAL_PORT:PRIVATE_RUNNER_IP:8081` mappings |
+| `HIVY_MICROSANDBOX_RUNNER_API_TOKEN` | Secret | Shared runner control token used only through the restricted private forwards |
 
 The production tunnel account has explicit `permitopen` entries for the
-Kubernetes API and each configured runner API. Staging and other tunnel accounts
-remain restricted to the Kubernetes API. Adding a production runner requires
+Kubernetes API and each configured runner API. Adding a production runner requires
 updating both the Ansible account's `permitopen` list and the production
-`HIVY_MICROSANDBOX_RUNNER_FORWARD_TARGETS` variable before the next release.
+`HIVY_MICROSANDBOX_RUNNER_FORWARD_TARGETS` variable before the next deployment.
 
 The local source files live under `kubernetes/config/kubeconfigs/github-actions/`
 and `kubernetes/config/credentials/github-actions/`. They are ignored by Git.
@@ -294,7 +293,7 @@ kubectl rollout status -n ENVIRONMENT deployment/backend-worker --timeout=10m
 kubectl rollout status -n ENVIRONMENT deployment/web --timeout=10m
 ```
 
-Replace `ENVIRONMENT` with `staging` or `production`. A Kubernetes image rollback
+Replace `ENVIRONMENT` with `production`. A Kubernetes image rollback
 does not reverse Goose migrations. Before rolling back across a schema change,
 confirm that the older binary can run against the migrated database. If it
 cannot, deploy a forward-compatible repair rather than running a blind
@@ -302,8 +301,7 @@ migration downgrade.
 
 After rollback, copy the selected digests into the environment Kustomization;
 otherwise the next full `kubectl apply -k` can change them again. A later push
-to `main` replaces a staging rollback, and the next stable release replaces a
-production rollback.
+to `main` or stable release replaces a production rollback.
 
 ## Failure locations
 

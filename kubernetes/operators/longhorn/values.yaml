@@ -1,29 +1,29 @@
-# Two-node settings. Existing one-replica volumes are expanded after the new
-# storage node is Ready; new volumes default to one replica on each node.
+# Single-node bootstrap settings. Increase the replica counts only after a
+# second storage node is Ready and existing volumes have been rebuilt there.
 global:
   nodeSelector:
     kubernetes.io/os: linux
 
 persistence:
   defaultClass: true
-  defaultClassReplicaCount: 2
+  defaultClassReplicaCount: 1
   defaultDataLocality: best-effort
   defaultFsType: ext4
   reclaimPolicy: Delete
   volumeBindingMode: WaitForFirstConsumer
 
 csi:
-  attacherReplicaCount: 2
-  provisionerReplicaCount: 2
-  resizerReplicaCount: 2
-  snapshotterReplicaCount: 2
+  attacherReplicaCount: 1
+  provisionerReplicaCount: 1
+  resizerReplicaCount: 1
+  snapshotterReplicaCount: 1
 
 defaultSettings:
   defaultDataPath: /var/lib/longhorn
   defaultDataLocality: best-effort
   defaultReplicaCount:
-    v1: "2"
-    v2: "2"
+    v1: "1"
+    v2: "1"
   replicaSoftAntiAffinity: false
   replicaAutoBalance: best-effort
   storageOverProvisioningPercentage: 100

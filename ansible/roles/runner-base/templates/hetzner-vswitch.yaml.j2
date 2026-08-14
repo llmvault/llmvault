@@ -1,0 +1,15 @@
+# Managed by Ansible.
+network:
+  version: 2
+  renderer: networkd
+  vlans:
+    {{ runner_private_interface }}:
+      id: {{ runner_vswitch_vlan_id }}
+      link: {{ runner_public_interface }}
+      mtu: {{ runner_vswitch_mtu }}
+      addresses:
+        - {{ runner_private_ip }}/{{ runner_vswitch_prefix }}
+      routes:
+        - to: {{ runner_vswitch_route_cidr }}
+          via: {{ runner_vswitch_gateway }}
+          on-link: true

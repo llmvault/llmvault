@@ -98,7 +98,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: preview-cache
-          image: ghcr.io/usehivy/microsandbox-gateway@sha256:ddab7d7d5845df1e250384add1038757e7e8cd89bebc25043a6ec56e2ad4b69d
+          image: ghcr.io/usehivy/microsandbox-gateway@sha256:0daf410a15eb2a71376fc2e9290b85f5de0404dfd1511639a023baf1d8aec3d3
           imagePullPolicy: IfNotPresent
           env:
             - name: HIVY_MICROSANDBOX_PREVIEW_CACHE_ADDR
@@ -121,6 +121,10 @@ spec:
                 secretKeyRef:
                   name: microsandbox-control-secrets
                   key: HIVY_MICROSANDBOX_API_TOKEN
+            # Redis is the coherent cache shared by both replicas. A process-local
+            # cache can retain deleted routes on the replica that missed the push.
+            - name: HIVY_MICROSANDBOX_ROUTE_CACHE_SIZE
+              value: "0"
           ports:
             - name: http
               containerPort: 8091

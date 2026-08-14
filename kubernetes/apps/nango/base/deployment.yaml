@@ -52,6 +52,11 @@ spec:
                 secretKeyRef:
                   name: nango-postgres-app
                   key: password
+            - name: NANGO_SECRET_KEY_PROD
+              valueFrom:
+                secretKeyRef:
+                  name: nango-backend-credentials
+                  key: HIVY_NANGO_SECRET_KEY
           startupProbe:
             httpGet:
               path: /health

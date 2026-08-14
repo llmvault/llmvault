@@ -26,20 +26,3 @@ data:
           connMaxLifetime: 300
         secureJsonData:
           password: $__env{HIVY_GRAFANA_PRODUCTION_POSTGRES_PASSWORD}
-      - name: Hivy Support - Staging
-        uid: hivy-support-staging
-        type: grafana-postgresql-datasource
-        access: proxy
-        url: backend-postgres-rw.staging.svc.cluster.local:5432
-        user: hivy_observability
-        editable: false
-        jsonData:
-          database: hivy
-          sslmode: disable
-          postgresVersion: 1800
-          timescaledb: false
-          maxOpenConns: 3
-          maxIdleConns: 1
-          connMaxLifetime: 300
-        secureJsonData:
-          password: $__env{HIVY_GRAFANA_STAGING_POSTGRES_PASSWORD}

@@ -22,6 +22,11 @@ import {
 import { useSessionWorkspaceStore } from "@/app/w/(chat)/_stores/session-workspace-store"
 import { watchGeneratedSessionName } from "@/app/w/(chat)/_lib/session-name-updates"
 import { agentDisplayName } from "@/app/w/(chat)/_lib/sidebar-data"
+import {
+  configureDesktopRuntime,
+  deliverDesktopMessage,
+  isDesktopApp,
+} from "@/lib/desktop/bridge"
 
 interface SessionViewProps {
   onSessionCreated: (
@@ -46,6 +51,18 @@ export function SessionView({ onSessionCreated }: SessionViewProps) {
     { retry: false, staleTime: CHAT_QUERY_STALE_TIME_MS }
   )
   const createSession = $api.useMutation("post", "/v1/sessions")
+  const bootstrapDesktopAgent = $api.useMutation(
+    "post",
+    "/v1/desktop/agents/{agentID}/runtime-config"
+  )
+  const createDesktopSession = $api.useMutation(
+    "post",
+    "/v1/desktop/sessions"
+  )
+  const recordDesktopDelivery = $api.useMutation(
+    "post",
+    "/v1/desktop/sessions/{id}/delivery"
+  )
   const teams = useMemo(
     () => teamsQuery.data?.data ?? [],
     [teamsQuery.data?.data]
@@ -114,17 +131,45 @@ export function SessionView({ onSessionCreated }: SessionViewProps) {
     }
     const attachmentIDs = imageAttachmentIDs(attachments)
     try {
-      const response = await createSession.mutateAsync({
-        body: {
-          agent_id: selectedAgent.id,
-          text,
-          ...(attachmentIDs.length ? { attachment_ids: attachmentIDs } : {}),
-          model_definition: {
-            model_id: modelID,
-            reasoning_effort: effort.toLowerCase(),
-          },
+      const body = {
+        agent_id: selectedAgent.id,
+        text,
+        ...(attachmentIDs.length ? { attachment_ids: attachmentIDs } : {}),
+        model_definition: {
+          model_id: modelID,
+          reasoning_effort: effort.toLowerCase(),
         },
-      })
+      }
+      let response
+      if (isDesktopApp()) {
+        const bootstrap = await bootstrapDesktopAgent.mutateAsync({
+          params: { path: { agentID: selectedAgent.id } },
+        })
+        if (!bootstrap.config) {
+          throw new Error("Cloud returned an empty desktop runtime configuration")
+        }
+        await configureDesktopRuntime(selectedAgent.id, bootstrap.config)
+        const created = await createDesktopSession.mutateAsync({ body })
+        if (!created.session?.id || !created.runtime_request) {
+          throw new Error("Desktop session was created without a runtime request")
+        }
+        const delivery = await deliverDesktopMessage<{
+          stream_id?: string
+          turn_id?: string
+        }>(selectedAgent.id, created.session.id, created.runtime_request)
+        if (!delivery.turn_id) {
+          throw new Error("Local runtime accepted the message without a turn id")
+        }
+        response = await recordDesktopDelivery.mutateAsync({
+          params: { path: { id: created.session.id } },
+          body: {
+            stream_id: delivery.stream_id ?? "",
+            turn_id: delivery.turn_id,
+          },
+        })
+      } else {
+        response = await createSession.mutateAsync({ body })
+      }
       const created = response.session
       if (!created?.id) {
         toast.danger("Session was created without an id")
@@ -184,7 +229,12 @@ export function SessionView({ onSessionCreated }: SessionViewProps) {
           modelsLoading={agentModelsQuery.isLoading}
           modelsError={agentModelsQuery.isError}
           onModelChange={setSelectedModelID}
-          isSubmitting={createSession.isPending}
+          isSubmitting={
+            createSession.isPending ||
+            bootstrapDesktopAgent.isPending ||
+            createDesktopSession.isPending ||
+            recordDesktopDelivery.isPending
+          }
           onSend={(text, attachments, _comments, effort) =>
             createFirstSession(text, attachments, effort)
           }

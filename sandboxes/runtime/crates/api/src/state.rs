@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -9,8 +9,8 @@ use domain::{ConfigStore, OutboundChannelSpec};
 use mcp::McpRegistry;
 use observability::ObservabilityRecorder;
 use serde::Serialize;
-use storage::{ConfigRepo, EventRepo, SessionRepo};
-use tokio::sync::{Notify, RwLock};
+use storage::{ConfigRepo, ConfigSnapshot, EventRepo, SessionRepo};
+use tokio::sync::{Mutex, Notify, RwLock};
 use tools::LocalBashOperations;
 
 use crate::question_manager::QuestionManager;
@@ -40,6 +40,11 @@ pub struct ApiState {
     pub observability: ObservabilityRecorder,
     pub sentry_enabled: bool,
     pub sentry_dsn_set: bool,
+    pub desktop_mode: bool,
+    pub desktop_agent_configs: Arc<RwLock<HashMap<String, (u64, ConfigSnapshot)>>>,
+    pub desktop_active_agent: Arc<RwLock<Option<(String, u64)>>>,
+    pub desktop_config_gate: Arc<Mutex<()>>,
+    pub desktop_config_generation: Arc<AtomicU64>,
 }
 
 #[async_trait]
@@ -90,6 +95,7 @@ impl ApiState {
         drain_controller: Option<Arc<dyn DrainController>>,
         sentry_enabled: bool,
         sentry_dsn_set: bool,
+        desktop_mode: bool,
     ) -> Self {
         let observability = session_stream
             .as_ref()
@@ -117,6 +123,11 @@ impl ApiState {
             observability,
             sentry_enabled,
             sentry_dsn_set,
+            desktop_mode,
+            desktop_agent_configs: Arc::new(RwLock::new(HashMap::new())),
+            desktop_active_agent: Arc::new(RwLock::new(None)),
+            desktop_config_gate: Arc::new(Mutex::new(())),
+            desktop_config_generation: Arc::new(AtomicU64::new(0)),
         }
     }
 

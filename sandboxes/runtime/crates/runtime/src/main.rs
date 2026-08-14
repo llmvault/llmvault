@@ -33,6 +33,7 @@ use outbound::{
 use storage::{
     init_sqlite_store, SqliteConfigRepo, SqliteEventRepo, SqliteInboundDedupeRepo,
     SqliteOutboxRepo, SqliteQuestionRequestRepo, SqliteSessionRepo, SqliteSubagentTaskRepo,
+    VolatileConfigRepo,
 };
 use tokio::sync::{mpsc, RwLock};
 use tools::LocalBashOperations;
@@ -67,6 +68,9 @@ async fn main() -> Result<()> {
         log_runtime_startup_phase("initialize process", startup_started, startup_started);
 
     let runtime_env: HashMap<String, String> = std::env::vars().collect();
+    let desktop_mode = runtime_env
+        .get("HIVY_RUNTIME_MODE")
+        .is_some_and(|value| value.eq_ignore_ascii_case("desktop"));
     let activity_reporter = RuntimeActivityReporter::from_env(&runtime_env);
     let runtime_secret =
         required_runtime_env(&runtime_env, "HIVY_RUNTIME_SECRET", "runtime bearer token")?;
@@ -95,7 +99,12 @@ async fn main() -> Result<()> {
     info!(database = %database_path, "initializing storage");
     let database_path = PathBuf::from(&database_path);
     let sqlite_store = init_sqlite_store(database_path.clone()).await?;
-    let config_repo: Arc<dyn storage::ConfigRepo> = Arc::new(SqliteConfigRepo::new(&sqlite_store));
+    let config_repo: Arc<dyn storage::ConfigRepo> = if desktop_mode {
+        info!("desktop runtime mode enabled; agent configuration will remain memory-only");
+        Arc::new(VolatileConfigRepo::new())
+    } else {
+        Arc::new(SqliteConfigRepo::new(&sqlite_store))
+    };
     let session_repo: Arc<dyn storage::SessionRepo> =
         Arc::new(SqliteSessionRepo::new(&sqlite_store));
     let event_repo: Arc<dyn storage::EventRepo> = Arc::new(SqliteEventRepo::new(&sqlite_store));
@@ -231,6 +240,7 @@ async fn main() -> Result<()> {
         Some(drain_controller),
         sentry_enabled,
         sentry_dsn_set,
+        desktop_mode,
     );
     phase_started = log_runtime_startup_phase("build api state", phase_started, startup_started);
     let (api_handle, api_cancel) = api::serve(bind_addr, api_state.clone()).await;

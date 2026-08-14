@@ -49,6 +49,8 @@ mod openapi {
         info(title = "Hivy Sandboxes Runtime API", version = "0.0.1"),
         paths(
             crate::handlers::put_config,
+            crate::handlers::put_desktop_agent_config,
+            crate::handlers::post_desktop_agent_session_message,
             crate::handlers::post_control_commands,
             crate::handlers::post_control_drain,
             crate::handlers::get_control_drain,
@@ -184,6 +186,14 @@ pub fn build_router(state: ApiState) -> Router {
         .route(
             "/config",
             put(handlers::put_config).get(handlers::get_config),
+        )
+        .route(
+            "/desktop/agents/:agent_id/config",
+            put(handlers::put_desktop_agent_config),
+        )
+        .route(
+            "/desktop/agents/:agent_id/sessions/:session_id/messages",
+            post(handlers::post_desktop_agent_session_message),
         )
         .route("/control/commands", post(handlers::post_control_commands))
         .route(

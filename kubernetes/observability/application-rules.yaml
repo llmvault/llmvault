@@ -117,7 +117,7 @@ spec:
             description: "Sustained reservation pressure can delay new sandbox provisioning."
             dashboard: "Hivy / Sandbox Capacity and Lifecycle"
         - alert: HivyPostgresCollectorDown
-          expr: cnpg_collector_up{namespace=~"production|staging"} == 0
+          expr: cnpg_collector_up{namespace="production"} == 0
           for: 5m
           labels:
             severity: critical
@@ -126,7 +126,7 @@ spec:
             description: "Database telemetry is unavailable for {{ $labels.namespace }}/{{ $labels.pod }}."
             dashboard: "Hivy / Data Services"
         - alert: HivyApplicationScrapeDown
-          expr: up{namespace=~"production|staging", job=~".*(hivy|microsandbox|cloudnative|qdrant).*"} == 0
+          expr: up{namespace="production", job=~".*(hivy|microsandbox|cloudnative|qdrant).*"} == 0
           for: 5m
           labels:
             severity: warning

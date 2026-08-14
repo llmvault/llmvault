@@ -13,7 +13,7 @@ elif [[ $# -gt 0 ]]; then
   exit 1
 fi
 
-for command_name in railway jq openssl; do
+for command_name in railway jq; do
   if ! command -v "${command_name}" >/dev/null; then
     echo "missing required command: ${command_name}" >&2
     exit 1
@@ -67,7 +67,6 @@ write_secret() {
 
 umask 077
 write_secret production "$(read_required HIVY_SESSION_SECRET)"
-write_secret staging "$(openssl rand -hex 32)"
 
 unset web_vars value
-echo "web secrets are ready"
+echo "production web secrets are ready"

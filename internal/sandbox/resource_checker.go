@@ -12,7 +12,9 @@ import (
 // RunResourceCheck queries all running sandboxes and collects their resource stats.
 func (o *Orchestrator) RunResourceCheck(ctx context.Context) {
 	var sandboxes []model.Sandbox
-	if err := o.db.Where("status = 'running'").Find(&sandboxes).Error; err != nil {
+	if err := o.db.WithContext(ctx).
+		Where("status = ? AND provider_id <> ?", string(StatusRunning), ProviderDesktop).
+		Find(&sandboxes).Error; err != nil {
 		logging.FromContext(ctx).ErrorContext(ctx, "resource check: failed to query sandboxes", "error", err)
 		return
 	}

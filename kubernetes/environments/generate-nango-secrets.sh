@@ -4,7 +4,6 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 config_root="${repo_root}/kubernetes/config"
 s3_env="${config_root}/env/infrastructure/hetzner-s3.env"
-staging_dir="${config_root}/env/staging"
 production_dir="${config_root}/env/production"
 expected_project_id="55776e03-e6c2-4a9b-828b-4e759495aa70"
 
@@ -48,7 +47,7 @@ write_secret() {
   chmod 600 "${destination}"
 }
 
-mkdir -p "${staging_dir}" "${production_dir}"
+mkdir -p "${production_dir}"
 umask 077
 
 nango_vars="$(railway variable list --service connections.usehivy.com --environment production --json)"
@@ -60,28 +59,18 @@ nango_dashboard_password="$(read_json_value "${nango_vars}" NANGO_DASHBOARD_PASS
 nango_secret_key="$(read_json_value "${api_vars}" HIVY_NANGO_SECRET_KEY)"
 nango_webhooks_secret="$(read_json_value "${api_vars}" HIVY_NANGO_WEBHOOKS_SECRET)"
 
-for environment_name in staging production; do
-  if [[ "${environment_name}" == "staging" ]]; then
-    secret_dir="${staging_dir}"
-    s3_prefix="HETZNER_S3_STAGING_PG_NANGO"
-  else
-    secret_dir="${production_dir}"
-    s3_prefix="HETZNER_S3_PROD_PG_NANGO"
-  fi
+write_secret "${production_dir}/nango-runtime.env" \
+  "NANGO_ENCRYPTION_KEY=${nango_encryption_key}" \
+  "NANGO_DASHBOARD_USERNAME=${nango_dashboard_username}" \
+  "NANGO_DASHBOARD_PASSWORD=${nango_dashboard_password}"
+write_secret "${production_dir}/nango-backend.env" \
+  "HIVY_NANGO_SECRET_KEY=${nango_secret_key}" \
+  "HIVY_NANGO_WEBHOOKS_SECRET=${nango_webhooks_secret}"
+write_secret "${production_dir}/nango-postgres.env" \
+  "username=nango" \
+  "password=$(openssl rand -hex 32)"
+write_secret "${production_dir}/nango-postgres-backup.env" \
+  "ACCESS_KEY_ID=$(read_s3_env HETZNER_S3_PROD_PG_NANGO_ACCESS_KEY_ID)" \
+  "ACCESS_SECRET_KEY=$(read_s3_env HETZNER_S3_PROD_PG_NANGO_SECRET_ACCESS_KEY)"
 
-  write_secret "${secret_dir}/nango-runtime.env" \
-    "NANGO_ENCRYPTION_KEY=${nango_encryption_key}" \
-    "NANGO_DASHBOARD_USERNAME=${nango_dashboard_username}" \
-    "NANGO_DASHBOARD_PASSWORD=${nango_dashboard_password}"
-  write_secret "${secret_dir}/nango-backend.env" \
-    "HIVY_NANGO_SECRET_KEY=${nango_secret_key}" \
-    "HIVY_NANGO_WEBHOOKS_SECRET=${nango_webhooks_secret}"
-  write_secret "${secret_dir}/nango-postgres.env" \
-    "username=nango" \
-    "password=$(openssl rand -hex 32)"
-  write_secret "${secret_dir}/nango-postgres-backup.env" \
-    "ACCESS_KEY_ID=$(read_s3_env "${s3_prefix}_ACCESS_KEY_ID")" \
-    "ACCESS_SECRET_KEY=$(read_s3_env "${s3_prefix}_SECRET_ACCESS_KEY")"
-done
-
-echo "generated staging and production Nango secrets"
+echo "generated production Nango secrets"

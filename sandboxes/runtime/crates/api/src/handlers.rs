@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::io::Read;
 use std::path::{Path as FsPath, PathBuf};
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use storage::{ConfigSnapshot, SessionListCursor, SessionListFilter};
 use tools::{BashExecOptions, BashOperations};
@@ -174,6 +175,155 @@ pub struct ConfigUpdateRequest {
     pub definition: AgentDefinition,
     #[serde(default)]
     pub workspace: WorkspaceConfig,
+}
+
+fn desktop_only(state: &ApiState) -> Result<(), (StatusCode, String)> {
+    if state.desktop_mode {
+        Ok(())
+    } else {
+        Err((
+            StatusCode::NOT_FOUND,
+            "desktop runtime endpoint is disabled".to_string(),
+        ))
+    }
+}
+
+/// Registers or replaces one agent configuration in the desktop runtime's
+/// memory-only catalog. Secrets in this payload are never written to SQLite.
+#[cfg_attr(feature = "openapi", utoipa::path(
+    put,
+    path = "/desktop/agents/{agent_id}/config",
+    params(("agent_id" = String, Path, description = "Cloud agent identifier")),
+    request_body = ConfigUpdateRequest,
+    responses(
+        (status = 200, description = "Desktop agent configuration registered", body = ConfigResponse),
+        (status = 400, description = "Invalid configuration"),
+        (status = 404, description = "Desktop mode is disabled")
+    ),
+    security(("bearer" = []))
+))]
+pub async fn put_desktop_agent_config(
+    State(state): State<ApiState>,
+    Path(agent_id): Path<String>,
+    Json(request): Json<ConfigUpdateRequest>,
+) -> Result<Json<ConfigResponse>, (StatusCode, String)> {
+    desktop_only(&state)?;
+    let agent_id = agent_id.trim();
+    if agent_id.is_empty() || agent_id.len() > 128 {
+        return Err((StatusCode::BAD_REQUEST, "invalid agent id".to_string()));
+    }
+    request
+        .validate()
+        .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+
+    let generation = state
+        .desktop_config_generation
+        .fetch_add(1, Ordering::AcqRel)
+        .saturating_add(1);
+    let env_key_count = request.runtime_env.len();
+    let snapshot = ConfigSnapshot {
+        definition: request.definition,
+        runtime_env: request.runtime_env,
+        workspace: request.workspace,
+    };
+    state
+        .desktop_agent_configs
+        .write()
+        .await
+        .insert(agent_id.to_string(), (generation, snapshot));
+
+    Ok(Json(ConfigResponse {
+        applied_at: Utc::now(),
+        env_key_count,
+        secret_rotated: false,
+    }))
+}
+
+/// Activates a catalogued agent configuration and injects a message atomically.
+/// A different agent can take over once the current turn and accepted-message
+/// queue are idle; this prevents one agent's secrets or MCP catalog leaking into
+/// another agent's turn while keeping a single local runtime process.
+#[cfg_attr(feature = "openapi", utoipa::path(
+    post,
+    path = "/desktop/agents/{agent_id}/sessions/{session_id}/messages",
+    params(
+        ("agent_id" = String, Path, description = "Cloud agent identifier"),
+        ("session_id" = String, Path, description = "Cloud session identifier")
+    ),
+    request_body = SessionMessageRequest,
+    responses(
+        (status = 200, description = "Message accepted by the selected local agent", body = SessionMessageResponse),
+        (status = 404, description = "Desktop mode is disabled"),
+        (status = 409, description = "Agent configuration is missing or another agent is active"),
+        (status = 503, description = "Session API is disabled")
+    ),
+    security(("bearer" = []))
+))]
+pub async fn post_desktop_agent_session_message(
+    State(state): State<ApiState>,
+    Path((agent_id, session_id)): Path<(String, String)>,
+    Json(request): Json<SessionMessageRequest>,
+) -> Result<Json<SessionMessageResponse>, (StatusCode, String)> {
+    desktop_only(&state)?;
+    if state.is_draining() {
+        return Err(drain_reject_response());
+    }
+    let _gate = state.desktop_config_gate.lock().await;
+    let (generation, snapshot) = state
+        .desktop_agent_configs
+        .read()
+        .await
+        .get(&agent_id)
+        .cloned()
+        .ok_or_else(|| {
+            (
+                StatusCode::CONFLICT,
+                "desktop agent configuration has not been registered".to_string(),
+            )
+        })?;
+
+    let active = state.desktop_active_agent.read().await.clone();
+    if active.as_ref() != Some(&(agent_id.clone(), generation)) {
+        let same_agent = active
+            .as_ref()
+            .is_some_and(|(active_agent_id, _)| active_agent_id == &agent_id);
+        let mut busy = false;
+        if let Some(controller) = state.drain_controller.as_ref() {
+            let status = controller
+                .status()
+                .await
+                .map_err(|error| internal_error_response("desktop.config.status", error))?;
+            busy = status.active_turns > 0 || status.pending_accepted_messages > 0;
+            if busy && !same_agent {
+                return Err((
+                    StatusCode::CONFLICT,
+                    "another local agent turn is active; retry when it completes".to_string(),
+                ));
+            }
+        }
+        if !busy {
+            apply_config_snapshot(
+                &state,
+                snapshot.definition,
+                snapshot.runtime_env,
+                snapshot.workspace,
+            )
+            .await?;
+            *state.desktop_active_agent.write().await = Some((agent_id, generation));
+        }
+    }
+
+    let Some(session_stream) = state.session_stream.as_ref() else {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "session API is not enabled".to_string(),
+        ));
+    };
+    session_stream
+        .inject_message(SessionId::from(session_id), request)
+        .await
+        .map(Json)
+        .map_err(|error| internal_error_response("desktop.session_stream.inject_message", error))
 }
 
 #[derive(Deserialize)]

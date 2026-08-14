@@ -355,16 +355,26 @@ function handleSessionStreamFrame(
       reconnectSessionStream(
         sessionId,
         controller.queryClient,
-        {
-          mode: "all",
-        },
+        { mode: "all" },
         { orgId: controller.orgId }
       )
     )
     return
   }
+  applySessionStreamFrame(sessionId, controller.queryClient, frame)
+}
+
+export function applySessionStreamFrame(
+  sessionId: string,
+  queryClient: QueryClient,
+  frame: GoSessionStreamFrame
+) {
+  if (frame.event === "resync_required") {
+    void refreshSessionQueries(queryClient, sessionId)
+    return
+  }
   if (isRuntimeRepoChangeFrame(frame)) {
-    void controller.queryClient.invalidateQueries({
+    void queryClient.invalidateQueries({
       queryKey: ["sandbox-runtime-review-diffs", sessionId],
     })
   }
@@ -481,7 +491,7 @@ function stopController(
   }
 }
 
-async function refreshSessionQueries(
+export async function refreshSessionQueries(
   queryClient: QueryClient,
   sessionId: string
 ) {

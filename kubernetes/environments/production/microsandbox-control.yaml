@@ -176,8 +176,6 @@ spec:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: production
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: staging
-        - matchLabels:
             k8s:io.kubernetes.pod.namespace: observability
       toPorts:
         - ports:

@@ -209,6 +209,7 @@ func (h *SandboxAutoSleepHandler) idleAgentSandboxesQuery(ctx context.Context, c
 		Joins("LEFT JOIN LATERAL (SELECT max(event_at) AS last_event FROM session_events se WHERE se.session_id = sessions.id) ev ON TRUE").
 		Where("sessions.agent_turn_status = ?", model.SessionAgentTurnIdle).
 		Where("sandboxes.status = ?", string(sandbox.StatusRunning)).
+		Where("sandboxes.provider_id <> ?", sandbox.ProviderDesktop).
 		Where("sandboxes.external_id <> ''").
 		Where("GREATEST(COALESCE(ev.last_event, sessions.created_at), COALESCE(sandboxes.last_gateway_activity_at, sandboxes.created_at)) < ?", cutoff)
 }
@@ -237,6 +238,7 @@ func (h *SandboxAutoSleepHandler) idleAppSandboxesQuery(ctx context.Context, cut
 		Distinct("sandboxes.*").
 		Joins("JOIN apps ON apps.sandbox_id = sandboxes.id AND apps.archived_at IS NULL").
 		Where("sandboxes.status = ?", string(sandbox.StatusRunning)).
+		Where("sandboxes.provider_id <> ?", sandbox.ProviderDesktop).
 		Where("sandboxes.external_id <> ''").
 		Where("COALESCE(GREATEST(sandboxes.last_app_activity_at, sandboxes.last_gateway_activity_at), sandboxes.created_at) < ?", cutoff)
 }

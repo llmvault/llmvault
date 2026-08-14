@@ -11,7 +11,7 @@ pub(crate) enum OutboundNetworkPolicy {
     /// configured hostnames. Loopback, link-local, metadata, and every other
     /// special-purpose address remain blocked.
     AllowTrustedPrivateHosts(HashSet<String>),
-    AllowLoopbackForTests,
+    AllowLoopback,
 }
 
 impl OutboundNetworkPolicy {
@@ -66,8 +66,7 @@ pub(crate) async fn prepare_http_target(
         return Err(OutboundTargetError::DisallowedUrlComponent);
     }
     if url.scheme() != "https"
-        && !(matches!(policy, OutboundNetworkPolicy::AllowLoopbackForTests)
-            && url.scheme() == "http")
+        && !(matches!(policy, OutboundNetworkPolicy::AllowLoopback) && url.scheme() == "http")
     {
         return Err(OutboundTargetError::InsecureScheme);
     }
@@ -83,9 +82,8 @@ pub(crate) async fn prepare_http_target(
     let addresses = resolve_once(&host, port).await?;
     validate_addresses(&host, &addresses, &policy)?;
 
-    // Plain HTTP exists solely for loopback integration fixtures. Even the
-    // injected test policy must never allow cleartext traffic to a public or
-    // private non-loopback destination.
+    // Plain HTTP exists solely for loopback desktop development and integration
+    // fixtures. It must never allow cleartext traffic to another destination.
     if url.scheme() == "http" && !addresses.iter().all(|address| address.ip().is_loopback()) {
         return Err(OutboundTargetError::InsecureScheme);
     }
@@ -126,7 +124,7 @@ fn validate_addresses(
     for address in addresses {
         let ip = address.ip();
         let loopback_test_exception =
-            matches!(policy, OutboundNetworkPolicy::AllowLoopbackForTests) && ip.is_loopback();
+            matches!(policy, OutboundNetworkPolicy::AllowLoopback) && ip.is_loopback();
         let trusted_private_host_exception =
             policy.allows_trusted_private_host(host) && is_routable_private_ip(ip);
         if is_forbidden_ip(ip) && !loopback_test_exception && !trusted_private_host_exception {
@@ -297,7 +295,7 @@ mod tests {
         assert!(validate_addresses(
             "localhost",
             &loopback,
-            &OutboundNetworkPolicy::AllowLoopbackForTests,
+            &OutboundNetworkPolicy::AllowLoopback,
         )
         .is_ok());
 
@@ -308,7 +306,7 @@ mod tests {
         assert!(validate_addresses(
             "metadata.example.com",
             &metadata,
-            &OutboundNetworkPolicy::AllowLoopbackForTests,
+            &OutboundNetworkPolicy::AllowLoopback,
         )
         .is_err());
     }

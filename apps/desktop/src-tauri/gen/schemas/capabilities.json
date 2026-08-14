@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Hivy desktop window permissions","remote":{"urls":["http://localhost:*/*","http://127.0.0.1:*/*","https://*/*"]},"local":true,"windows":["main"],"permissions":["core:default","allow-desktop-cloud-url","allow-desktop-info","allow-runtime-request","allow-runtime-session-stream"]}}

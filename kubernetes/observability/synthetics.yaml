@@ -120,5 +120,3 @@ spec:
       targets:
         - https://api.usehivy.com/healthz
         - https://usehivy.com/api/health
-        - https://staging.api.usehivy.com/healthz
-        - https://staging.usehivy.com/api/health

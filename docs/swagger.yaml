@@ -1,5 +1,48 @@
 basePath: /
 definitions:
+  AgentDefinition:
+    properties:
+      agent:
+        $ref: '#/definitions/AgentMeta'
+      auto_load_skills:
+        items:
+          $ref: '#/definitions/AutoLoadSkill'
+        type: array
+      context:
+        additionalProperties: {}
+        type: object
+      limits:
+        additionalProperties: {}
+        type: object
+      mcp_servers:
+        items: {}
+        type: array
+      mcp_tool_filter:
+        $ref: '#/definitions/ToolFilter'
+      model:
+        $ref: '#/definitions/ModelConfig'
+      outbound_channels:
+        items: {}
+        type: array
+      sub_agents:
+        additionalProperties:
+          $ref: '#/definitions/AgentDefinition'
+        type: object
+      system_prompt:
+        $ref: '#/definitions/SystemPromptConfig'
+      tools:
+        items:
+          additionalProperties: {}
+          type: object
+        type: array
+    type: object
+  AgentMeta:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    type: object
   ArtifactFileResponse:
     properties:
       content_type:
@@ -132,6 +175,19 @@ definitions:
         $ref: '#/definitions/TriggerSpec'
       version:
         type: integer
+    type: object
+  ConfigUpdateRequest:
+    properties:
+      definition:
+        $ref: '#/definitions/AgentDefinition'
+      runtime_env:
+        additionalProperties:
+          type: string
+        type: object
+      runtime_secret:
+        type: string
+      workspace:
+        $ref: '#/definitions/WorkspaceConfig'
     type: object
   ConfigurableResourceSummary:
     properties:
@@ -272,6 +328,31 @@ definitions:
         type: array
       value: {}
     type: object
+  HTTPMessageRequest:
+    properties:
+      actor_user_id:
+        description: |-
+          ActorUserID is the Hivy user id of the human on whose behalf this turn
+          runs. The runtime injects it into agent tool calls as `_hivy_actor_user_id`
+          so tools can authorize on the requesting user. Empty for automated
+          (trigger/cron/system) runs that have no human actor.
+        type: string
+      attachments:
+        items: {}
+        type: array
+      model_definition:
+        $ref: '#/definitions/ModelConfig'
+      session_context:
+        items:
+          type: string
+        type: array
+      text:
+        type: string
+      user:
+        type: string
+      user_display_name:
+        type: string
+    type: object
   InstallSpec:
     properties:
       default_agent:
@@ -312,6 +393,43 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  ModelConfig:
+    properties:
+      api_key_env:
+        type: string
+      base_url:
+        type: string
+      canonical_model_id:
+        type: string
+      capabilities:
+        additionalProperties: {}
+        type: object
+      extra_headers:
+        additionalProperties:
+          type: string
+        type: object
+      fallback:
+        $ref: '#/definitions/ModelConfig'
+      max_output_tokens:
+        type: integer
+      model_id:
+        type: string
+      model_profile:
+        type: string
+      provider:
+        type: string
+      provider_id:
+        type: string
+      provider_options:
+        additionalProperties: {}
+        type: object
+      reasoning_effort:
+        type: string
+      temperature:
+        type: number
+      upstream_model_id:
+        type: string
     type: object
   NangoConfig:
     properties:
@@ -528,6 +646,19 @@ definitions:
       field:
         type: string
     type: object
+  SystemPromptConfig:
+    properties:
+      cacheable_segments:
+        items:
+          $ref: '#/definitions/SystemPromptSegment'
+        type: array
+      dynamic_segments:
+        items:
+          $ref: '#/definitions/SystemPromptSegment'
+        type: array
+    type: object
+  SystemPromptSegment:
+    type: object
   ToolFilter:
     properties:
       allow:
@@ -565,6 +696,26 @@ definitions:
           WebhookURLRequired indicates the user must manually configure a webhook
           URL in the provider's dashboard for triggers to work.
         type: boolean
+    type: object
+  WorkspaceConfig:
+    properties:
+      repos:
+        items:
+          $ref: '#/definitions/WorkspaceRepoConfig'
+        type: array
+    type: object
+  WorkspaceRepoConfig:
+    properties:
+      clone_url:
+        type: string
+      depth:
+        type: integer
+      full_name:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
     type: object
   actionSchemaPaths:
     properties:
@@ -2054,6 +2205,31 @@ definitions:
         type: array
       mutation_id:
         type: string
+    type: object
+  desktopDeliveryRequest:
+    properties:
+      stream_id:
+        type: string
+      turn_id:
+        type: string
+    type: object
+  desktopRuntimeConfigResponse:
+    properties:
+      agent_id:
+        type: string
+      config:
+        $ref: '#/definitions/ConfigUpdateRequest'
+      sandbox_id:
+        type: string
+    type: object
+  desktopSessionMutationResponse:
+    properties:
+      event:
+        $ref: '#/definitions/sessionEventResponse'
+      runtime_request:
+        $ref: '#/definitions/HTTPMessageRequest'
+      session:
+        $ref: '#/definitions/sessionResponse'
     type: object
   discoverWebsiteSectionsRequest:
     properties:
@@ -8293,6 +8469,169 @@ paths:
       summary: Test database integration
       tags:
       - database-integrations
+  /v1/desktop/agents/{agentID}/runtime-config:
+    post:
+      parameters:
+      - description: Agent ID
+        in: path
+        name: agentID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/desktopRuntimeConfigResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Bootstrap an agent in the desktop runtime
+      tags:
+      - desktop
+  /v1/desktop/sessions:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Desktop session payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/createSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/desktopSessionMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a desktop-executed session
+      tags:
+      - desktop
+  /v1/desktop/sessions/{id}/delivery:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Local runtime delivery
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/desktopDeliveryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sessionMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Record a desktop runtime delivery
+      tags:
+      - desktop
+  /v1/desktop/sessions/{id}/messages:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Message payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/sendSessionMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/desktopSessionMutationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Prepare a desktop session message
+      tags:
+      - desktop
   /v1/directives:
     get:
       responses: {}
@@ -12246,6 +12585,14 @@ paths:
       - description: Pagination cursor
         in: query
         name: cursor
+        type: string
+      - default: raw
+        description: Event view
+        enum:
+        - raw
+        - transcript
+        in: query
+        name: view
         type: string
       produces:
       - application/json

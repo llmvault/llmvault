@@ -171,9 +171,6 @@ spec:
         - matchLabels:
             app.kubernetes.io/name: hivy-backend
             k8s:io.kubernetes.pod.namespace: production
-        - matchLabels:
-            app.kubernetes.io/name: hivy-backend
-            k8s:io.kubernetes.pod.namespace: staging
       toPorts:
         - ports:
             - port: "8443"

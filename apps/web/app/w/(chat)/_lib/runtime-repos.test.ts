@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   RuntimeRepoHTTPError,
+  fetchRuntimeRepos,
   fetchRuntimeRepoDiff,
   fetchRuntimeRepoFileContent,
 } from "@/app/w/(chat)/_lib/runtime-repos"
@@ -10,7 +11,39 @@ describe("runtime repository helpers", () => {
 
   afterEach(() => {
     global.fetch = originalFetch
+    delete (globalThis as unknown as Record<string, unknown>).window
     vi.restoreAllMocks()
+  })
+
+  it("reads desktop repositories through the Tauri bridge", async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      status: 200,
+      body: {
+        repos: [
+          {
+            id: "repo-1",
+            name: "repo",
+            relative_path: "repos/repo",
+            head_sha: "abc",
+            base_sha: "def",
+          },
+        ],
+      },
+    })
+    ;(globalThis as unknown as Record<string, unknown>).window = globalThis
+    ;(window as unknown as Record<string, unknown>).__TAURI__ = {
+      core: { invoke },
+    }
+
+    const repos = await fetchRuntimeRepos({
+      sandbox_base_url: "hivy-desktop://runtime",
+      token: "desktop-bridge",
+    })
+
+    expect(repos).toHaveLength(1)
+    expect(invoke).toHaveBeenCalledWith("runtime_request", {
+      request: { method: "GET", path: "/repos", body: undefined },
+    })
   })
 
   it("fetches repository file content with path and paging query params", async () => {

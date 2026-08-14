@@ -3,6 +3,7 @@
 import type { QueryClient } from "@tanstack/react-query"
 import { $api } from "@/lib/api/hooks"
 import type { components } from "@/lib/api/schema"
+import { isDesktopApp } from "@/lib/desktop/bridge"
 
 const ACCESS_EXPIRY_BUFFER_MS = 5 * 60 * 1000
 
@@ -59,7 +60,11 @@ export async function getSessionSandboxAccess(
   const pending = pendingBySessionId.get(sessionId)
   if (pending) return pending
 
-  const request = requestFreshSandboxAccess(sessionId, queryClient)
+  const request = requestFreshSandboxAccess(
+    sessionId,
+    queryClient,
+    options.expectedSandboxId
+  )
   pendingBySessionId.set(sessionId, request)
   try {
     const access = await request
@@ -102,8 +107,22 @@ function accessMatchesExpectedSandbox(
 
 async function requestFreshSandboxAccess(
   sessionId: string,
-  queryClient: QueryClient
+  queryClient: QueryClient,
+  expectedSandboxId?: string | null
 ) {
+  if (isDesktopApp()) {
+    if (!expectedSandboxId) {
+      throw new Error("Desktop session sandbox id is not available.")
+    }
+    return {
+      session_id: sessionId,
+      sandbox_id: expectedSandboxId,
+      sandbox_base_url: "hivy-desktop://runtime",
+      token: "desktop-bridge",
+      expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      scopes: ["sandbox:read", "stream:read", "repo:read"],
+    } satisfies SessionSandboxAccess
+  }
   const data = await queryClient.fetchQuery(
     $api.queryOptions("post", "/v1/sessions/{id}/sandbox-access", {
       params: { path: { id: sessionId } },

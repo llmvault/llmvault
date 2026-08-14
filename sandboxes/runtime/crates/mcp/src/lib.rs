@@ -242,6 +242,12 @@ impl McpRegistry {
     }
 
     fn production_network_policy(runtime_env: &HashMap<String, String>) -> OutboundNetworkPolicy {
+        if runtime_env
+            .get("HIVY_RUNTIME_MODE")
+            .is_some_and(|mode| mode.eq_ignore_ascii_case("desktop"))
+        {
+            return OutboundNetworkPolicy::AllowLoopback;
+        }
         let trusted_hosts = runtime_env
             .get(TRUSTED_PRIVATE_MCP_HOSTS_ENV)
             .into_iter()
@@ -268,7 +274,7 @@ impl McpRegistry {
             specs,
             runtime_env,
             workspace_root,
-            OutboundNetworkPolicy::AllowLoopbackForTests,
+            OutboundNetworkPolicy::AllowLoopback,
         )
         .await
     }

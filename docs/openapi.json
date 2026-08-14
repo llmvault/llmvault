@@ -6609,6 +6609,324 @@
         }
       }
     },
+    "/v1/desktop/agents/{agentID}/runtime-config": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "desktop"
+        ],
+        "summary": "Bootstrap an agent in the desktop runtime",
+        "parameters": [
+          {
+            "description": "Agent ID",
+            "name": "agentID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/desktopRuntimeConfigResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/desktop/sessions": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "desktop"
+        ],
+        "summary": "Create a desktop-executed session",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/createSessionRequest"
+              }
+            }
+          },
+          "description": "Desktop session payload",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/desktopSessionMutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/desktop/sessions/{id}/delivery": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "desktop"
+        ],
+        "summary": "Record a desktop runtime delivery",
+        "parameters": [
+          {
+            "description": "Session ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/desktopDeliveryRequest"
+              }
+            }
+          },
+          "description": "Local runtime delivery",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/sessionMutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/desktop/sessions/{id}/messages": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "desktop"
+        ],
+        "summary": "Prepare a desktop session message",
+        "parameters": [
+          {
+            "description": "Session ID",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/sendSessionMessageRequest"
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/desktopSessionMutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/directives": {
       "get": {
         "responses": {}
@@ -14165,6 +14483,19 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Event view",
+            "name": "view",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "transcript"
+              ],
+              "default": "raw"
+            }
           }
         ],
         "responses": {
@@ -14450,15 +14781,7 @@
           }
         ],
         "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/sendSessionMessageRequest"
-              }
-            }
-          },
-          "description": "Message payload",
-          "required": true
+          "$ref": "#/components/requestBodies/sendSessionMessageRequest"
         },
         "responses": {
           "202": {
@@ -18322,6 +18645,17 @@
         },
         "description": "Connection name",
         "required": true
+      },
+      "sendSessionMessageRequest": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/sendSessionMessageRequest"
+            }
+          }
+        },
+        "description": "Message payload",
+        "required": true
       }
     },
     "securitySchemes": {
@@ -18333,6 +18667,69 @@
       }
     },
     "schemas": {
+      "AgentDefinition": {
+        "type": "object",
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/AgentMeta"
+          },
+          "auto_load_skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutoLoadSkill"
+            }
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "limits": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "mcp_servers": {
+            "type": "array",
+            "items": {}
+          },
+          "mcp_tool_filter": {
+            "$ref": "#/components/schemas/ToolFilter"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelConfig"
+          },
+          "outbound_channels": {
+            "type": "array",
+            "items": {}
+          },
+          "sub_agents": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AgentDefinition"
+            }
+          },
+          "system_prompt": {
+            "$ref": "#/components/schemas/SystemPromptConfig"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          }
+        }
+      },
+      "AgentMeta": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "ArtifactFileResponse": {
         "type": "object",
         "properties": {
@@ -18532,6 +18929,26 @@
           },
           "version": {
             "type": "integer"
+          }
+        }
+      },
+      "ConfigUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/AgentDefinition"
+          },
+          "runtime_env": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "runtime_secret": {
+            "type": "string"
+          },
+          "workspace": {
+            "$ref": "#/components/schemas/WorkspaceConfig"
           }
         }
       },
@@ -18745,6 +19162,37 @@
           "value": {}
         }
       },
+      "HTTPMessageRequest": {
+        "type": "object",
+        "properties": {
+          "actor_user_id": {
+            "description": "ActorUserID is the Hivy user id of the human on whose behalf this turn\nruns. The runtime injects it into agent tool calls as `_hivy_actor_user_id`\nso tools can authorize on the requesting user. Empty for automated\n(trigger/cron/system) runs that have no human actor.",
+            "type": "string"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {}
+          },
+          "model_definition": {
+            "$ref": "#/components/schemas/ModelConfig"
+          },
+          "session_context": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "text": {
+            "type": "string"
+          },
+          "user": {
+            "type": "string"
+          },
+          "user_display_name": {
+            "type": "string"
+          }
+        }
+      },
       "InstallSpec": {
         "type": "object",
         "properties": {
@@ -18805,6 +19253,61 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "ModelConfig": {
+        "type": "object",
+        "properties": {
+          "api_key_env": {
+            "type": "string"
+          },
+          "base_url": {
+            "type": "string"
+          },
+          "canonical_model_id": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "extra_headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "fallback": {
+            "$ref": "#/components/schemas/ModelConfig"
+          },
+          "max_output_tokens": {
+            "type": "integer"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "model_profile": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "provider_id": {
+            "type": "string"
+          },
+          "provider_options": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "reasoning_effort": {
+            "type": "string"
+          },
+          "temperature": {
+            "type": "number"
+          },
+          "upstream_model_id": {
+            "type": "string"
           }
         }
       },
@@ -19138,6 +19641,26 @@
           }
         }
       },
+      "SystemPromptConfig": {
+        "type": "object",
+        "properties": {
+          "cacheable_segments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SystemPromptSegment"
+            }
+          },
+          "dynamic_segments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SystemPromptSegment"
+            }
+          }
+        }
+      },
+      "SystemPromptSegment": {
+        "type": "object"
+      },
       "ToolFilter": {
         "type": "object",
         "properties": {
@@ -19187,6 +19710,37 @@
           "webhook_url_required": {
             "description": "WebhookURLRequired indicates the user must manually configure a webhook\nURL in the provider's dashboard for triggers to work.",
             "type": "boolean"
+          }
+        }
+      },
+      "WorkspaceConfig": {
+        "type": "object",
+        "properties": {
+          "repos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceRepoConfig"
+            }
+          }
+        }
+      },
+      "WorkspaceRepoConfig": {
+        "type": "object",
+        "properties": {
+          "clone_url": {
+            "type": "string"
+          },
+          "depth": {
+            "type": "integer"
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },
@@ -21438,6 +21992,45 @@
           },
           "mutation_id": {
             "type": "string"
+          }
+        }
+      },
+      "desktopDeliveryRequest": {
+        "type": "object",
+        "properties": {
+          "stream_id": {
+            "type": "string"
+          },
+          "turn_id": {
+            "type": "string"
+          }
+        }
+      },
+      "desktopRuntimeConfigResponse": {
+        "type": "object",
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ConfigUpdateRequest"
+          },
+          "sandbox_id": {
+            "type": "string"
+          }
+        }
+      },
+      "desktopSessionMutationResponse": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/sessionEventResponse"
+          },
+          "runtime_request": {
+            "$ref": "#/components/schemas/HTTPMessageRequest"
+          },
+          "session": {
+            "$ref": "#/components/schemas/sessionResponse"
           }
         }
       },

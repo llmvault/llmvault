@@ -218,7 +218,7 @@ func (h *SessionMessageDeliverHandler) DeliverCommand(ctx context.Context, sessi
 	if err := h.syncRuntimeMCPConfig(ctx, &session, &agent, sb, command.ActorUserID); err != nil {
 		return nil, err
 	}
-	msg := runtimeMessageFromCommand(session, command)
+	msg := RuntimeMessageFromCommand(session, command)
 	resp, err := client.PostHTTPMessage(ctx, msg)
 	if err != nil {
 		h.rollbackWakeReservation(ctx, reservation)

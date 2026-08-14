@@ -178,10 +178,6 @@ grafana:
       secretKeyRef:
         name: observability-postgres-datasources
         key: PRODUCTION_POSTGRES_PASSWORD
-    HIVY_GRAFANA_STAGING_POSTGRES_PASSWORD:
-      secretKeyRef:
-        name: observability-postgres-datasources
-        key: STAGING_POSTGRES_PASSWORD
   admin:
     existingSecret: observability-grafana-admin
     userKey: admin-user

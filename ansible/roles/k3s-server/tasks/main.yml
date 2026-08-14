@@ -56,8 +56,12 @@
     name:
       - apparmor
       - ca-certificates
+      - cryptsetup
       - curl
+      - dmsetup
       - nftables
+      - nfs-common
+      - open-iscsi
       - openssl
     state: present
     update_cache: true
@@ -82,6 +86,9 @@
       overlay
       br_netfilter
       vxlan
+      iscsi_tcp
+      nfs
+      dm_crypt
 
 - name: Load required kernel modules
   ansible.builtin.command: "modprobe {{ item }}"
@@ -90,6 +97,32 @@
     - overlay
     - br_netfilter
     - vxlan
+    - iscsi_tcp
+    - nfs
+    - dm_crypt
+
+- name: Enable the Longhorn iSCSI service
+  ansible.builtin.systemd:
+    name: iscsid
+    enabled: true
+    state: started
+
+- name: Check for the unused multipath daemon
+  ansible.builtin.systemd_service:
+    name: multipathd.service
+  register: k3s_multipathd_service
+  failed_when: false
+
+- name: Disable and mask the unused multipath daemon
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+    masked: true
+  loop:
+    - multipathd.service
+    - multipathd.socket
+  when: k3s_multipathd_service.status.LoadState | default('not-found') != 'not-found'
 
 - name: Configure Kubernetes networking sysctls
   ansible.builtin.copy:

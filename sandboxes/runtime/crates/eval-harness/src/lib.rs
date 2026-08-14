@@ -258,6 +258,7 @@ impl FakeRuntimeServer {
             None,
             false,
             false,
+            false,
         );
         state.mark_config_loaded();
         state.mark_session_api_ready();

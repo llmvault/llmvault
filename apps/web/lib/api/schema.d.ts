@@ -6562,6 +6562,313 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/desktop/agents/{agentID}/runtime-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bootstrap an agent in the desktop runtime */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Agent ID */
+                    agentID: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["desktopRuntimeConfigResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/desktop/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a desktop-executed session */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Desktop session payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["createSessionRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["desktopSessionMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/desktop/sessions/{id}/delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record a desktop runtime delivery */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Local runtime delivery */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["desktopDeliveryRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["sessionMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/desktop/sessions/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare a desktop session message */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Session ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["sendSessionMessageRequest"];
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["desktopSessionMutationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["errorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/directives": {
         parameters: {
             query?: never;
@@ -13635,6 +13942,8 @@ export interface paths {
                     limit?: number;
                     /** @description Pagination cursor */
                     cursor?: string;
+                    /** @description Event view */
+                    view?: "raw" | "transcript";
                 };
                 header?: never;
                 path: {
@@ -13920,12 +14229,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            /** @description Message payload */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["sendSessionMessageRequest"];
-                };
-            };
+            requestBody: components["requestBodies"]["sendSessionMessageRequest"];
             responses: {
                 /** @description Accepted */
                 202: {
@@ -17294,6 +17598,31 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AgentDefinition: {
+            agent?: components["schemas"]["AgentMeta"];
+            auto_load_skills?: components["schemas"]["AutoLoadSkill"][];
+            context?: {
+                [key: string]: unknown;
+            };
+            limits?: {
+                [key: string]: unknown;
+            };
+            mcp_servers?: unknown[];
+            mcp_tool_filter?: components["schemas"]["ToolFilter"];
+            model?: components["schemas"]["ModelConfig"];
+            outbound_channels?: unknown[];
+            sub_agents?: {
+                [key: string]: components["schemas"]["AgentDefinition"];
+            };
+            system_prompt?: components["schemas"]["SystemPromptConfig"];
+            tools?: {
+                [key: string]: unknown;
+            }[];
+        };
+        AgentMeta: {
+            description?: string;
+            name?: string;
+        };
         ArtifactFileResponse: {
             content_type?: string;
             download_url?: string;
@@ -17361,6 +17690,14 @@ export interface components {
             slug?: string;
             trigger?: components["schemas"]["TriggerSpec"];
             version?: number;
+        };
+        ConfigUpdateRequest: {
+            definition?: components["schemas"]["AgentDefinition"];
+            runtime_env?: {
+                [key: string]: string;
+            };
+            runtime_secret?: string;
+            workspace?: components["schemas"]["WorkspaceConfig"];
         };
         ConfigurableResourceSummary: {
             description?: string;
@@ -17432,6 +17769,21 @@ export interface components {
             or?: components["schemas"]["Filter"][];
             value?: unknown;
         };
+        HTTPMessageRequest: {
+            /**
+             * @description ActorUserID is the Hivy user id of the human on whose behalf this turn
+             *     runs. The runtime injects it into agent tool calls as `_hivy_actor_user_id`
+             *     so tools can authorize on the requesting user. Empty for automated
+             *     (trigger/cron/system) runs that have no human actor.
+             */
+            actor_user_id?: string;
+            attachments?: unknown[];
+            model_definition?: components["schemas"]["ModelConfig"];
+            session_context?: string[];
+            text?: string;
+            user?: string;
+            user_display_name?: string;
+        };
         InstallSpec: {
             default_agent?: string;
             default_channel?: string;
@@ -17453,6 +17805,29 @@ export interface components {
         Modalities: {
             input?: string[];
             output?: string[];
+        };
+        ModelConfig: {
+            api_key_env?: string;
+            base_url?: string;
+            canonical_model_id?: string;
+            capabilities?: {
+                [key: string]: unknown;
+            };
+            extra_headers?: {
+                [key: string]: string;
+            };
+            fallback?: components["schemas"]["ModelConfig"];
+            max_output_tokens?: number;
+            model_id?: string;
+            model_profile?: string;
+            provider?: string;
+            provider_id?: string;
+            provider_options?: {
+                [key: string]: unknown;
+            };
+            reasoning_effort?: string;
+            temperature?: number;
+            upstream_model_id?: string;
         };
         NangoConfig: {
             auth_mode?: string;
@@ -17556,6 +17931,11 @@ export interface components {
             desc?: boolean;
             field?: string;
         };
+        SystemPromptConfig: {
+            cacheable_segments?: components["schemas"]["SystemPromptSegment"][];
+            dynamic_segments?: components["schemas"]["SystemPromptSegment"][];
+        };
+        SystemPromptSegment: Record<string, never>;
         ToolFilter: {
             allow?: string[];
             deny?: string[];
@@ -17579,6 +17959,16 @@ export interface components {
              *     URL in the provider's dashboard for triggers to work.
              */
             webhook_url_required?: boolean;
+        };
+        WorkspaceConfig: {
+            repos?: components["schemas"]["WorkspaceRepoConfig"][];
+        };
+        WorkspaceRepoConfig: {
+            clone_url?: string;
+            depth?: number;
+            full_name?: string;
+            id?: string;
+            name?: string;
         };
         actionSchemaPaths: {
             paths?: components["schemas"]["schemaPath"][];
@@ -18332,6 +18722,20 @@ export interface components {
         deleteRowsRequest: {
             ids?: string[];
             mutation_id?: string;
+        };
+        desktopDeliveryRequest: {
+            stream_id?: string;
+            turn_id?: string;
+        };
+        desktopRuntimeConfigResponse: {
+            agent_id?: string;
+            config?: components["schemas"]["ConfigUpdateRequest"];
+            sandbox_id?: string;
+        };
+        desktopSessionMutationResponse: {
+            event?: components["schemas"]["sessionEventResponse"];
+            runtime_request?: components["schemas"]["HTTPMessageRequest"];
+            session?: components["schemas"]["sessionResponse"];
         };
         discoverWebsiteSectionsRequest: {
             url?: string;
@@ -19788,6 +20192,12 @@ export interface components {
         renameConnectionRequest: {
             content: {
                 "application/json": components["schemas"]["renameConnectionRequest"];
+            };
+        };
+        /** @description Message payload */
+        sendSessionMessageRequest: {
+            content: {
+                "application/json": components["schemas"]["sendSessionMessageRequest"];
             };
         };
     };

@@ -1,0 +1,16 @@
+{
+  "name": "@usehivy/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.18.2",
+  "scripts": {
+    "prepare:runtime": "cargo build --manifest-path ../../sandboxes/runtime/Cargo.toml -p hivy-sandboxes-runtime --locked",
+    "prepare:runtime:release": "node scripts/prepare-runtime.mjs",
+    "dev": "node scripts/run-tauri.mjs dev",
+    "build": "node scripts/run-tauri.mjs build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4"
+  }
+}

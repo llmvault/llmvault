@@ -27,6 +27,10 @@ spec:
       owner: hivy
       secret:
         name: backend-postgres-app
+      postInitSQL:
+        - CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public
+        - CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public
+        - CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public
   postgresql:
     parameters:
       max_connections: "300"

@@ -7,6 +7,52 @@
       - ansible_architecture == "x86_64"
     fail_msg: "Microsandbox runners currently target Ubuntu 26.04 on linux/amd64 only."
 
+- name: Validate runner vSwitch configuration
+  ansible.builtin.assert:
+    that:
+      - runner_public_interface | trim | length > 0
+      - runner_private_interface | trim | length > 0
+      - runner_private_ip is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+      - runner_vswitch_vlan_id | int > 0
+      - runner_vswitch_mtu | int >= 1280
+    fail_msg: "Configure the runner's public interface, VLAN interface, and private address before enabling the vSwitch."
+  when: runner_configure_vswitch | bool
+
+- name: Install the runner Hetzner vSwitch netplan
+  ansible.builtin.template:
+    src: hetzner-vswitch.yaml.j2
+    dest: /etc/netplan/90-hetzner-vswitch.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  register: runner_vswitch_netplan
+  when: runner_configure_vswitch | bool
+
+- name: Validate the runner Hetzner vSwitch netplan
+  ansible.builtin.command: netplan generate
+  changed_when: false
+  when:
+    - runner_configure_vswitch | bool
+    - runner_vswitch_netplan.changed
+
+- name: Apply the runner Hetzner vSwitch netplan
+  ansible.builtin.command: netplan apply
+  changed_when: true
+  when:
+    - runner_configure_vswitch | bool
+    - runner_vswitch_netplan.changed
+
+- name: Wait for the runner vSwitch address
+  ansible.builtin.wait_for:
+    host: "{{ runner_private_ip }}"
+    port: 22
+    timeout: 60
+  when: runner_configure_vswitch | bool
+
+- name: Set the permanent runner hostname
+  ansible.builtin.hostname:
+    name: "{{ runner_name }}"
+
 - name: Install base packages
   ansible.builtin.apt:
     name:

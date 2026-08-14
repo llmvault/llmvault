@@ -9,15 +9,10 @@ spec:
     - preview.usehivy.com
     - "*.preview.usehivy.com"
     - api.usehivy.com
-    - staging.api.usehivy.com
     - proxy.usehivy.com
-    - staging.proxy.usehivy.com
     - mcp.usehivy.com
-    - staging.mcp.usehivy.com
     - connections.usehivy.com
-    - staging.connections.usehivy.com
     - usehivy.com
-    - staging.usehivy.com
     - monitor.usehivy.com
     - telemetry.usehivy.com
   issuerRef:

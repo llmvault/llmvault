@@ -6,9 +6,6 @@ runner_coredns_config_dir: /etc/hivy/coredns
 runner_coredns_service_name: hivy-coredns
 runner_coredns_private_names:
   - api.usehivy.com
-  - staging.api.usehivy.com
   - proxy.usehivy.com
-  - staging.proxy.usehivy.com
   - mcp.usehivy.com
-  - staging.mcp.usehivy.com
 runner_coredns_guest_ipv4_cidr: "172.16.0.0/12"

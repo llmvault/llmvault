@@ -13,6 +13,7 @@ var ErrCapacityExhausted = errors.New("sandbox capacity exhausted")
 const (
 	ProviderDaytona      = "daytona"
 	ProviderDocker       = "docker"
+	ProviderDesktop      = "desktop"
 	ProviderMicrosandbox = "microsandbox"
 	ProviderRailway      = "railway"
 )

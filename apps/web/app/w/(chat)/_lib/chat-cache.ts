@@ -26,7 +26,7 @@ export const chatQueryKeys = {
         _hivyQueryKey: SESSION_EVENTS_INFINITE_KEY,
         params: {
           path: { id: sessionID },
-          query: { limit },
+          query: { limit, view: "transcript" as const },
         },
       },
     ] as const,

@@ -286,7 +286,7 @@ function serverSnapshotIsOlder(incoming: string, current?: string) {
   return incomingTime < currentTime
 }
 
-function isRuntimeActive(status: SessionRuntimeStatus) {
+export function isRuntimeActive(status: SessionRuntimeStatus) {
   return (
     status === "queued" ||
     status === "streaming" ||

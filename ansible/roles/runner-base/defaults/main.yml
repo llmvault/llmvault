@@ -1,5 +1,13 @@
 ---
 buildkit_version: v0.31.0
+runner_configure_vswitch: false
+runner_public_interface: ""
+runner_private_interface: ""
+runner_vswitch_vlan_id: 4000
+runner_vswitch_mtu: 1400
+runner_vswitch_prefix: 24
+runner_vswitch_route_cidr: "10.80.0.0/16"
+runner_vswitch_gateway: "10.80.1.1"
 zot_registry_domain: registry.usehivy.com
 zot_registry_private_ip: 10.80.0.3
 buildkit_registry: "{{ zot_registry_domain }}:5000"

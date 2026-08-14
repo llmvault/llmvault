@@ -250,6 +250,124 @@
         ]
       }
     },
+    "/desktop/agents/{agent_id}/config": {
+      "put": {
+        "tags": [
+          "crate::handlers"
+        ],
+        "summary": "Registers or replaces one agent configuration in the desktop runtime's\nmemory-only catalog. Secrets in this payload are never written to SQLite.",
+        "operationId": "put_desktop_agent_config",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "description": "Cloud agent identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Desktop agent configuration registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid configuration"
+          },
+          "404": {
+            "description": "Desktop mode is disabled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/desktop/agents/{agent_id}/sessions/{session_id}/messages": {
+      "post": {
+        "tags": [
+          "crate::handlers"
+        ],
+        "summary": "Activates a catalogued agent configuration and injects a message atomically.\nA different agent can take over once the current turn and accepted-message\nqueue are idle; this prevents one agent's secrets or MCP catalog leaking into\nanother agent's turn while keeping a single local runtime process.",
+        "operationId": "post_desktop_agent_session_message",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "description": "Cloud agent identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Cloud session identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Message accepted by the selected local agent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionMessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Desktop mode is disabled"
+          },
+          "409": {
+            "description": "Agent configuration is missing or another agent is active"
+          },
+          "503": {
+            "description": "Session API is disabled"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -3231,48 +3349,115 @@
         }
       },
       "ToolInputBinding": {
-        "type": "object",
-        "required": [
-          "tool",
-          "kind",
-          "path_argument",
-          "content_argument",
-          "max_bytes",
-          "encoding"
-        ],
-        "properties": {
-          "allowed_extensions": {
-            "type": "array",
-            "items": {
-              "type": "string"
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "tool",
+              "path_argument",
+              "content_argument",
+              "max_bytes",
+              "encoding",
+              "kind"
+            ],
+            "properties": {
+              "allowed_extensions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "content_argument": {
+                "type": "string"
+              },
+              "encoding": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "workspace_text_file"
+                ]
+              },
+              "max_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "path_argument": {
+                "type": "string"
+              },
+              "tool": {
+                "type": "string"
+              }
             }
           },
-          "content_argument": {
-            "type": "string"
-          },
-          "encoding": {
-            "type": "string"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/ToolInputBindingKind"
-          },
-          "max_bytes": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "path_argument": {
-            "type": "string"
-          },
-          "tool": {
-            "type": "string"
+          {
+            "type": "object",
+            "required": [
+              "tool",
+              "entrypoint_path_argument",
+              "supporting_file_paths_argument",
+              "entrypoint_content_argument",
+              "files_argument",
+              "entrypoint_filename",
+              "max_files",
+              "max_file_bytes",
+              "max_total_bytes",
+              "encoding",
+              "kind"
+            ],
+            "properties": {
+              "allowed_directories": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "encoding": {
+                "type": "string"
+              },
+              "entrypoint_content_argument": {
+                "type": "string"
+              },
+              "entrypoint_filename": {
+                "type": "string"
+              },
+              "entrypoint_path_argument": {
+                "type": "string"
+              },
+              "files_argument": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "workspace_bundle"
+                ]
+              },
+              "max_file_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "max_files": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "max_total_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "supporting_file_paths_argument": {
+                "type": "string"
+              },
+              "tool": {
+                "type": "string"
+              }
+            }
           }
-        }
-      },
-      "ToolInputBindingKind": {
-        "type": "string",
-        "enum": [
-          "workspace_text_file"
         ]
       },
       "ToolSpec": {

@@ -71,12 +71,18 @@ import {
   useSessionRuntimeSummary,
   useSessionSubagentRuns,
   useSessionRuntimeStore,
-  type SessionRuntimeStatus,
 } from "@/app/w/(chat)/_stores/session-runtime-store"
+import { isRuntimeActive } from "@/app/w/(chat)/_lib/session-runtime-helpers"
 import {
   selectSessionWorkspace,
   useSessionWorkspaceStore,
 } from "@/app/w/(chat)/_stores/session-workspace-store"
+import {
+  configureDesktopRuntime,
+  deliverDesktopMessage,
+  isDesktopApp,
+} from "@/lib/desktop/bridge"
+import { ensureDesktopSessionStream } from "@/app/w/(chat)/_stores/desktop-session-stream-manager"
 
 const ENABLE_DIRECT_SESSION_STREAM = true
 
@@ -112,11 +118,23 @@ export function SessionThreadView({
   )
   const runtimeSummary = useSessionRuntimeSummary(sessionId)
   const runtimeStatus = runtimeSummary.status
-  const turnActive = isTurnActive(runtimeStatus)
+  const turnActive = isRuntimeActive(runtimeStatus)
   const temporarySession = sessionId?.startsWith("tmp_") ?? false
   const sendSessionMessage = $api.useMutation(
     "post",
     "/v1/sessions/{id}/messages"
+  )
+  const bootstrapDesktopAgent = $api.useMutation(
+    "post",
+    "/v1/desktop/agents/{agentID}/runtime-config"
+  )
+  const sendDesktopSessionMessage = $api.useMutation(
+    "post",
+    "/v1/desktop/sessions/{id}/messages"
+  )
+  const recordDesktopDelivery = $api.useMutation(
+    "post",
+    "/v1/desktop/sessions/{id}/delivery"
   )
   const interruptSession = $api.useMutation(
     "post",
@@ -138,7 +156,10 @@ export function SessionThreadView({
       _hivyQueryKey: SESSION_EVENTS_INFINITE_KEY,
       params: {
         path: { id: sessionId ?? "" },
-        query: { limit: SESSION_HISTORY_PAGE_LIMIT },
+        query: {
+          limit: SESSION_HISTORY_PAGE_LIMIT,
+          view: "transcript",
+        },
       },
     },
     {
@@ -308,6 +329,11 @@ export function SessionThreadView({
       return
     }
     if (!activeBackendTurnID) return
+    if (isDesktopApp()) {
+      stopSessionStream(sessionId)
+      ensureDesktopSessionStream(sessionId, activeBackendTurnID, queryClient)
+      return
+    }
     ensureSessionStream(sessionId, {
       queryClient,
       orgId: activeOrgId,
@@ -371,24 +397,60 @@ export function SessionThreadView({
       optimisticEvent.event_id ?? optimisticEvent.id ?? ""
     appendLiveSessionEvent(sessionId, optimisticEvent)
     try {
-      const response = await sendSessionMessage.mutateAsync({
-        params: { path: { id: sessionId } },
-        body: {
-          text,
-          attachment_ids: messagePayload.attachment_ids,
-          code_line_comments: messagePayload.code_line_comments,
-        },
-      })
+      const body = {
+        text,
+        attachment_ids: messagePayload.attachment_ids,
+        code_line_comments: messagePayload.code_line_comments,
+      }
+      let response
+      if (isDesktopApp()) {
+        const bootstrap = await bootstrapDesktopAgent.mutateAsync({
+          params: { path: { agentID: session.agentId } },
+        })
+        if (!bootstrap.config) {
+          throw new Error("Cloud returned an empty desktop runtime configuration")
+        }
+        await configureDesktopRuntime(session.agentId, bootstrap.config)
+        const prepared = await sendDesktopSessionMessage.mutateAsync({
+          params: { path: { id: sessionId } },
+          body,
+        })
+        if (!prepared.runtime_request) {
+          throw new Error("Cloud returned an empty desktop runtime request")
+        }
+        const delivery = await deliverDesktopMessage<{
+          stream_id?: string
+          turn_id?: string
+        }>(session.agentId, sessionId, prepared.runtime_request)
+        if (!delivery.turn_id) {
+          throw new Error("Local runtime accepted the message without a turn id")
+        }
+        response = await recordDesktopDelivery.mutateAsync({
+          params: { path: { id: sessionId } },
+          body: {
+            stream_id: delivery.stream_id ?? "",
+            turn_id: delivery.turn_id,
+          },
+        })
+      } else {
+        response = await sendSessionMessage.mutateAsync({
+          params: { path: { id: sessionId } },
+          body,
+        })
+      }
       if (response.session) {
         patchSessionInChatCaches(queryClient, response.session)
         hydrateSessionRuntimeFromResponse(response.session, queryClient)
-        ensureSessionStream(sessionId, {
-          queryClient,
-          orgId: activeOrgId,
-          replay: replayModeForLoadedSession(
-            normalizedTurnID(response.session.agent_turn_id)
-          ),
-        })
+        const turnId = normalizedTurnID(response.session.agent_turn_id)
+        if (isDesktopApp() && turnId) {
+          ensureDesktopSessionStream(sessionId, turnId, queryClient)
+        } else {
+          ensureSessionStream(sessionId, {
+            queryClient,
+            orgId: activeOrgId,
+            replay: replayModeForLoadedSession(turnId),
+          })
+        }
       }
       return true
     } catch (error) {
@@ -448,7 +510,12 @@ export function SessionThreadView({
     },
     [sessionId]
   )
-  const isBusy = turnActive || sendSessionMessage.isPending
+  const isBusy =
+    turnActive ||
+    sendSessionMessage.isPending ||
+    bootstrapDesktopAgent.isPending ||
+    sendDesktopSessionMessage.isPending ||
+    recordDesktopDelivery.isPending
   const showHistorySkeleton =
     !temporarySession && sessionHistoryQuery.isPending && !historyPages?.length
   const showBottomDock = Boolean(
@@ -528,13 +595,5 @@ export function SessionThreadView({
         />
       </div>
     </div>
-  )
-}
-
-function isTurnActive(status: SessionRuntimeStatus) {
-  return (
-    status === "queued" ||
-    status === "streaming" ||
-    status === "waiting_for_user"
   )
 }

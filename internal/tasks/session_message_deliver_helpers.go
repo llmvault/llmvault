@@ -25,7 +25,10 @@ func commandFromLegacyEvent(event model.SessionEvent) SessionMessageCommand {
 	}
 }
 
-func runtimeMessageFromCommand(session model.Session, command SessionMessageCommand) agentruntime.HTTPMessageRequest {
+// RuntimeMessageFromCommand converts the durable cloud message command into
+// the runtime HTTP contract. Desktop delivery uses the same conversion as the
+// hosted dispatcher so attachment and comment behavior cannot drift.
+func RuntimeMessageFromCommand(session model.Session, command SessionMessageCommand) agentruntime.HTTPMessageRequest {
 	payload := map[string]any{}
 	for key, value := range command.Payload {
 		payload[key] = value

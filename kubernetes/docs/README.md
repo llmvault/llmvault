@@ -1,9 +1,9 @@
 # Hivy Kubernetes operations
 
-Hivy runs on one K3s cluster with two Hetzner bare-metal servers. Both servers
-are control-plane and worker nodes. Production and staging occupy separate
-namespaces; shared operators, ingress, storage, observability, and the
-Microsandbox control plane serve both environments.
+Hivy runs on one K3s control-plane server and one dedicated Microsandbox runner
+on Hetzner bare metal. Only the production application environment is deployed;
+the cluster operators, ingress, storage, observability, and Microsandbox control
+plane support that environment.
 
 No GitOps controller owns this cluster. Operators and application manifests are
 applied with `kubectl`; a few pinned charts use Helm either as a renderer or as
@@ -20,7 +20,7 @@ deploy application workloads.
 | Install or update Longhorn, CloudNativePG, Barman Cloud, or the Redis Operator | [Storage and data operators](operators.md) |
 | Find an application, dependency, Service, route, or namespace | [Applications](applications.md) |
 | Understand PostgreSQL, Redis, Qdrant, Longhorn, S3 backups, and restore checks | [Data services and backups](data-services-and-backups.md) |
-| Deploy main to staging, publish a production release, verify a rollout, or roll back an image | [Deployments and CI](deployments-and-ci.md) |
+| Deploy main to production, publish a release, verify a rollout, or roll back an image | [Deployments and CI](deployments-and-ci.md) |
 | Restore the local infrastructure configuration folder or rotate a Kubernetes Secret | [Configuration and secrets](configuration-and-secrets.md) |
 | Find logs, pod metrics, node pressure, restart history, or a dashboard | [Observability](observability.md) |
 | Review trust boundaries, RBAC, NetworkPolicy, TLS, and credential handling | [Security](security.md) |
@@ -31,13 +31,11 @@ deploy application workloads.
 
 | Role | Inventory name | Public IP | Private vSwitch IP |
 | --- | --- | --- | --- |
-| K3s server and worker | `k8s0` | `95.216.118.156` | `10.80.1.4` |
-| K3s server and worker | `k8s1` | `95.216.224.189` | `10.80.1.5` |
-| Microsandbox runner | `runner0` | `135.181.238.109` | `10.80.1.2` |
-| Microsandbox runner | `runner1` | `157.180.98.55` | `10.80.1.3` |
+| K3s server and worker | `k8s0` | `95.217.38.240` | `10.80.1.4` |
+| Microsandbox runner | `runner0` | `65.21.216.179` | `10.80.1.2` |
 
-The Hetzner load balancer has public address `65.109.40.68` and private address
-`10.80.0.4`. Host traffic uses the `10.80.0.0/16` vSwitch; the current machines
+The Hetzner load balancer has public address `95.217.175.232`. Host traffic uses
+the `10.80.0.0/16` vSwitch; the current machines
 sit in `10.80.1.0/24`. K3s assigns Pods from `10.42.0.0/16` and Services from
 `10.43.0.0/16`.
 
@@ -48,7 +46,7 @@ sit in `10.80.1.0/24`. K3s assigns Pods from `10.42.0.0/16` and Services from
 | Ubuntu preparation, vSwitch interface, host firewall, K3s service, runner binary and systemd service, runner CoreDNS, runner HAProxy, restricted automation tunnel users | Ansible playbooks under `ansible/` |
 | Gateway API CRDs, Cilium, cert-manager and its Vercel DNS webhook | Pinned render or direct `kubectl apply` during bootstrap |
 | Longhorn, CloudNativePG, Barman Cloud, Redis Operator | Pinned manifests rendered or downloaded locally, then server-side `kubectl apply` |
-| Production and staging application resources | Kustomize overlays under `kubernetes/environments/` |
+| Production application resources | The Kustomize overlay under `kubernetes/environments/production/` |
 | Qdrant | Official chart rendered to ignored YAML, then direct `kubectl apply` |
 | Zot | Helm release in `production` with an internal-only runner path |
 | VictoriaMetrics, VictoriaLogs, Grafana, and collectors | Helm release in `observability`, plus local Kustomize resources |

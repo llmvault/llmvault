@@ -8,6 +8,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/sandbox"
 )
 
 func TestSandboxCreditsUseAccumulatedVCPUMilliseconds(t *testing.T) {
@@ -27,6 +28,64 @@ func TestSandboxCreditsUseAccumulatedVCPUMilliseconds(t *testing.T) {
 				t.Fatalf("sandboxCreditsForWeightedMilliseconds(%d) = %d, want %d", tt.weighted, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSyncSandboxTurnUsageSkipsDesktopProvider(t *testing.T) {
+	db := connectTestDB(t)
+	org := model.Org{ID: uuid.New(), Name: "desktop-billing-" + uuid.NewString(), Active: true}
+	if err := db.Create(&org).Error; err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	team := model.Team{ID: uuid.New(), OrgID: org.ID, Name: "Desktop billing"}
+	if err := db.Create(&team).Error; err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	agent := model.Agent{ID: uuid.New(), OrgID: &org.ID, TeamID: team.ID, Name: "Desktop agent", Model: "test", Status: "active"}
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	sb := model.Sandbox{
+		ID: uuid.New(), OrgID: &org.ID, AgentID: &agent.ID,
+		ProviderID: sandbox.ProviderDesktop, ExternalID: "desktop-test",
+		RuntimeURL: "desktop://localhost", EncryptedRuntimeSecret: []byte{1}, Status: "running",
+	}
+	if err := db.Create(&sb).Error; err != nil {
+		t.Fatalf("create desktop sandbox: %v", err)
+	}
+	startedAt := time.Now().UTC().Add(-30 * time.Second).Truncate(time.Millisecond)
+	endedAt := startedAt.Add(30 * time.Second)
+	session := model.Session{
+		ID: uuid.New(), OrgID: org.ID, TeamID: team.ID, AgentID: agent.ID, SandboxID: &sb.ID,
+		Status: "active", AgentTurnStatus: model.SessionAgentTurnIdle,
+		SandboxVCPU: 1, SandboxPricingVersion: billing.SandboxPricingVersion,
+		SandboxCreditsPerVCPUMinute: billing.SandboxCreditsPerVCPUMinute,
+		CreatedAt:                   startedAt, UpdatedAt: endedAt,
+	}
+	if err := db.Create(&session).Error; err != nil {
+		t.Fatalf("create desktop session: %v", err)
+	}
+	events := []model.SessionEvent{
+		{ID: uuid.New(), OrgID: org.ID, SessionID: session.ID, AgentID: agent.ID, EventID: uuid.NewString(), EventType: "turn_started", TurnID: "turn-desktop", EventAt: startedAt},
+		{ID: uuid.New(), OrgID: org.ID, SessionID: session.ID, AgentID: agent.ID, EventID: uuid.NewString(), EventType: "turn_completed", TurnID: "turn-desktop", EventAt: endedAt},
+	}
+	if err := db.Create(&events).Error; err != nil {
+		t.Fatalf("create desktop turn events: %v", err)
+	}
+
+	_, changedSessions, err := syncSandboxTurnUsage(t.Context(), db, endedAt)
+	if err != nil {
+		t.Fatalf("sync sandbox usage: %v", err)
+	}
+	if _, exists := changedSessions[session.ID]; exists {
+		t.Fatalf("desktop session %s was materialized for hosted billing", session.ID)
+	}
+	var count int64
+	if err := db.Model(&model.SandboxTurnUsage{}).Where("session_id = ?", session.ID).Count(&count).Error; err != nil {
+		t.Fatalf("count desktop sandbox usage: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("desktop sandbox usage rows = %d, want 0", count)
 	}
 }
 

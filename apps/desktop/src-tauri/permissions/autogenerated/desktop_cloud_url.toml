@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-cloud-url"
+description = "Enables the desktop_cloud_url command without any pre-configured scope."
+commands.allow = ["desktop_cloud_url"]
+
+[[permission]]
+identifier = "deny-desktop-cloud-url"
+description = "Denies the desktop_cloud_url command without any pre-configured scope."
+commands.deny = ["desktop_cloud_url"]

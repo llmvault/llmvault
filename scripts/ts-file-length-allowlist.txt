@@ -10,3 +10,7 @@
 # dedicated frontend refactor; keep CI focused on new growth meanwhile.
 apps/web/app/w/(chat)/_components/shell.tsx
 apps/web/app/w/(chat)/_lib/session-tools.ts
+
+# Existing session runtime store test is unchanged from main and predates the
+# length gate. Keep it explicit until its broad store suite is split by domain.
+apps/web/app/w/(chat)/_stores/session-runtime-store.test.ts

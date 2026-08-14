@@ -13,7 +13,7 @@ from typing import Any
 from aiohttp import web
 
 from .config import Config
-from .control import ControlClient
+from .control import ControlClient, ControlNotFoundError
 from .store import (
     RedisStore,
     Store,
@@ -95,10 +95,12 @@ class ResolveResult:
 
 class LocalRouteCache:
     def __init__(self, max_size: int) -> None:
-        self.max_size = max(1, max_size)
+        self.max_size = max(0, max_size)
         self._routes: OrderedDict[str, dict[str, Any]] = OrderedDict()
 
     def get(self, sandbox_id: str) -> dict[str, Any] | None:
+        if self.max_size == 0:
+            return None
         route = self._routes.get(sandbox_id)
         if route is None:
             return None
@@ -106,6 +108,8 @@ class LocalRouteCache:
         return dict(route)
 
     def set(self, route: dict[str, Any]) -> bool:
+        if self.max_size == 0:
+            return False
         sandbox_id = str(route.get("sandbox_id") or "")
         if not sandbox_id:
             return False
@@ -224,6 +228,11 @@ async def lookup(request: web.Request) -> web.Response:
     try:
         result = await resolve_route(state, sandbox_id, port, request_id)
         route = result.route
+    except ControlNotFoundError:
+        state.route_cache.delete(sandbox_id)
+        await delete_route(state.store, sandbox_id)
+        state.metrics.inc("lookup_not_found")
+        return json_response(404, {"error": "sandbox not found"})
     except TimeoutError as exc:
         state.metrics.inc("lookup_wake_timeout")
         LOGGER.warning("sandbox wake timed out", extra={"sandbox_id": sandbox_id, "port": port, "error": str(exc)})

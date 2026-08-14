@@ -5277,6 +5277,263 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/desktop/agents/{agentID}/runtime-config": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desktop"
+                ],
+                "summary": "Bootstrap an agent in the desktop runtime",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "agentID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/desktopRuntimeConfigResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/desktop/sessions": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desktop"
+                ],
+                "summary": "Create a desktop-executed session",
+                "parameters": [
+                    {
+                        "description": "Desktop session payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/createSessionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/desktopSessionMutationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/desktop/sessions/{id}/delivery": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desktop"
+                ],
+                "summary": "Record a desktop runtime delivery",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Local runtime delivery",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/desktopDeliveryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/sessionMutationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/desktop/sessions/{id}/messages": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desktop"
+                ],
+                "summary": "Prepare a desktop session message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Message payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/sendSessionMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/desktopSessionMutationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/directives": {
             "get": {
                 "responses": {}
@@ -11367,6 +11624,17 @@ const docTemplate = `{
                         "description": "Pagination cursor",
                         "name": "cursor",
                         "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "raw",
+                            "transcript"
+                        ],
+                        "type": "string",
+                        "default": "raw",
+                        "description": "Event view",
+                        "name": "view",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -14642,6 +14910,69 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "AgentDefinition": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "$ref": "#/definitions/AgentMeta"
+                },
+                "auto_load_skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AutoLoadSkill"
+                    }
+                },
+                "context": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "limits": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "mcp_servers": {
+                    "type": "array",
+                    "items": {}
+                },
+                "mcp_tool_filter": {
+                    "$ref": "#/definitions/ToolFilter"
+                },
+                "model": {
+                    "$ref": "#/definitions/ModelConfig"
+                },
+                "outbound_channels": {
+                    "type": "array",
+                    "items": {}
+                },
+                "sub_agents": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/AgentDefinition"
+                    }
+                },
+                "system_prompt": {
+                    "$ref": "#/definitions/SystemPromptConfig"
+                },
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
+                }
+            }
+        },
+        "AgentMeta": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "ArtifactFileResponse": {
             "type": "object",
             "properties": {
@@ -14841,6 +15172,26 @@ const docTemplate = `{
                 },
                 "version": {
                     "type": "integer"
+                }
+            }
+        },
+        "ConfigUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "definition": {
+                    "$ref": "#/definitions/AgentDefinition"
+                },
+                "runtime_env": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "runtime_secret": {
+                    "type": "string"
+                },
+                "workspace": {
+                    "$ref": "#/definitions/WorkspaceConfig"
                 }
             }
         },
@@ -15054,6 +15405,37 @@ const docTemplate = `{
                 "value": {}
             }
         },
+        "HTTPMessageRequest": {
+            "type": "object",
+            "properties": {
+                "actor_user_id": {
+                    "description": "ActorUserID is the Hivy user id of the human on whose behalf this turn\nruns. The runtime injects it into agent tool calls as ` + "`" + `_hivy_actor_user_id` + "`" + `\nso tools can authorize on the requesting user. Empty for automated\n(trigger/cron/system) runs that have no human actor.",
+                    "type": "string"
+                },
+                "attachments": {
+                    "type": "array",
+                    "items": {}
+                },
+                "model_definition": {
+                    "$ref": "#/definitions/ModelConfig"
+                },
+                "session_context": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "text": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "string"
+                },
+                "user_display_name": {
+                    "type": "string"
+                }
+            }
+        },
         "InstallSpec": {
             "type": "object",
             "properties": {
@@ -15114,6 +15496,61 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "ModelConfig": {
+            "type": "object",
+            "properties": {
+                "api_key_env": {
+                    "type": "string"
+                },
+                "base_url": {
+                    "type": "string"
+                },
+                "canonical_model_id": {
+                    "type": "string"
+                },
+                "capabilities": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "extra_headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "fallback": {
+                    "$ref": "#/definitions/ModelConfig"
+                },
+                "max_output_tokens": {
+                    "type": "integer"
+                },
+                "model_id": {
+                    "type": "string"
+                },
+                "model_profile": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "provider_id": {
+                    "type": "string"
+                },
+                "provider_options": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "reasoning_effort": {
+                    "type": "string"
+                },
+                "temperature": {
+                    "type": "number"
+                },
+                "upstream_model_id": {
+                    "type": "string"
                 }
             }
         },
@@ -15447,6 +15884,26 @@ const docTemplate = `{
                 }
             }
         },
+        "SystemPromptConfig": {
+            "type": "object",
+            "properties": {
+                "cacheable_segments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/SystemPromptSegment"
+                    }
+                },
+                "dynamic_segments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/SystemPromptSegment"
+                    }
+                }
+            }
+        },
+        "SystemPromptSegment": {
+            "type": "object"
+        },
         "ToolFilter": {
             "type": "object",
             "properties": {
@@ -15496,6 +15953,37 @@ const docTemplate = `{
                 "webhook_url_required": {
                     "description": "WebhookURLRequired indicates the user must manually configure a webhook\nURL in the provider's dashboard for triggers to work.",
                     "type": "boolean"
+                }
+            }
+        },
+        "WorkspaceConfig": {
+            "type": "object",
+            "properties": {
+                "repos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkspaceRepoConfig"
+                    }
+                }
+            }
+        },
+        "WorkspaceRepoConfig": {
+            "type": "object",
+            "properties": {
+                "clone_url": {
+                    "type": "string"
+                },
+                "depth": {
+                    "type": "integer"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },
@@ -17747,6 +18235,45 @@ const docTemplate = `{
                 },
                 "mutation_id": {
                     "type": "string"
+                }
+            }
+        },
+        "desktopDeliveryRequest": {
+            "type": "object",
+            "properties": {
+                "stream_id": {
+                    "type": "string"
+                },
+                "turn_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "desktopRuntimeConfigResponse": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "config": {
+                    "$ref": "#/definitions/ConfigUpdateRequest"
+                },
+                "sandbox_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "desktopSessionMutationResponse": {
+            "type": "object",
+            "properties": {
+                "event": {
+                    "$ref": "#/definitions/sessionEventResponse"
+                },
+                "runtime_request": {
+                    "$ref": "#/definitions/HTTPMessageRequest"
+                },
+                "session": {
+                    "$ref": "#/definitions/sessionResponse"
                 }
             }
         },

@@ -7,3 +7,6 @@ pub use sqlite::{
     SqliteOutboxRepo, SqliteQuestionRequestRepo, SqliteSessionRepo, SqliteStore,
     SqliteSubagentTaskRepo, SqliteWriteGateway,
 };
+pub use volatile::VolatileConfigRepo;
+
+mod volatile;

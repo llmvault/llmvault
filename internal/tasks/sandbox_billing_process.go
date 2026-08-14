@@ -15,6 +15,7 @@ import (
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/logging"
 	"github.com/usehivy/hivy/internal/model"
+	"github.com/usehivy/hivy/internal/sandbox"
 )
 
 const vCPUMinuteMilliseconds int64 = 60_000
@@ -52,9 +53,12 @@ func (h *SandboxBillingProcessHandler) Handle(ctx context.Context, _ *asynq.Task
 			}
 			var weightedMilliseconds int64
 			if err := tx.Raw(`
-				SELECT COALESCE(SUM(active_milliseconds * sandbox_vcpu * credits_per_vcpu_minute), 0)
-				FROM sandbox_turn_usage
-				WHERE org_id = ?`, orgID).Scan(&weightedMilliseconds).Error; err != nil {
+				SELECT COALESCE(SUM(usage.active_milliseconds * usage.sandbox_vcpu * usage.credits_per_vcpu_minute), 0)
+				FROM sandbox_turn_usage usage
+				JOIN sessions ON sessions.id = usage.session_id
+				LEFT JOIN sandboxes ON sandboxes.id = sessions.sandbox_id
+				WHERE usage.org_id = ?
+				  AND COALESCE(sandboxes.provider_id, '') <> ?`, orgID, sandbox.ProviderDesktop).Scan(&weightedMilliseconds).Error; err != nil {
 				return fmt.Errorf("sum sandbox turn usage for org %s: %w", orgID, err)
 			}
 			target := sandboxCreditsForWeightedMilliseconds(weightedMilliseconds)
@@ -161,9 +165,11 @@ SELECT st.org_id, st.session_id, st.turn_id,
        END AS ended_at
   FROM starts st
   JOIN sessions s ON s.id = st.session_id AND s.org_id = st.org_id
+  LEFT JOIN sandboxes sb ON sb.id = s.sandbox_id
   LEFT JOIN terminals te ON te.session_id = st.session_id AND te.turn_id = st.turn_id
  WHERE st.turn_id IS NOT NULL AND st.turn_id <> ''
-	`, observedAt).Scan(&candidates).Error
+   AND COALESCE(sb.provider_id, '') <> ?
+	`, observedAt, sandbox.ProviderDesktop).Scan(&candidates).Error
 	if err != nil {
 		return nil, nil, fmt.Errorf("select sandbox turn usage: %w", err)
 	}
@@ -194,8 +200,11 @@ SELECT st.org_id, st.session_id, st.turn_id,
 		changedSessions[candidate.SessionID] = candidate.OrgID
 	}
 	var orgIDs []uuid.UUID
-	if err := db.WithContext(ctx).Model(&model.SandboxTurnUsage{}).
-		Distinct("org_id").Pluck("org_id", &orgIDs).Error; err != nil {
+	if err := db.WithContext(ctx).Table("sandbox_turn_usage AS usage").
+		Joins("JOIN sessions ON sessions.id = usage.session_id").
+		Joins("LEFT JOIN sandboxes ON sandboxes.id = sessions.sandbox_id").
+		Where("COALESCE(sandboxes.provider_id, '') <> ?", sandbox.ProviderDesktop).
+		Distinct("usage.org_id").Pluck("usage.org_id", &orgIDs).Error; err != nil {
 		return nil, nil, fmt.Errorf("list orgs with sandbox turn usage: %w", err)
 	}
 	sort.Slice(orgIDs, func(i, j int) bool { return orgIDs[i].String() < orgIDs[j].String() })

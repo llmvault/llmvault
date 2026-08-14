@@ -5,6 +5,10 @@ from typing import Any
 from aiohttp import ClientSession, ClientTimeout
 
 
+class ControlNotFoundError(RuntimeError):
+    pass
+
+
 class ControlClient:
     def __init__(self, base_url: str, token: str, session: ClientSession | None = None) -> None:
         self.base_url = base_url.rstrip("/")
@@ -111,6 +115,8 @@ class ControlClient:
             headers=headers,
             timeout=request_timeout,
         ) as response:
+            if response.status == 404:
+                raise ControlNotFoundError("control resource not found")
             if response.status >= 300:
                 body = await response.text()
                 raise RuntimeError(f"control returned {response.status}: {body.strip()}")

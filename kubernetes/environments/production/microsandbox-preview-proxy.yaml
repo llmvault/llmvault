@@ -47,6 +47,11 @@ data:
           }
         }
       }
+
+      handle_errors {
+        @sandbox_unavailable expression {http.error.status_code} == 502
+        respond @sandbox_unavailable "sandbox unavailable" 503
+      }
     }
 ---
 apiVersion: apps/v1

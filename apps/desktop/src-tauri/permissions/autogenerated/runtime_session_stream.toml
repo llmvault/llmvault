@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-runtime-session-stream"
+description = "Enables the runtime_session_stream command without any pre-configured scope."
+commands.allow = ["runtime_session_stream"]
+
+[[permission]]
+identifier = "deny-runtime-session-stream"
+description = "Denies the runtime_session_stream command without any pre-configured scope."
+commands.deny = ["runtime_session_stream"]

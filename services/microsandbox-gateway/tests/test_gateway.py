@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 import json
 import logging
 import time
@@ -16,6 +17,7 @@ from microsandbox_gateway.app import (
     parse_preview_host,
 )
 from microsandbox_gateway.config import Config
+from microsandbox_gateway.control import ControlNotFoundError
 from microsandbox_gateway.store import alias_key, route_key, route_replaces
 
 
@@ -461,6 +463,42 @@ async def test_admin_route_round_trip(client: tuple[TestClient, MemoryStore, Fak
     assert get.status == 200
     body = await get.json()
     assert body["upstreams"]["3000"] == "http://10.0.0.3:43000"
+
+
+async def test_deleted_route_is_not_served_by_another_replica() -> None:
+    class DeletedControl(FakeControl):
+        async def ensure_ready(
+            self,
+            sandbox_id: str,
+            guest_port: int,
+            timeout_seconds: int,
+            request_id: str,
+        ) -> dict[str, Any]:
+            raise ControlNotFoundError("control resource not found")
+
+    store = MemoryStore()
+    control = DeletedControl()
+    config = replace(cfg(), route_cache_size=0)
+    first = TestClient(TestServer(create_app(config, store=store, control=control)))  # type: ignore[arg-type]
+    second = TestClient(TestServer(create_app(config, store=store, control=control)))  # type: ignore[arg-type]
+    await first.start_server()
+    await second.start_server()
+    try:
+        headers = {"Authorization": "Bearer admin-token"}
+        route = dict(control.route_payload, sandbox_id="sbx_deleted")
+        assert (await first.put("/v1/routes/sbx_deleted", headers=headers, json=route)).status == 200
+        assert (
+            await second.get("/v1/lookup", headers={"Host": "3000-sbx_deleted.preview.test"})
+        ).status == 204
+
+        assert (await first.delete("/v1/routes/sbx_deleted", headers=headers)).status == 200
+
+        missing = await second.get("/v1/lookup", headers={"Host": "3000-sbx_deleted.preview.test"})
+        assert missing.status == 404
+        assert await missing.json() == {"error": "sandbox not found"}
+    finally:
+        await first.close()
+        await second.close()
 
 
 async def test_tombstone_rejects_same_generation_running_route(

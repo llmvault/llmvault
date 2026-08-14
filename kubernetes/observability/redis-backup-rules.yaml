@@ -10,13 +10,13 @@ spec:
           expr: |
             max by (namespace, job_name) (
               kube_job_status_start_time{
-                namespace=~"production|staging",
+                namespace="production",
                 job_name=~"backend-redis-backup-.*"
               }
               and on (namespace, job_name)
               (
                 kube_job_status_failed{
-                  namespace=~"production|staging",
+                  namespace="production",
                   job_name=~"backend-redis-backup-.*"
                 } > 0
               )
@@ -24,7 +24,7 @@ spec:
             > on (namespace) group_left
             max by (namespace) (
               kube_cronjob_status_last_successful_time{
-                namespace=~"production|staging",
+                namespace="production",
                 cronjob="backend-redis-backup"
               }
             )
@@ -39,7 +39,7 @@ spec:
             (
               time() -
               kube_cronjob_status_last_successful_time{
-                namespace=~"production|staging",
+                namespace="production",
                 cronjob="backend-redis-backup"
               }
               > 108000
@@ -48,13 +48,13 @@ spec:
             (
               time() -
               kube_cronjob_created{
-                namespace=~"production|staging",
+                namespace="production",
                 cronjob="backend-redis-backup"
               }
               > 21600
               unless on (namespace, cronjob)
               kube_cronjob_status_last_successful_time{
-                namespace=~"production|staging",
+                namespace="production",
                 cronjob="backend-redis-backup"
               }
             )

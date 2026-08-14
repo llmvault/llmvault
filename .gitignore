@@ -97,6 +97,11 @@ dump.rdb
 # Scratch/triage files inside nested packages.
 sandboxes/runtime/db-todos.txt
 
+# Desktop bundles stage the platform-specific runtime binary before packaging.
+apps/desktop/src-tauri/resources/hivy-sandboxes-runtime*
+apps/desktop/node_modules/
+apps/desktop/src-tauri/target/
+
 # Local Python virtualenvs
 venv/
 __pycache__/

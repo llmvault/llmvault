@@ -197,7 +197,7 @@ main() {
   export REDISCLI_AUTH="${REDIS_PASSWORD}"
   backup_time="$(date -u +%Y%m%dT%H%M%SZ)"
   backup_dir="${backup_root}/${backup_time}"
-  mkdir -p "${backup_dir}"
+  mkdir -p "${backup_dir}" "${validation_root}"
 
   case "${REDIS_BACKUP_MODE}" in
     cluster)

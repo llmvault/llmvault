@@ -1,5 +1,9 @@
 import type { GitStatusEntry } from "@pierre/trees"
 import { withDaytonaPreviewWarningBypass } from "@/app/w/(chat)/_lib/daytona-preview"
+import {
+  desktopRuntimeRequest,
+  isDesktopApp,
+} from "@/lib/desktop/bridge"
 
 export interface RuntimeSandboxAccess {
   session_id?: string
@@ -197,6 +201,11 @@ async function runtimeJSON<T>(
   const token = access.token
   if (!baseURL || !token) {
     throw new RuntimeRepoAccessError("Sandbox access is not available.")
+  }
+  if (isDesktopApp() && baseURL === "hivy-desktop://runtime") {
+    if (signal?.aborted) throw signal.reason
+    const response = await desktopRuntimeRequest<T>("GET", path)
+    return response.body
   }
   // eslint-disable-next-line no-restricted-globals -- direct-sandbox call: hits the sandbox base URL with a sandbox token, not the Hivy API.
   const response = await fetch(`${baseURL}${path}`, {

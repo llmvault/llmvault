@@ -180,6 +180,7 @@ func externalProviderLabel(provider string) string {
 // @Param id path string true "Session ID"
 // @Param limit query int false "Page size"
 // @Param cursor query string false "Pagination cursor"
+// @Param view query string false "Event view" Enums(raw, transcript) default(raw)
 // @Success 200 {object} paginatedResponse[sessionEventResponse]
 // @Failure 400 {object} errorResponse
 // @Failure 401 {object} errorResponse
@@ -193,14 +194,27 @@ func (h *SessionHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	limit, cursor, err := parsePagination(r)
+	limit, cursor, err := parseSessionEventPagination(r)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
-	query := h.db.WithContext(r.Context()).
-		Where("session_id = ?", session.ID)
-	query = applyPagination(query, cursor, limit)
+	view, err := parseSessionEventView(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	if view == sessionEventViewTranscript {
+		events, hasMore, err := h.listTranscriptEvents(r.Context(), session, cursor, limit)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list session events"})
+			return
+		}
+		writeSessionEventPage(w, events, hasMore)
+		return
+	}
+	query := h.db.WithContext(r.Context()).Where("session_id = ? AND org_id = ?", session.ID, session.OrgID)
+	query = applySessionEventPagination(query, cursor, limit)
 	var events []model.SessionEvent
 	if err := query.Find(&events).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to list session events"})
@@ -210,14 +224,18 @@ func (h *SessionHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
 	if hasMore {
 		events = events[:limit]
 	}
+	writeSessionEventPage(w, events, hasMore)
+}
+
+func writeSessionEventPage(w http.ResponseWriter, events []model.SessionEvent, hasMore bool) {
 	out := make([]sessionEventResponse, len(events))
 	for i, event := range events {
 		out[i] = eventToResponse(event)
 	}
 	resp := paginatedResponse[sessionEventResponse]{Data: out, HasMore: hasMore}
-	if hasMore {
+	if hasMore && len(events) > 0 {
 		last := events[len(events)-1]
-		next := encodeCursor(last.CreatedAt, last.ID)
+		next := encodeSessionEventCursor(last.SequenceNumber, last.ID)
 		resp.NextCursor = &next
 	}
 	writeJSON(w, http.StatusOK, resp)

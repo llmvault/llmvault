@@ -10,6 +10,10 @@ import (
 func mountSessionRoutes(r chi.Router, sessionHandler *handler.SessionHandler) {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAPIKeyScopeOrJWT("sessions"))
+		r.Post("/desktop/agents/{agentID}/runtime-config", sessionHandler.DesktopRuntimeConfig)
+		r.Post("/desktop/sessions", sessionHandler.CreateDesktopSession)
+		r.Post("/desktop/sessions/{id}/messages", sessionHandler.SendDesktopSessionMessage)
+		r.Post("/desktop/sessions/{id}/delivery", sessionHandler.RecordDesktopDelivery)
 		r.Get("/sessions", sessionHandler.List)
 		r.Post("/sessions", sessionHandler.Create)
 		r.Get("/sessions/{id}", sessionHandler.Get)

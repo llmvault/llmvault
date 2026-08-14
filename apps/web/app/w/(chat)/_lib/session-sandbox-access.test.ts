@@ -11,6 +11,7 @@ describe("session sandbox access cache", () => {
   afterEach(() => {
     clearSessionSandboxAccess()
     vi.useRealTimers()
+    delete (globalThis as unknown as Record<string, unknown>).window
   })
 
   it("dedupes access requests and reuses fresh cached access", async () => {
@@ -106,6 +107,28 @@ describe("session sandbox access cache", () => {
         Date.parse("2026-06-20T10:00:00Z")
       )
     ).toBe(false)
+  })
+
+  it("uses local bridge access in the desktop app", async () => {
+    ;(globalThis as unknown as Record<string, unknown>).window = globalThis
+    ;(window as unknown as Record<string, unknown>).__TAURI__ = {
+      core: { invoke: vi.fn() },
+    }
+    const queryClient = testQueryClient()
+
+    const access = await getSessionSandboxAccess(
+      "session-desktop",
+      queryClient.client,
+      { expectedSandboxId: "sandbox-desktop" }
+    )
+
+    expect(access).toMatchObject({
+      session_id: "session-desktop",
+      sandbox_id: "sandbox-desktop",
+      sandbox_base_url: "hivy-desktop://runtime",
+      token: "desktop-bridge",
+    })
+    expect(queryClient.fetchQueryMock).not.toHaveBeenCalled()
   })
 })
 

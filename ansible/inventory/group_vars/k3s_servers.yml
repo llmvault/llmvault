@@ -12,16 +12,16 @@ k3s_local_config_root: "{{ inventory_dir }}/../../kubernetes/config"
 k3s_bootstrap_token_path: "{{ k3s_local_config_root }}/credentials/k3s/{{ k3s_bootstrap_host }}/server-token"
 
 k3s_configure_vswitch: true
-k3s_public_interface: enp0s31f6
+k3s_public_interface: eno1
 k3s_vswitch_vlan_id: 4000
 k3s_vswitch_mtu: 1400
 k3s_vswitch_prefix: 24
 k3s_vswitch_route_cidr: "10.80.0.0/16"
 k3s_vswitch_gateway: 10.80.1.1
 
-# Hetzner Load Balancer k8s-public-ingress (ID 7249812). Only this private
+# Hetzner Load Balancer usehivy.com (ID 7507200). Only this private
 # address may reach the host-network Gateway listeners.
-k3s_load_balancer_private_ip: "10.80.0.4"
+k3s_load_balancer_private_ip: "10.80.0.2"
 k3s_gateway_http_port: 10080
 k3s_gateway_https_port: 10443
 k3s_private_gateway_https_port: 443
@@ -53,13 +53,10 @@ k3s_dns_nameservers:
 # Public keys for automated Kubernetes API tunnels. Each account is restricted
 # to local TCP forwarding into the Kubernetes API and has no interactive shell.
 k3s_deploy_tunnel_accounts:
-  - name: hivy-deploy-staging
-    public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOu8MvS467LVqnLrkkpUvxSdIouQ4nRSb0VX2TZ3N29F"
   - name: hivy-deploy-production
     public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAUglWsTVoJwimV+M3svIfhad0TT8q+PzYrpoUZsYQk+"
     permitopen:
       - "127.0.0.1:6443"
       - "10.80.1.2:8081"
-      - "10.80.1.3:8081"
   - name: hivy-deploy-platform-engineering-agent
     public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE6KIpVfK/Ugi/49kzGF6u9v96lCvhsHqOkZtaWXUwzZ"

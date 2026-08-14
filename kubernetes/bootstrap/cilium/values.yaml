@@ -21,7 +21,7 @@ bpf:
   masquerade: true
 
 operator:
-  replicas: 2
+  replicas: 1
 
 rollOutCiliumPods: true
 policyEnforcementMode: default

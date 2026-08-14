@@ -5,6 +5,7 @@ import (
 
 	"github.com/usehivy/hivy/internal/billing"
 	"github.com/usehivy/hivy/internal/logging"
+	"github.com/usehivy/hivy/internal/sandbox"
 )
 
 type sessionUsageResponse struct {
@@ -61,10 +62,13 @@ func (h *SessionHandler) GetUsage(w http.ResponseWriter, r *http.Request) {
 		VCPUMilliseconds     int64
 	}
 	if err := h.db.WithContext(r.Context()).Raw(`
-		SELECT COALESCE(SUM(active_milliseconds * sandbox_vcpu * credits_per_vcpu_minute), 0) AS weighted_milliseconds,
-		       COALESCE(SUM(active_milliseconds * sandbox_vcpu), 0) AS v_cpu_milliseconds
-		FROM sandbox_turn_usage
-		WHERE session_id = ?`, session.ID).Scan(&sandboxRow).Error; err != nil {
+		SELECT COALESCE(SUM(usage.active_milliseconds * usage.sandbox_vcpu * usage.credits_per_vcpu_minute), 0) AS weighted_milliseconds,
+		       COALESCE(SUM(usage.active_milliseconds * usage.sandbox_vcpu), 0) AS v_cpu_milliseconds
+		FROM sandbox_turn_usage usage
+		JOIN sessions ON sessions.id = usage.session_id
+		LEFT JOIN sandboxes ON sandboxes.id = sessions.sandbox_id
+		WHERE usage.session_id = ?
+		  AND COALESCE(sandboxes.provider_id, '') <> ?`, session.ID, sandbox.ProviderDesktop).Scan(&sandboxRow).Error; err != nil {
 		logging.FromContext(r.Context()).ErrorContext(r.Context(), "load session sandbox usage", "session_id", session.ID, "error", err)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to load session sandbox usage"})
 		return

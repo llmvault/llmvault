@@ -284,18 +284,18 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=main
 
-  deploy-staging:
-    name: Deploy staging application images
+  deploy-production:
+    name: Deploy production application images
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 90
     needs:
       - api
       - web
       - sandbox-runtime
       - sandbox-app
-    environment: staging
+    environment: production
     env:
-      K8S_NAMESPACE: staging
+      K8S_NAMESPACE: production
       BACKEND_IMAGE: ghcr.io/usehivy/hivy@${{ needs.api.outputs.digest }}
       WEB_IMAGE: ghcr.io/usehivy/web@${{ needs.web.outputs.digest }}
       SANDBOX_RUNTIME_IMAGE_TAG: sha-${{ github.sha }}-amd64
@@ -311,10 +311,27 @@ jobs:
           K8S_TUNNEL_KNOWN_HOSTS_B64: ${{ secrets.K8S_TUNNEL_KNOWN_HOSTS_B64 }}
           K8S_TUNNEL_HOSTS: ${{ vars.K8S_TUNNEL_HOSTS }}
           K8S_TUNNEL_USER: ${{ vars.K8S_TUNNEL_USER }}
+          HIVY_MICROSANDBOX_RUNNER_FORWARD_TARGETS: ${{ vars.HIVY_MICROSANDBOX_RUNNER_FORWARD_TARGETS }}
         run: |
           export KUBECONFIG="${RUNNER_TEMP}/hivy-kubeconfig"
           bash ./scripts/deploy/setup-kubernetes-tunnel.sh
           echo "KUBECONFIG=${KUBECONFIG}" >> "${GITHUB_ENV}"
+
+      - name: Warm sandbox images on every production runner
+        env:
+          HIVY_MICROSANDBOX_RUNNER_API_TOKEN: ${{ secrets.HIVY_MICROSANDBOX_RUNNER_API_TOKEN }}
+          HIVY_SANDBOXES_RUNTIME_IMAGE_ARCH_SUFFIX: amd64
+          HIVY_SANDBOXES_APP_IMAGE_ARCH_SUFFIX: amd64
+        run: |
+          : "${HIVY_MICROSANDBOX_RUNNER_URLS:?production runner forwards are required}"
+          bash ./scripts/release/write-manifest.sh \
+            "sha-${{ github.sha }}" \
+            "${RUNNER_TEMP}/release-manifest.json" \
+            "${{ github.sha }}"
+          read -r -a runner_urls <<<"${HIVY_MICROSANDBOX_RUNNER_URLS}"
+          bash ./scripts/release/warm-microsandbox-runner-images.sh \
+            "${RUNNER_TEMP}/release-manifest.json" \
+            "${runner_urls[@]}"
 
       - name: Deploy the commit tuple and wait for rollout
         run: bash ./scripts/deploy/kubernetes-images.sh
