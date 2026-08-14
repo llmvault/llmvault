@@ -97,7 +97,7 @@ internal_core_shard_packages() {
     1) select_internal_core_packages billing billing/purchase ;;
     2) select_internal_core_packages billing/fake billing/paystack ;;
     3) select_internal_core_packages bootstrap cache config goroutine system system/tasks logging onboarding ;;
-    4) select_internal_core_packages bridge bridgeevents proxy streaming slackapp slackworkflow providerheaders ;;
+    4) select_internal_core_packages bridge bridgeevents proxy streaming slackapp slackworkflow providerauth providerheaders ;;
     5) select_internal_core_packages agentruntime agentprompts sandboxruntime runtimestream ;;
     6) select_internal_core_packages sandbox sandbox/daytona sandbox/docker ;;
     7) select_internal_core_packages connectionname mcp mcp/catalog mcpserver mcpservers skills resources providergroups ;;

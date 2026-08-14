@@ -57,7 +57,7 @@ jobs:
   web:
     name: Next.js web image
     runs-on: blacksmith-8vcpu-ubuntu-2404
-    timeout-minutes: 30
+    timeout-minutes: 60
     outputs:
       digest: ${{ steps.build.outputs.digest }}
     env:
