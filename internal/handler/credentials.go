@@ -17,6 +17,7 @@ import (
 	"github.com/usehivy/hivy/internal/model"
 	"github.com/usehivy/hivy/internal/proxy"
 	"github.com/usehivy/hivy/internal/registry"
+	llm "github.com/usehivy/hivy/internal/trigger/hivy"
 )
 
 type CredentialHandler struct {
@@ -24,10 +25,17 @@ type CredentialHandler struct {
 	kms          *crypto.KeyWrapper
 	cacheManager *cache.Manager
 	counter      *counter.Counter
+	testClient   func(*model.Credential, string) llm.CompletionClient
 }
 
 func NewCredentialHandler(db *gorm.DB, kms *crypto.KeyWrapper, cm *cache.Manager, ctr *counter.Counter) *CredentialHandler {
-	return &CredentialHandler{db: db, kms: kms, cacheManager: cm, counter: ctr}
+	return &CredentialHandler{
+		db:           db,
+		kms:          kms,
+		cacheManager: cm,
+		counter:      ctr,
+		testClient:   llm.NewCompletionClient,
+	}
 }
 
 // providerAuthSchemes maps provider IDs to their default auth schemes.

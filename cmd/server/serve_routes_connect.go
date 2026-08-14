@@ -25,6 +25,7 @@ func setupConnectRoutes(
 			r.Use(middleware.RequireAdminSecret(cfg.AdminSecret))
 			r.Get("/v1/admin/system-credentials", credentialHandler.ListSystem)
 			r.Post("/v1/admin/system-credentials", credentialHandler.CreateSystem)
+			r.Post("/v1/admin/system-credentials/test", credentialHandler.TestSystem)
 			r.Patch("/v1/admin/system-credentials/{id}", credentialHandler.UpdateSystem)
 			r.Delete("/v1/admin/system-credentials/{id}", credentialHandler.RevokeSystem)
 			r.Get("/v1/admin/llm-providers", credentialHandler.ListLLMProviders)

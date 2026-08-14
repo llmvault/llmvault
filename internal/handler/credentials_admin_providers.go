@@ -12,6 +12,7 @@ type adminLLMProviderResponse struct {
 	BaseURL           string   `json:"base_url,omitempty"`
 	DefaultAuthScheme string   `json:"default_auth_scheme"`
 	ModelIDs          []string `json:"model_ids"`
+	TestModelID       string   `json:"test_model_id"`
 }
 
 // ListLLMProviders handles GET /v1/admin/llm-providers.
@@ -40,9 +41,52 @@ func (h *CredentialHandler) ListLLMProviders(w http.ResponseWriter, r *http.Requ
 			BaseURL:           provider.API,
 			DefaultAuthScheme: defaultCredentialAuthScheme(provider.ID),
 			ModelIDs:          modelIDs,
+			TestModelID:       credentialTestModelID(provider),
 		})
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func credentialTestModelID(provider registry.Provider) string {
+	selectedID := ""
+	selectedCost := 0.0
+	for id, candidate := range provider.Models {
+		if !candidate.ToolCall || !modelSupportsTextInput(candidate) || !modelSupportsTextOutput(candidate) {
+			continue
+		}
+		cost := 0.0
+		if candidate.Cost != nil {
+			cost = candidate.Cost.Input + candidate.Cost.Output
+		}
+		if selectedID == "" || cost < selectedCost || (cost == selectedCost && id < selectedID) {
+			selectedID = id
+			selectedCost = cost
+		}
+	}
+	return selectedID
+}
+
+func modelSupportsTextInput(candidate registry.Model) bool {
+	if candidate.Modalities == nil {
+		return false
+	}
+	return hasModality(candidate.Modalities.Input, "text")
+}
+
+func modelSupportsTextOutput(candidate registry.Model) bool {
+	if candidate.Modalities == nil {
+		return false
+	}
+	return hasModality(candidate.Modalities.Output, "text")
+}
+
+func hasModality(modalities []string, want string) bool {
+	for _, modality := range modalities {
+		if modality == want {
+			return true
+		}
+	}
+	return false
 }
 
 func defaultCredentialAuthScheme(providerID string) string {

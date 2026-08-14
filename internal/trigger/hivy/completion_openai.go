@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/http"
 
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/usehivy/hivy/internal/providerauth"
 )
 
 // OpenAICompletionClient implements CompletionClient for OpenAI and all
@@ -21,11 +24,38 @@ type OpenAICompletionClient struct {
 // For OpenAI proper, use "https://api.openai.com/v1". For other providers,
 // use their OpenAI-compatible endpoint.
 func NewOpenAICompletionClient(baseURL, apiKey string) *OpenAICompletionClient {
+	return NewOpenAICompletionClientWithAuth(baseURL, "bearer", apiKey)
+}
+
+// NewOpenAICompletionClientWithAuth creates an OpenAI-compatible client that
+// applies the credential's configured authentication scheme to every request.
+func NewOpenAICompletionClientWithAuth(baseURL, authScheme, apiKey string) *OpenAICompletionClient {
 	cfg := openai.DefaultConfig(apiKey)
 	if baseURL != "" {
 		cfg.BaseURL = baseURL
 	}
+	if authScheme != "" && authScheme != "bearer" {
+		cfg.HTTPClient = &credentialAuthDoer{
+			next:       cfg.HTTPClient,
+			authScheme: authScheme,
+			apiKey:     []byte(apiKey),
+		}
+	}
 	return &OpenAICompletionClient{client: openai.NewClientWithConfig(cfg)}
+}
+
+type credentialAuthDoer struct {
+	next       openai.HTTPDoer
+	authScheme string
+	apiKey     []byte
+}
+
+func (doer *credentialAuthDoer) Do(req *http.Request) (*http.Response, error) {
+	cloned := req.Clone(req.Context())
+	cloned.Header = req.Header.Clone()
+	cloned.Header.Del("Authorization")
+	providerauth.Attach(cloned, doer.authScheme, doer.apiKey)
+	return doer.next.Do(cloned)
 }
 
 func (c *OpenAICompletionClient) ChatCompletion(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {

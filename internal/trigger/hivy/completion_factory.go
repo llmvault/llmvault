@@ -11,6 +11,6 @@ func NewCompletionClient(credential *model.Credential, decryptedKey string) Comp
 	case "anthropic":
 		return NewAnthropicCompletionClient(decryptedKey)
 	default:
-		return NewOpenAICompletionClient(credential.BaseURL, decryptedKey)
+		return NewOpenAICompletionClientWithAuth(credential.BaseURL, credential.AuthScheme, decryptedKey)
 	}
 }

@@ -12,10 +12,14 @@ import (
 )
 
 type captureCompletionDoer struct {
-	body []byte
+	body   []byte
+	header http.Header
+	query  string
 }
 
 func (d *captureCompletionDoer) Do(req *http.Request) (*http.Response, error) {
+	d.header = req.Header.Clone()
+	d.query = req.URL.RawQuery
 	if req.Body != nil {
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
@@ -37,6 +41,32 @@ func (d *captureCompletionDoer) Do(req *http.Request) (*http.Response, error) {
 			}]
 		}`)),
 	}, nil
+}
+
+func TestCredentialAuthDoerUsesConfiguredAPIKeyHeader(t *testing.T) {
+	next := &captureCompletionDoer{}
+	doer := &credentialAuthDoer{
+		next:       next,
+		authScheme: "api-key",
+		apiKey:     []byte("test-provider-key"),
+	}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "https://provider.test/v1/chat/completions", nil)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer stale-key")
+
+	response, err := doer.Do(req)
+	if err != nil {
+		t.Fatalf("do request: %v", err)
+	}
+	_ = response.Body.Close()
+	if got := next.header.Get("api-key"); got != "test-provider-key" {
+		t.Fatalf("api-key header = %q", got)
+	}
+	if got := next.header.Get("Authorization"); got != "" {
+		t.Fatalf("Authorization header = %q, want empty", got)
+	}
 }
 
 func TestOpenAICompletionClientSendsJSONSchemaResponseFormat(t *testing.T) {

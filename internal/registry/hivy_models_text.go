@@ -81,10 +81,12 @@ var coreHivyModelsText = []HivyModel{
 	{
 		ID: "deepseek-v4-pro",
 		Routes: []ModelRoute{
+			{ProviderID: "deepseek", ModelID: "deepseek-v4-pro"},
 			{ProviderID: "novita", ModelID: "deepseek/deepseek-v4-pro"},
 			{ProviderID: "atlascloud", ModelID: "deepseek-ai/deepseek-v4-pro"},
 		},
 		ProxyRoutes: []ModelRoute{
+			{ProviderID: "deepseek", ModelID: "deepseek-v4-pro"},
 			{ProviderID: "novita", ModelID: "deepseek/deepseek-v4-pro"},
 			{ProviderID: "atlascloud", ModelID: "deepseek-ai/deepseek-v4-pro"},
 		},
@@ -92,10 +94,12 @@ var coreHivyModelsText = []HivyModel{
 	{
 		ID: "deepseek-v4-flash",
 		Routes: []ModelRoute{
+			{ProviderID: "deepseek", ModelID: "deepseek-v4-flash"},
 			{ProviderID: "atlascloud", ModelID: "deepseek-ai/deepseek-v4-flash"},
 			{ProviderID: "novita", ModelID: "deepseek/deepseek-v4-flash"},
 		},
 		ProxyRoutes: []ModelRoute{
+			{ProviderID: "deepseek", ModelID: "deepseek-v4-flash"},
 			{ProviderID: "atlascloud", ModelID: "deepseek-ai/deepseek-v4-flash"},
 			{ProviderID: "novita", ModelID: "deepseek/deepseek-v4-flash"},
 		},

@@ -27,6 +27,7 @@ export function AdminClient() {
   const [search, setSearch] = useState("")
   const [credentialForm, setCredentialForm] =
     useState<CredentialForm>(emptyCredentialForm)
+  const [credentialTested, setCredentialTested] = useState(false)
 
   const hasSecret = adminSecret.trim().length > 0
   const adminHeaders = useMemo(
@@ -58,10 +59,27 @@ export function AdminClient() {
       onSuccess: async () => {
         toast.success("System credential saved")
         setCredentialForm(emptyCredentialForm)
+        setCredentialTested(false)
         await invalidateAdminQueries(queryClient)
       },
       onError: (error) =>
         toast.danger(errorMessage(error, "Failed to save credential")),
+    }
+  )
+  const testCredentialMutation = $api.useMutation(
+    "post",
+    "/v1/admin/system-credentials/test",
+    {
+      onSuccess: (data) => {
+        setCredentialTested(true)
+        toast.success(
+          `Connection successful${data.model_id ? ` with ${data.model_id}` : ""}`
+        )
+      },
+      onError: (error) => {
+        setCredentialTested(false)
+        toast.danger(errorMessage(error, "Connection test failed"))
+      },
     }
   )
   const revokeCredentialMutation = $api.useMutation(
@@ -106,9 +124,27 @@ export function AdminClient() {
     })
   }
 
+  function updateCredentialForm(value: CredentialForm) {
+    setCredentialTested(false)
+    setCredentialForm(value)
+  }
+
+  function testCredential() {
+    testCredentialMutation.mutate({
+      params: { header: adminHeaders },
+      body: {
+        provider_id: credentialForm.provider_id,
+        base_url: credentialForm.base_url,
+        auth_scheme: credentialForm.auth_scheme,
+        api_key: credentialForm.api_key,
+      },
+    })
+  }
+
   function clearSecret() {
     setAdminSecret("")
     setSecretDraft("")
+    setCredentialTested(false)
     removeAdminQueries(queryClient)
   }
 
@@ -138,13 +174,16 @@ export function AdminClient() {
               providers={providers}
               form={credentialForm}
               saving={createCredentialMutation.isPending}
+              testing={testCredentialMutation.isPending}
+              tested={credentialTested}
               revokingID={
                 revokeCredentialMutation.isPending
                   ? (revokeCredentialMutation.variables?.params.path.id ?? null)
                   : null
               }
-              onFormChange={setCredentialForm}
+              onFormChange={updateCredentialForm}
               onSubmit={submitCredential}
+              onTest={testCredential}
               onRevoke={(id) =>
                 revokeCredentialMutation.mutate({
                   params: { header: adminHeaders, path: { id } },

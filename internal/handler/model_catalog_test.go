@@ -130,15 +130,28 @@ func assertDeepSeekCatalogProviders(t *testing.T, providers []struct {
 	PricingUnit      string         `json:"pricing_unit"`
 }) {
 	t.Helper()
-	if len(providers) != 2 {
+	if len(providers) != 3 {
 		t.Fatalf("DeepSeek providers = %#v", providers)
 	}
-	novita := providers[0]
+	direct := providers[0]
+	if direct.ID != "deepseek" ||
+		direct.Name != "DeepSeek" ||
+		direct.UpstreamModelID != "deepseek-v4-pro" ||
+		direct.Priority != 1 ||
+		!direct.Default ||
+		direct.Available ||
+		direct.DocumentationURL == "" ||
+		direct.Cost == nil ||
+		direct.Cost.Input != 0.435 ||
+		direct.PricingUnit != "usd_per_million_tokens" {
+		t.Fatalf("DeepSeek provider = %#v", direct)
+	}
+	novita := providers[1]
 	if novita.ID != "novita" ||
 		novita.Name != "Novita AI" ||
 		novita.UpstreamModelID != "deepseek/deepseek-v4-pro" ||
-		novita.Priority != 1 ||
-		!novita.Default ||
+		novita.Priority != 2 ||
+		novita.Default ||
 		novita.Available ||
 		novita.DocumentationURL == "" ||
 		novita.Cost == nil ||
@@ -146,10 +159,10 @@ func assertDeepSeekCatalogProviders(t *testing.T, providers []struct {
 		novita.PricingUnit != "usd_per_million_tokens" {
 		t.Fatalf("Novita provider = %#v", novita)
 	}
-	atlas := providers[1]
+	atlas := providers[2]
 	if atlas.ID != "atlascloud" ||
 		atlas.UpstreamModelID != "deepseek-ai/deepseek-v4-pro" ||
-		atlas.Priority != 2 ||
+		atlas.Priority != 3 ||
 		atlas.Default ||
 		!atlas.Available ||
 		atlas.Cost == nil ||

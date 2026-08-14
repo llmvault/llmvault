@@ -15,20 +15,30 @@ export function CredentialPanel({
   providers,
   form,
   saving,
+  testing,
+  tested,
   revokingID,
   onFormChange,
   onSubmit,
+  onTest,
   onRevoke,
 }: {
   credentials: SystemCredential[]
   providers: LLMProvider[]
   form: CredentialForm
   saving: boolean
+  testing: boolean
+  tested: boolean
   revokingID: string | null
   onFormChange: (value: CredentialForm) => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onTest: () => void
   onRevoke: (id: string) => void
 }) {
+  const selectedProvider = providers.find(
+    (provider) => provider.id === form.provider_id
+  )
+
   function updateForm(patch: Partial<CredentialForm>) {
     onFormChange({ ...form, ...patch })
   }
@@ -38,9 +48,8 @@ export function CredentialPanel({
     updateForm({
       provider_id: providerID,
       label: form.label || provider?.name || providerID,
-      base_url: form.base_url || provider?.base_url || "",
-      auth_scheme:
-        form.auth_scheme || provider?.default_auth_scheme || "bearer",
+      base_url: provider?.base_url || "",
+      auth_scheme: provider?.default_auth_scheme || "bearer",
     })
   }
 
@@ -57,7 +66,7 @@ export function CredentialPanel({
             />
           ))
         ) : (
-          <div className="bg-surface rounded-2xl border border-border px-6 py-10 text-center text-sm text-muted">
+          <div className="rounded-2xl border border-border bg-surface px-6 py-10 text-center text-sm text-muted">
             No system credentials found.
           </div>
         )}
@@ -65,7 +74,7 @@ export function CredentialPanel({
 
       <form
         onSubmit={onSubmit}
-        className="bg-surface grid content-start gap-4 rounded-2xl border border-border p-4"
+        className="grid content-start gap-4 rounded-2xl border border-border bg-surface p-4"
       >
         <div>
           <h2 className="text-sm font-medium">Add system credential</h2>
@@ -109,14 +118,43 @@ export function CredentialPanel({
           onChange={(value) => updateForm({ api_key: value })}
           required
         />
-        <Button
-          type="submit"
-          variant="primary"
-          isPending={saving}
-          isDisabled={!form.provider_id}
-        >
-          Save credential
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            isPending={testing}
+            isDisabled={
+              saving ||
+              !form.provider_id ||
+              !form.api_key ||
+              !form.base_url ||
+              !selectedProvider?.test_model_id
+            }
+            onPress={onTest}
+          >
+            {tested ? (
+              <>
+                <AppIcon icon="check" className="size-4" />
+                Connection works
+              </>
+            ) : (
+              "Test connection"
+            )}
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            isPending={saving}
+            isDisabled={testing || !form.provider_id}
+          >
+            Save credential
+          </Button>
+        </div>
+        {selectedProvider && !selectedProvider.test_model_id ? (
+          <p className="text-xs text-muted">
+            This provider does not expose a text model for connection tests.
+          </p>
+        ) : null}
       </form>
     </div>
   )
@@ -143,7 +181,7 @@ function ProviderPicker({
       <Popover isOpen={open} onOpenChange={setOpen}>
         <Popover.Trigger
           aria-label="Select provider"
-          className="bg-field-background hover:bg-default flex h-11 w-full items-center justify-between rounded-2xl border border-border px-3 text-sm text-foreground transition-colors"
+          className="bg-field-background flex h-11 w-full items-center justify-between rounded-2xl border border-border px-3 text-sm text-foreground transition-colors hover:bg-default"
         >
           <span className={selected ? "text-foreground" : "text-muted"}>
             {selected?.name || selected?.id || "Select a provider"}
@@ -160,7 +198,7 @@ function ProviderPicker({
                   onChange(provider.id)
                   setOpen(false)
                 }}
-                className="hover:bg-default flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors"
+                className="flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-default"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">
@@ -194,7 +232,7 @@ function CredentialRow({
   const revoked = Boolean(credential.revoked_at)
 
   return (
-    <div className="bg-surface flex items-center justify-between gap-4 rounded-2xl border border-border px-4 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-surface px-4 py-3">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium">
@@ -204,7 +242,7 @@ function CredentialRow({
             className={
               revoked
                 ? "rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted"
-                : "bg-default rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-foreground"
+                : "rounded-full border border-border bg-default px-2 py-0.5 text-[11px] font-medium text-foreground"
             }
           >
             {revoked ? "Revoked" : "Active"}

@@ -22,17 +22,23 @@ func TestCatalogModelsReturnsEveryCanonicalModelWithOrderedProviderRoutes(t *tes
 	}
 
 	deepseek := catalogModelByID(t, models, "deepseek-v4-pro")
-	if got, want := len(deepseek.Routes), 2; got != want {
+	if got, want := len(deepseek.Routes), 3; got != want {
 		t.Fatalf("DeepSeek V4 Pro route count = %d, want %d", got, want)
 	}
-	novita := deepseek.Routes[0]
+	direct := deepseek.Routes[0]
+	if direct.ProviderID != "deepseek" ||
+		direct.UpstreamModelID != "deepseek-v4-pro" ||
+		direct.Model.ReleaseDate != "2026-08-13" {
+		t.Fatalf("primary route = %#v", direct)
+	}
+	novita := deepseek.Routes[1]
 	if novita.ProviderID != "novita" ||
 		novita.UpstreamModelID != "deepseek/deepseek-v4-pro" ||
 		novita.Model.Cost == nil ||
 		novita.Model.Cost.Input != 1.6 {
 		t.Fatalf("primary route = %#v", novita)
 	}
-	atlas := deepseek.Routes[1]
+	atlas := deepseek.Routes[2]
 	if atlas.ProviderID != "atlascloud" ||
 		atlas.UpstreamModelID != "deepseek-ai/deepseek-v4-pro" ||
 		atlas.Model.Cost == nil ||

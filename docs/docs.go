@@ -1165,6 +1165,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/admin/system-credentials/test": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Runs a minimal model inference with an unsaved credential.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Test a system credential",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Admin secret",
+                        "name": "X-Hivy-Admin-Secret",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Unsaved credential details",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/testSystemCredentialRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/testSystemCredentialResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/errorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/admin/system-credentials/{id}": {
             "delete": {
                 "security": [
@@ -16053,6 +16129,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "test_model_id": {
+                    "type": "string"
                 }
             }
         },
@@ -21794,6 +21873,37 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/teamSkillResponse"
                     }
+                }
+            }
+        },
+        "testSystemCredentialRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "type": "string"
+                },
+                "auth_scheme": {
+                    "type": "string"
+                },
+                "base_url": {
+                    "type": "string"
+                },
+                "provider_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "testSystemCredentialResponse": {
+            "type": "object",
+            "properties": {
+                "model_id": {
+                    "type": "string"
+                },
+                "provider_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },

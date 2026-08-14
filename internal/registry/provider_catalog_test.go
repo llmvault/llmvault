@@ -2,6 +2,34 @@ package registry
 
 import "testing"
 
+func TestDeepSeekProviderCatalog(t *testing.T) {
+	provider, ok := Global().GetProvider("deepseek")
+	if !ok {
+		t.Fatal("deepseek provider not found")
+	}
+	if provider.API != "https://api.deepseek.com" {
+		t.Fatalf("deepseek API = %q", provider.API)
+	}
+
+	tests := []struct {
+		id          string
+		name        string
+		releaseDate string
+	}{
+		{"deepseek-v4-flash", "DeepSeek V4 Flash 0731", "2026-07-31"},
+		{"deepseek-v4-pro", "DeepSeek V4 Pro 0813", "2026-08-13"},
+	}
+	for _, test := range tests {
+		model, exists := provider.Models[test.id]
+		if !exists {
+			t.Fatalf("deepseek model %q not found", test.id)
+		}
+		if model.Name != test.name || model.ReleaseDate != test.releaseDate {
+			t.Fatalf("deepseek model %q = %#v", test.id, model)
+		}
+	}
+}
+
 func TestReveProviderCatalog(t *testing.T) {
 	provider, ok := Global().GetProvider("reve")
 	if !ok {

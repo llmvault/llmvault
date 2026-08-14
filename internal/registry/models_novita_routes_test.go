@@ -50,8 +50,8 @@ func TestNovitaRoutesAreDeclaredExplicitly(t *testing.T) {
 		novitaModelID string
 		primary       string
 	}{
-		{"deepseek-v4-flash", "deepseek/deepseek-v4-flash", "atlascloud"},
-		{"deepseek-v4-pro", "deepseek/deepseek-v4-pro", "novita"},
+		{"deepseek-v4-flash", "deepseek/deepseek-v4-flash", "deepseek"},
+		{"deepseek-v4-pro", "deepseek/deepseek-v4-pro", "deepseek"},
 		{"glm-4.7", "zai-org/glm-4.7", "atlascloud"},
 		{"glm-4.7-flash", "zai-org/glm-4.7-flash", "novita"},
 		{"glm-5", "zai-org/glm-5", "atlascloud"},

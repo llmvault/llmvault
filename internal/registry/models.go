@@ -13,6 +13,7 @@ package registry
 // maintained Go literal so additions go through code review.
 var curatedProviders = []Provider{
 	atlasCloudProvider,
+	deepSeekProvider,
 	engyProvider,
 	novitaProvider,
 	theGridProvider,
@@ -235,7 +236,7 @@ var curatedProviders = []Provider{
 			},
 		},
 	},
-	// cohere, deepseek removed — not in supported provider set
+	// cohere removed — not in supported provider set
 	{ // elevenlabs — ElevenLabs
 		ID:   "elevenlabs",
 		Name: "ElevenLabs",

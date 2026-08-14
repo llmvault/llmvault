@@ -242,6 +242,7 @@ func applyUsageAccounting(req *http.Request, providerID, baseURL, endUserID stri
 		return EnsureOpenRouterUsage(req, endUserID)
 	}
 	if providerID == "xiaomi" ||
+		providerID == "deepseek" ||
 		providerID == "atlascloud" ||
 		providerID == "novita" ||
 		providerID == "engy" ||

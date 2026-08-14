@@ -1346,6 +1346,104 @@
         }
       }
     },
+    "/v1/admin/system-credentials/test": {
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "description": "Runs a minimal model inference with an unsaved credential.",
+        "tags": [
+          "admin"
+        ],
+        "summary": "Test a system credential",
+        "parameters": [
+          {
+            "description": "Admin secret",
+            "name": "X-Hivy-Admin-Secret",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/testSystemCredentialRequest"
+              }
+            }
+          },
+          "description": "Unsaved credential details",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/testSystemCredentialResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/errorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/system-credentials/{id}": {
       "delete": {
         "security": [
@@ -19810,6 +19908,9 @@
           },
           "name": {
             "type": "string"
+          },
+          "test_model_id": {
+            "type": "string"
           }
         }
       },
@@ -25551,6 +25652,37 @@
             "items": {
               "$ref": "#/components/schemas/teamSkillResponse"
             }
+          }
+        }
+      },
+      "testSystemCredentialRequest": {
+        "type": "object",
+        "properties": {
+          "api_key": {
+            "type": "string"
+          },
+          "auth_scheme": {
+            "type": "string"
+          },
+          "base_url": {
+            "type": "string"
+          },
+          "provider_id": {
+            "type": "string"
+          }
+        }
+      },
+      "testSystemCredentialResponse": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "provider_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
           }
         }
       },
