@@ -12,6 +12,7 @@ pub enum ModelProfileId {
     MiniMax,
     MiMo,
     Qwen,
+    Thesean,
     OpenAICompatible,
 }
 
@@ -24,6 +25,7 @@ impl ModelProfileId {
             Self::MiniMax => "minimax",
             Self::MiMo => "mimo",
             Self::Qwen => "qwen",
+            Self::Thesean => "thesean",
             Self::OpenAICompatible => "openai_compatible",
         }
     }
@@ -87,6 +89,7 @@ impl ModelProfile {
             Some("minimax") => ModelProfileId::MiniMax,
             Some("mimo") => ModelProfileId::MiMo,
             Some("qwen") => ModelProfileId::Qwen,
+            Some("thesean") => ModelProfileId::Thesean,
             Some("openrouter_compatible") | Some("openai_compatible") => {
                 ModelProfileId::OpenAICompatible
             }
@@ -103,6 +106,9 @@ impl ModelProfile {
             _ if haystack.contains("minimax") => ModelProfileId::MiniMax,
             _ if haystack.contains("mimo") => ModelProfileId::MiMo,
             _ if haystack.contains("qwen") => ModelProfileId::Qwen,
+            _ if haystack.contains("thesean") || haystack.contains("ship-like") => {
+                ModelProfileId::Thesean
+            }
             _ => ModelProfileId::OpenAICompatible,
         };
 
@@ -167,6 +173,16 @@ impl ModelProfile {
                 max_tool_calls_per_turn: 640,
                 max_consecutive_tool_errors: 40,
             },
+            ModelProfileId::Thesean => Self {
+                id,
+                supports_generic_reasoning_effort: false,
+                supports_parallel_tool_calls: true,
+                strict_tool_schema: false,
+                default_temperature: Some(0.0),
+                default_max_output_tokens: Some(8192),
+                max_tool_calls_per_turn: 800,
+                max_consecutive_tool_errors: 40,
+            },
             ModelProfileId::OpenAICompatible => Self {
                 id,
                 supports_generic_reasoning_effort: false,
@@ -204,7 +220,7 @@ impl ModelProfile {
                     "clear_thinking": false,
                 });
             }
-            ModelProfileId::OpenAICompatible => {
+            ModelProfileId::Thesean | ModelProfileId::OpenAICompatible => {
                 if let Some(provider) = provider_options.get("provider") {
                     if provider.is_object() {
                         body["provider"] = provider.clone();
@@ -342,6 +358,7 @@ mod tests {
             ("minimax", 480),
             ("mimo", 400),
             ("qwen", 640),
+            ("thesean", 800),
             ("openai_compatible", 800),
         ];
         for (profile_name, expected_tool_calls) in cases {
@@ -394,6 +411,57 @@ mod tests {
             )
             .id,
             ModelProfileId::Qwen
+        );
+    }
+
+    #[test]
+    fn detects_thesean_profile_from_provider_id() {
+        assert_eq!(
+            ModelProfile::detect(
+                None,
+                Some("thesean"),
+                Some("thesean-gpt-5.6-sol"),
+                Some("ship-like/gpt-5.6-sol"),
+                "thesean-gpt-5.6-sol",
+                None
+            )
+            .id,
+            ModelProfileId::Thesean
+        );
+        assert_eq!(
+            ModelProfile::detect(
+                None,
+                Some("thesean"),
+                Some("thesean-claude-sonnet-5"),
+                Some("ship-like/claude-sonnet-5"),
+                "thesean-claude-sonnet-5",
+                None
+            )
+            .id,
+            ModelProfileId::Thesean
+        );
+    }
+
+    #[test]
+    fn thesean_profile_never_emits_generic_reasoning_effort() {
+        let caps = domain::ModelCapabilities {
+            reasoning: Some(true),
+            tool_call: Some(true),
+            parallel_tool_calls: Some(true),
+            structured_output: Some(true),
+        };
+        let profile = ModelProfile::detect(
+            None,
+            Some("thesean"),
+            Some("thesean-gpt-5.6-sol"),
+            Some("ship-like/gpt-5.6-sol"),
+            "thesean-gpt-5.6-sol",
+            Some(&caps),
+        );
+        assert_eq!(profile.id, ModelProfileId::Thesean);
+        assert!(
+            !profile.supports_generic_reasoning_effort,
+            "Thesean profile must not enable supports_generic_reasoning_effort even with reasoning=true"
         );
     }
 
