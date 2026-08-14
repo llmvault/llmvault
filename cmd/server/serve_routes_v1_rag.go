@@ -44,6 +44,8 @@ func mountRAGRoutes(
 			// /teams/{teamID}/rag-sources); the old source->channels grant route
 			// and its handler were removed.
 			r.Post("/sources/{id}/sync", ragSourceHandler.TriggerSync)
+			r.Post("/sources/{id}/resume", ragSourceHandler.ResumeIngestion)
+			r.Post("/sources/{id}/retry", ragSourceHandler.RetryIngestion)
 			r.Post("/sources/{id}/prune", ragSourceHandler.TriggerPrune)
 			r.Post("/website/discover-sections", ragSourceHandler.DiscoverWebsiteSections)
 		})

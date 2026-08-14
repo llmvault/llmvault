@@ -111,6 +111,8 @@ func TestRouteGating_RAGMutationsAdminOnly(t *testing.T) {
 			r.Post("/sources", okHandler)
 			r.Delete("/sources/{id}", okHandler)
 			r.Post("/sources/{id}/sync", okHandler)
+			r.Post("/sources/{id}/resume", okHandler)
+			r.Post("/sources/{id}/retry", okHandler)
 			r.Post("/sources/{id}/prune", okHandler)
 		})
 	})
@@ -126,6 +128,12 @@ func TestRouteGating_RAGMutationsAdminOnly(t *testing.T) {
 	}
 	if code := doJWT(t, router, http.MethodPost, "/v1/rag/sources/"+uuid.NewString()+"/sync", member.ID, memberOrg.ID); code != http.StatusForbidden {
 		t.Fatalf("member POST /rag/sources/{id}/sync = %d, want 403", code)
+	}
+	if code := doJWT(t, router, http.MethodPost, "/v1/rag/sources/"+uuid.NewString()+"/resume", member.ID, memberOrg.ID); code != http.StatusForbidden {
+		t.Fatalf("member POST /rag/sources/{id}/resume = %d, want 403", code)
+	}
+	if code := doJWT(t, router, http.MethodPost, "/v1/rag/sources/"+uuid.NewString()+"/retry", member.ID, memberOrg.ID); code != http.StatusForbidden {
+		t.Fatalf("member POST /rag/sources/{id}/retry = %d, want 403", code)
 	}
 	if code := doJWT(t, router, http.MethodPost, "/v1/rag/sources", admin.ID, adminOrg.ID); code != http.StatusOK {
 		t.Fatalf("admin POST /rag/sources = %d, want 200", code)

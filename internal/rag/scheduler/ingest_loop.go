@@ -212,7 +212,8 @@ func enqueueIngest(enq enqueue.TaskEnqueuer, sourceID, attemptID uuid.UUID, uniq
 	if err != nil {
 		return err
 	}
-	if _, err := enq.Enqueue(task, asynqUnique(uniqueTTL)); err != nil {
+	opts := append(ragtasks.IngestEnqueueOptions(sourceID), asynqUnique(uniqueTTL))
+	if _, err := enq.Enqueue(task, opts...); err != nil {
 		if isDuplicate(err) {
 			return nil
 		}

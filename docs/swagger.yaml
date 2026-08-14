@@ -4713,6 +4713,8 @@ definitions:
     type: object
   triggerResponse:
     properties:
+      attempt_id:
+        type: string
       deduplicated:
         type: boolean
       source_id:
@@ -11689,6 +11691,52 @@ paths:
       security:
       - BearerAuth: []
       summary: Trigger an immediate prune
+      tags:
+      - rag
+  /v1/rag/sources/{id}/resume:
+    post:
+      description: Activates a paused source and immediately enqueues an ingest attempt.
+        If an attempt is already queued or running, the source is activated without
+        dispatching a duplicate.
+      parameters:
+      - description: Source ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/triggerResponse'
+      security:
+      - BearerAuth: []
+      summary: Resume ingestion for a knowledge source
+      tags:
+      - rag
+  /v1/rag/sources/{id}/retry:
+    post:
+      description: Requires the latest ingest attempt to be failed. Deletes the archived
+        failed queue job, clears the source's error state, and dispatches a new sync
+        attempt while preserving the failed attempt in history.
+      parameters:
+      - description: Source ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/triggerResponse'
+      security:
+      - BearerAuth: []
+      summary: Retry a failed knowledge-source ingestion
       tags:
       - rag
   /v1/rag/sources/{id}/sync:

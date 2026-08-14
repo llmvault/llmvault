@@ -10194,6 +10194,74 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/rag/sources/{id}/resume": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Activates a paused source and immediately enqueues an ingest attempt. If an attempt is already queued or running, the source is activated without dispatching a duplicate.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rag"
+                ],
+                "summary": "Resume ingestion for a knowledge source",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Source ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/triggerResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/rag/sources/{id}/retry": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Requires the latest ingest attempt to be failed. Deletes the archived failed queue job, clears the source's error state, and dispatches a new sync attempt while preserving the failed attempt in history.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rag"
+                ],
+                "summary": "Retry a failed knowledge-source ingestion",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Source ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/triggerResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/rag/sources/{id}/sync": {
             "post": {
                 "security": [
@@ -22155,6 +22223,9 @@ const docTemplate = `{
         "triggerResponse": {
             "type": "object",
             "properties": {
+                "attempt_id": {
+                    "type": "string"
+                },
                 "deduplicated": {
                     "type": "boolean"
                 },

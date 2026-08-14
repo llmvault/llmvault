@@ -126,7 +126,8 @@ func (h *RAGSourceHandler) reconcileScopeChange(ctx context.Context, src *ragmod
 
 	if len(removed) > 0 {
 		if task, err := ragtasks.NewPruneTask(ragtasks.PrunePayload{RAGSourceID: src.ID}); err == nil {
-			if _, err := h.enq.Enqueue(task, asynq.Unique(60*time.Second)); err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
+			opts := append(ragtasks.PruneEnqueueOptions(), asynq.Unique(60*time.Second))
+			if _, err := h.enq.Enqueue(task, opts...); err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
 				logging.Capture(ctx, fmt.Errorf("reconcile: enqueue prune source=%s: %w", src.ID, err))
 			}
 		}
@@ -134,7 +135,8 @@ func (h *RAGSourceHandler) reconcileScopeChange(ctx context.Context, src *ragmod
 	if len(added) > 0 {
 		payload := ragtasks.IngestPayload{RAGSourceID: src.ID, Entities: added, FromBeginning: true}
 		if task, err := ragtasks.NewIngestTask(payload); err == nil {
-			if _, err := h.enq.Enqueue(task, asynq.Unique(60*time.Second)); err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
+			opts := append(ragtasks.IngestEnqueueOptions(src.ID), asynq.Unique(60*time.Second))
+			if _, err := h.enq.Enqueue(task, opts...); err != nil && !errors.Is(err, asynq.ErrDuplicateTask) {
 				logging.Capture(ctx, fmt.Errorf("reconcile: enqueue ingest source=%s: %w", src.ID, err))
 			}
 		}

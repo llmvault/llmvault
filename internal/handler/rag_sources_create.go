@@ -140,7 +140,8 @@ func (h *RAGSourceHandler) dispatchInitialIngest(ctx context.Context, src *ragmo
 		logging.Capture(ctx, fmt.Errorf("rag source created: build initial ingest task failed: %w", err))
 		return
 	}
-	if _, err := h.enq.Enqueue(task, asynq.Unique(60*time.Second)); err != nil {
+	opts := append(ragtasks.IngestEnqueueOptions(src.ID), asynq.Unique(60*time.Second))
+	if _, err := h.enq.Enqueue(task, opts...); err != nil {
 		if errors.Is(err, asynq.ErrDuplicateTask) {
 			return
 		}

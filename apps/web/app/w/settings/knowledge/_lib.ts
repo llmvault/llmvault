@@ -32,10 +32,38 @@ export const PROVIDERS: ProviderMeta[] = [
     scopeNoun: "repositories",
     connectionProviders: ["github-app"],
   },
-  { provider: "notion", label: "Notion", icon: "notion", kind: "INTEGRATION", scopeNoun: "pages & databases", connectionProviders: ["notion"] },
-  { provider: "slack", label: "Slack", icon: "slack", kind: "INTEGRATION", scopeNoun: "channels", connectionProviders: ["slack"] },
-  { provider: "linear", label: "Linear", icon: "linear", kind: "INTEGRATION", scopeNoun: "teams", connectionProviders: ["linear"] },
-  { provider: "website", label: "Website", icon: "globe", kind: "WEBSITE", scopeNoun: "sections", connectionProviders: [] },
+  {
+    provider: "notion",
+    label: "Notion",
+    icon: "notion",
+    kind: "INTEGRATION",
+    scopeNoun: "pages & databases",
+    connectionProviders: ["notion"],
+  },
+  {
+    provider: "slack",
+    label: "Slack",
+    icon: "slack",
+    kind: "INTEGRATION",
+    scopeNoun: "channels",
+    connectionProviders: ["slack"],
+  },
+  {
+    provider: "linear",
+    label: "Linear",
+    icon: "linear",
+    kind: "INTEGRATION",
+    scopeNoun: "teams",
+    connectionProviders: ["linear"],
+  },
+  {
+    provider: "website",
+    label: "Website",
+    icon: "globe",
+    kind: "WEBSITE",
+    scopeNoun: "sections",
+    connectionProviders: [],
+  },
 ]
 
 export function providerMeta(provider: string): ProviderMeta {
@@ -44,7 +72,9 @@ export function providerMeta(provider: string): ProviderMeta {
 
 // metaForConnectionProvider maps a raw connection.provider string (e.g.
 // "github-app") to its source meta.
-function metaForConnectionProvider(cp?: string | null): ProviderMeta | undefined {
+function metaForConnectionProvider(
+  cp?: string | null
+): ProviderMeta | undefined {
   if (!cp) return undefined
   return PROVIDERS.find((p) => p.connectionProviders.includes(cp))
 }
@@ -56,7 +86,10 @@ export function connectionForProvider(
   connections: Connection[]
 ): Connection | undefined {
   return connections.find(
-    (c) => c.provider && !c.revoked_at && meta.connectionProviders.includes(c.provider)
+    (c) =>
+      c.provider &&
+      !c.revoked_at &&
+      meta.connectionProviders.includes(c.provider)
   )
 }
 
@@ -74,19 +107,34 @@ export function deriveProvider(
   return "github"
 }
 
-export type SourceStatus = "syncing" | "active" | "paused" | "disabled" | "error"
+export type SourceStatus =
+  | "syncing"
+  | "active"
+  | "paused"
+  | "disabled"
+  | "error"
+
+export type IngestionAction = "pause" | "resume" | "retry"
 
 export function deriveStatus(source: RagSource): SourceStatus {
-  if (source.enabled === false) return "disabled"
   const attemptStatus = source.latest_attempt?.status
-  if (attemptStatus === "in_progress" || attemptStatus === "not_started") {
-    return "syncing"
-  }
   if (source.in_repeated_error_state || attemptStatus === "failed") {
     return "error"
   }
+  if (source.enabled === false) return "disabled"
   if (source.status === "PAUSED") return "paused"
+  if (attemptStatus === "in_progress" || attemptStatus === "not_started") {
+    return "syncing"
+  }
   return "active"
+}
+
+export function ingestionActionForStatus(
+  status: SourceStatus
+): IngestionAction {
+  if (status === "error") return "retry"
+  if (status === "paused") return "resume"
+  return "pause"
 }
 
 export type DerivedProgress = { percent: number | null; label: string }
@@ -133,7 +181,10 @@ export function deriveProgress(
 
 // scopeSummary describes what a source ingests, read from its config scope
 // envelope (integrations) or its url list (website).
-export function scopeSummary(source: RagSource, provider: ProviderMeta): string {
+export function scopeSummary(
+  source: RagSource,
+  provider: ProviderMeta
+): string {
   const config = (source.config ?? {}) as Record<string, unknown>
   if (source.kind === "WEBSITE") {
     const urls = Array.isArray(config.urls) ? (config.urls as string[]) : []
@@ -143,7 +194,9 @@ export function scopeSummary(source: RagSource, provider: ProviderMeta): string 
   const scope = config.scope as { items?: unknown[] } | undefined
   const n = Array.isArray(scope?.items) ? scope!.items!.length : 0
   if (n === 0) return `All ${provider.scopeNoun}`
-  return n === 1 ? `1 ${singular(provider.scopeNoun)}` : `${n} ${provider.scopeNoun}`
+  return n === 1
+    ? `1 ${singular(provider.scopeNoun)}`
+    : `${n} ${provider.scopeNoun}`
 }
 
 function singular(noun: string): string {

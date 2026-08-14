@@ -30,6 +30,7 @@ type syncTriggerRequest struct {
 type triggerResponse struct {
 	TaskType     string `json:"task_type"`
 	SourceID     string `json:"source_id"`
+	AttemptID    string `json:"attempt_id,omitempty"`
 	Deduplicated bool   `json:"deduplicated"`
 }
 
@@ -60,7 +61,7 @@ func (h *RAGSourceHandler) TriggerSync(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to build ingest task"})
 		return
 	}
-	h.dispatchTrigger(r.Context(), w, src, task, ragtasks.TypeRagIngest)
+	h.dispatchTrigger(r.Context(), w, src, task, ragtasks.TypeRagIngest, ragtasks.IngestEnqueueOptions(src.ID)...)
 }
 
 // @Summary Trigger an immediate prune
@@ -82,7 +83,7 @@ func (h *RAGSourceHandler) TriggerPrune(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "failed to build prune task"})
 		return
 	}
-	h.dispatchTrigger(r.Context(), w, src, task, ragtasks.TypeRagPrune)
+	h.dispatchTrigger(r.Context(), w, src, task, ragtasks.TypeRagPrune, ragtasks.PruneEnqueueOptions()...)
 }
 
 func (h *RAGSourceHandler) loadSourceForTrigger(w http.ResponseWriter, r *http.Request) (*ragmodel.RAGSource, int) {
@@ -118,8 +119,10 @@ func (h *RAGSourceHandler) dispatchTrigger(
 	src *ragmodel.RAGSource,
 	task *asynq.Task,
 	taskType string,
+	opts ...asynq.Option,
 ) {
-	_, err := h.enq.Enqueue(task, asynq.Unique(uniqueTriggerTTL))
+	opts = append(opts, asynq.Unique(uniqueTriggerTTL))
+	_, err := h.enq.Enqueue(task, opts...)
 	dedup := false
 	if err != nil {
 		if errors.Is(err, asynq.ErrDuplicateTask) {

@@ -20,15 +20,38 @@ type PrunePayload struct {
 	RAGSourceID uuid.UUID `json:"rag_source_id"`
 }
 
+// IngestTaskID gives every source a stable queue identity. A failed task stays
+// archived in Asynq, so retry can delete that exact job before enqueueing the
+// replacement. The database separately guarantees at most one active attempt
+// per source.
+func IngestTaskID(sourceID uuid.UUID) string {
+	return "rag-ingest-" + sourceID.String()
+}
+
+// IngestEnqueueOptions must also be passed to TaskEnqueuer.Enqueue. The
+// enqueue client may rebuild a task to attach tracing metadata; externally
+// supplied options survive that rewrite.
+func IngestEnqueueOptions(sourceID uuid.UUID) []asynq.Option {
+	return []asynq.Option{
+		asynq.Queue(QueueRagWork),
+		asynq.MaxRetry(0),
+		asynq.TaskID(IngestTaskID(sourceID)),
+	}
+}
+
+func PruneEnqueueOptions() []asynq.Option {
+	return []asynq.Option{
+		asynq.Queue(QueueRagWork),
+		asynq.MaxRetry(0),
+	}
+}
+
 func NewIngestTask(p IngestPayload, opts ...asynq.Option) (*asynq.Task, error) {
 	body, err := json.Marshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("marshal ingest payload: %w", err)
 	}
-	full := append([]asynq.Option{
-		asynq.Queue(QueueRagWork),
-		asynq.MaxRetry(0),
-	}, opts...)
+	full := append(IngestEnqueueOptions(p.RAGSourceID), opts...)
 	return asynq.NewTask(TypeRagIngest, body, full...), nil
 }
 
@@ -37,10 +60,7 @@ func NewPruneTask(p PrunePayload, opts ...asynq.Option) (*asynq.Task, error) {
 	if err != nil {
 		return nil, fmt.Errorf("marshal prune payload: %w", err)
 	}
-	full := append([]asynq.Option{
-		asynq.Queue(QueueRagWork),
-		asynq.MaxRetry(0),
-	}, opts...)
+	full := append(PruneEnqueueOptions(), opts...)
 	return asynq.NewTask(TypeRagPrune, body, full...), nil
 }
 

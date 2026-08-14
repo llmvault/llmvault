@@ -19,6 +19,7 @@ import (
 type RAGSourceHandler struct {
 	db        *gorm.DB
 	enq       enqueue.TaskEnqueuer
+	cleaner   enqueue.TaskCleaner
 	credits   *billing.CreditsService
 	discovery *resources.Discovery
 	catalog   *catalog.Catalog
@@ -26,7 +27,11 @@ type RAGSourceHandler struct {
 }
 
 func NewRAGSourceHandler(db *gorm.DB, enq enqueue.TaskEnqueuer, credits *billing.CreditsService, discovery *resources.Discovery, cat *catalog.Catalog, web webcrawl.Provider) *RAGSourceHandler {
-	return &RAGSourceHandler{db: db, enq: enq, credits: credits, discovery: discovery, catalog: cat, web: web}
+	h := &RAGSourceHandler{db: db, enq: enq, credits: credits, discovery: discovery, catalog: cat, web: web}
+	if cleaner, ok := enq.(enqueue.TaskCleaner); ok {
+		h.cleaner = cleaner
+	}
+	return h
 }
 
 type ragSourceResponse struct {

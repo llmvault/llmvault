@@ -18,6 +18,7 @@ import {
   deriveProgress,
   deriveProvider,
   deriveStatus,
+  ingestionActionForStatus,
   providerMeta,
   RAG_SOURCES_QUERY_KEY,
   scopeSummary,
@@ -43,7 +44,10 @@ export default function KnowledgePageContent() {
   const queryClient = useQueryClient()
   const isAdmin = useIsAdmin()
   const { isLoading: authLoading } = useAuth()
-  const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null)
+  const [removeTarget, setRemoveTarget] = useState<{
+    id: string
+    name: string
+  } | null>(null)
 
   const sourcesQuery = $api.useQuery(
     "get",
@@ -81,17 +85,56 @@ export default function KnowledgePageContent() {
 
   const updateSource = $api.useMutation("patch", "/v1/rag/sources/{id}", {
     onSuccess: invalidateSources,
-    onError: (error) => toast.danger(extractErrorMessage(error, "Could not update source")),
+    onError: (error) =>
+      toast.danger(extractErrorMessage(error, "Could not update source")),
   })
   const deleteSource = $api.useMutation("delete", "/v1/rag/sources/{id}", {
     onSuccess: invalidateSources,
-    onError: (error) => toast.danger(extractErrorMessage(error, "Could not remove source")),
+    onError: (error) =>
+      toast.danger(extractErrorMessage(error, "Could not remove source")),
   })
+  const resumeIngestion = $api.useMutation(
+    "post",
+    "/v1/rag/sources/{id}/resume",
+    {
+      onSuccess: invalidateSources,
+      onError: (error) =>
+        toast.danger(extractErrorMessage(error, "Could not resume ingestion")),
+    }
+  )
+  const retryIngestion = $api.useMutation(
+    "post",
+    "/v1/rag/sources/{id}/retry",
+    {
+      onSuccess: invalidateSources,
+      onError: (error) =>
+        toast.danger(extractErrorMessage(error, "Could not retry ingestion")),
+    }
+  )
 
-  function patchSource(id: string, name: string, body: Record<string, unknown>, ok: string) {
+  function patchSource(
+    id: string,
+    name: string,
+    body: Record<string, unknown>,
+    ok: string
+  ) {
     updateSource.mutate(
       { params: { path: { id } }, body },
       { onSuccess: () => toast.success(ok.replace("{name}", name)) }
+    )
+  }
+
+  function resumeSource(id: string, name: string) {
+    resumeIngestion.mutate(
+      { params: { path: { id } } },
+      { onSuccess: () => toast.success(`Resumed ${name}`) }
+    )
+  }
+
+  function retrySource(id: string, name: string) {
+    retryIngestion.mutate(
+      { params: { path: { id } } },
+      { onSuccess: () => toast.success(`Retrying ${name}`) }
     )
   }
 
@@ -116,7 +159,7 @@ export default function KnowledgePageContent() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Knowledge</h1>
-          <p className="mt-1 max-w-lg text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-1 max-w-lg text-sm">
             Connect sources so your agents can search company knowledge. Each
             source ingests a scope you choose and is available to its teams.
           </p>
@@ -155,8 +198,17 @@ export default function KnowledgePageContent() {
               source={source}
               connectionsById={connectionsById}
               isAdmin={isAdmin}
-              onRemove={() => setRemoveTarget({ id: source.id!, name: source.name ?? "source" })}
-              onPatch={(body, ok) => patchSource(source.id!, source.name ?? "source", body, ok)}
+              onRemove={() =>
+                setRemoveTarget({
+                  id: source.id!,
+                  name: source.name ?? "source",
+                })
+              }
+              onPatch={(body, ok) =>
+                patchSource(source.id!, source.name ?? "source", body, ok)
+              }
+              onResume={() => resumeSource(source.id!, source.name ?? "source")}
+              onRetry={() => retrySource(source.id!, source.name ?? "source")}
             />
           ))}
         </div>
@@ -187,12 +239,16 @@ function SourceCard({
   isAdmin,
   onRemove,
   onPatch,
+  onResume,
+  onRetry,
 }: {
   source: RagSource
   connectionsById: Map<string, Connection>
   isAdmin: boolean
   onRemove: () => void
   onPatch: (body: Record<string, unknown>, ok: string) => void
+  onResume: () => void
+  onRetry: () => void
 }) {
   const provider = providerMeta(deriveProvider(source, connectionsById))
   const status = deriveStatus(source)
@@ -211,16 +267,20 @@ function SourceCard({
             <span className="truncate text-sm font-medium text-foreground">
               {source.name}
             </span>
-            <span className="shrink-0 text-xs text-muted-foreground">
+            <span className="text-muted-foreground shrink-0 text-xs">
               {provider.label}
             </span>
           </div>
-          <div className="text-xs text-muted-foreground">
+          <div className="text-muted-foreground text-xs">
             <span className="truncate">{scopeSummary(source, provider)}</span>
           </div>
         </div>
 
-        <ProgressRow progress={progress} statusMeta={statusMeta} syncing={status === "syncing"} />
+        <ProgressRow
+          progress={progress}
+          statusMeta={statusMeta}
+          syncing={status === "syncing"}
+        />
       </div>
 
       <SourceActionsMenu
@@ -229,6 +289,8 @@ function SourceCard({
         isAdmin={isAdmin}
         onRemove={onRemove}
         onPatch={onPatch}
+        onResume={onResume}
+        onRetry={onRetry}
       />
     </div>
   )
@@ -247,9 +309,15 @@ function ProgressRow({
     <div className="flex items-center gap-1.5">
       <AppIcon
         icon={statusMeta.icon}
-        className={cn("h-3.5 w-3.5", statusMeta.className, syncing && "animate-spin")}
+        className={cn(
+          "h-3.5 w-3.5",
+          statusMeta.className,
+          syncing && "animate-spin"
+        )}
       />
-      <span className={cn("text-xs", statusMeta.className)}>{progress.label}</span>
+      <span className={cn("text-xs", statusMeta.className)}>
+        {progress.label}
+      </span>
     </div>
   )
 }
@@ -260,6 +328,8 @@ function SourceActionsMenu({
   isAdmin,
   onRemove,
   onPatch,
+  onResume,
+  onRetry,
   placement = "bottom end",
 }: {
   sourceId: string
@@ -267,11 +337,13 @@ function SourceActionsMenu({
   isAdmin: boolean
   onRemove: () => void
   onPatch: (body: Record<string, unknown>, ok: string) => void
+  onResume: () => void
+  onRetry: () => void
   placement?: ComponentProps<typeof Popover.Content>["placement"]
 }) {
   const [open, setOpen] = useState(false)
   const disabled = status === "disabled"
-  const paused = status === "paused"
+  const ingestionAction = ingestionActionForStatus(status)
 
   function act(fn: () => void) {
     fn()
@@ -283,7 +355,7 @@ function SourceActionsMenu({
       <Popover.Trigger
         aria-label="Source options"
         data-open={open ? "true" : undefined}
-        className="hover:bg-default data-[open=true]:bg-default -mr-1 flex shrink-0 items-center rounded-md p-1 text-muted-foreground transition-colors"
+        className="text-muted-foreground -mr-1 flex shrink-0 items-center rounded-md p-1 transition-colors hover:bg-default data-[open=true]:bg-default"
       >
         <AppIcon icon="ellipsis" className="h-4 w-4" />
       </Popover.Trigger>
@@ -305,22 +377,38 @@ function SourceActionsMenu({
 
             {isAdmin ? (
               <>
-                {paused ? (
-                  <MenuButton onClick={() => act(() => onPatch({ status: "ACTIVE" }, "Resumed {name}"))}>
+                {ingestionAction === "retry" ? (
+                  <MenuButton onClick={() => act(onRetry)}>
+                    Retry ingestion
+                  </MenuButton>
+                ) : ingestionAction === "resume" ? (
+                  <MenuButton onClick={() => act(onResume)}>
                     Resume ingestion
                   </MenuButton>
                 ) : (
-                  <MenuButton onClick={() => act(() => onPatch({ status: "PAUSED" }, "Paused {name}"))}>
+                  <MenuButton
+                    onClick={() =>
+                      act(() => onPatch({ status: "PAUSED" }, "Paused {name}"))
+                    }
+                  >
                     Pause ingestion
                   </MenuButton>
                 )}
 
                 {disabled ? (
-                  <MenuButton onClick={() => act(() => onPatch({ enabled: true }, "Enabled {name}"))}>
+                  <MenuButton
+                    onClick={() =>
+                      act(() => onPatch({ enabled: true }, "Enabled {name}"))
+                    }
+                  >
                     Enable source
                   </MenuButton>
                 ) : (
-                  <MenuButton onClick={() => act(() => onPatch({ enabled: false }, "Disabled {name}"))}>
+                  <MenuButton
+                    onClick={() =>
+                      act(() => onPatch({ enabled: false }, "Disabled {name}"))
+                    }
+                  >
                     Disable source
                   </MenuButton>
                 )}
@@ -354,7 +442,9 @@ function MenuButton({
       onClick={onClick}
       className={cn(
         "flex items-center rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors",
-        danger ? "text-danger hover:bg-danger/10" : "hover:bg-default text-foreground"
+        danger
+          ? "text-danger hover:bg-danger/10"
+          : "text-foreground hover:bg-default"
       )}
     >
       {children}
@@ -362,11 +452,17 @@ function MenuButton({
   )
 }
 
-function MenuLink({ href, children }: { href: string; children: React.ReactNode }) {
+function MenuLink({
+  href,
+  children,
+}: {
+  href: string
+  children: React.ReactNode
+}) {
   return (
     <Link
       href={href}
-      className="hover:bg-default flex items-center rounded-xl px-2.5 py-1.5 text-left text-sm text-foreground transition-colors"
+      className="flex items-center rounded-xl px-2.5 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-default"
     >
       {children}
     </Link>
@@ -377,7 +473,10 @@ function SourcesSkeleton() {
   return (
     <div className="flex flex-col gap-2">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3.5">
+        <div
+          key={i}
+          className="flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3.5"
+        >
           <Skeleton className="h-9 w-9 rounded-lg" />
           <div className="flex flex-1 flex-col gap-2">
             <Skeleton className="h-4 w-40 rounded" />
@@ -391,10 +490,12 @@ function SourcesSkeleton() {
 
 function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
+    <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
       <AppIcon icon="circle-alert" className="h-7 w-7 text-danger" />
-      <p className="mt-3 text-sm font-medium text-foreground">Couldn’t load sources</p>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+      <p className="mt-3 text-sm font-medium text-foreground">
+        Couldn’t load sources
+      </p>
+      <p className="text-muted-foreground mt-1 max-w-sm text-sm">
         Something went wrong fetching your knowledge sources.
       </p>
       <Button variant="tertiary" size="sm" className="mt-4" onPress={onRetry}>
@@ -406,10 +507,12 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 function EmptyState({ isAdmin }: { isAdmin: boolean }) {
   return (
-    <div className="flex min-h-56 flex-col items-center justify-center rounded-xl bg-card px-6 text-center">
-      <AppIcon icon="folder-open" className="h-7 w-7 text-muted-foreground" />
-      <p className="mt-3 text-sm font-medium text-foreground">No knowledge sources yet</p>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+    <div className="bg-card flex min-h-56 flex-col items-center justify-center rounded-xl px-6 text-center">
+      <AppIcon icon="folder-open" className="text-muted-foreground h-7 w-7" />
+      <p className="mt-3 text-sm font-medium text-foreground">
+        No knowledge sources yet
+      </p>
+      <p className="text-muted-foreground mt-1 max-w-sm text-sm">
         {isAdmin
           ? "Add a source to let your agents search company knowledge from GitHub, Notion, Slack, or your website."
           : "A workspace admin can add sources so your agents can search company knowledge."}
@@ -417,7 +520,7 @@ function EmptyState({ isAdmin }: { isAdmin: boolean }) {
       {isAdmin ? (
         <Link
           href="/w/knowledge/new"
-          className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
+          className="text-primary hover:text-primary/80 mt-4 inline-flex items-center gap-2 text-sm font-medium transition-colors"
         >
           <AppIcon icon="plus" className="h-4 w-4" />
           Add source

@@ -12380,6 +12380,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/rag/sources/{id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume ingestion for a knowledge source
+         * @description Activates a paused source and immediately enqueues an ingest attempt. If an attempt is already queued or running, the source is activated without dispatching a duplicate.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Source ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["triggerResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rag/sources/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a failed knowledge-source ingestion
+         * @description Requires the latest ingest attempt to be failed. Deletes the archived failed queue job, clears the source's error state, and dispatches a new sync attempt while preserving the failed attempt in history.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Source ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["triggerResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/rag/sources/{id}/sync": {
         parameters: {
             query?: never;
@@ -20110,6 +20194,7 @@ export interface components {
             data?: components["schemas"]["triggerAutomationResponse"][];
         };
         triggerResponse: {
+            attempt_id?: string;
             deduplicated?: boolean;
             source_id?: string;
             task_type?: string;
