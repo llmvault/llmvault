@@ -46,6 +46,8 @@ Hivy can grant tools, but it lacks one policy service that judges every connecto
 
 General computer control would be dangerous before this is fixed.
 
+Hivy also has no teaching mode that watches a bounded demonstration and turns it into a reviewed routine. Existing skills, agent settings, and triggers are useful pieces, but they don't yet provide demonstration capture, inferred steps, correction history, tests, or routine release controls.
+
 ### Company knowledge isn't permission-complete
 
 Five RAG sources are registered. Google Workspace, Microsoft 365, Confluence, Jira, and deeper business-system search are still missing or incomplete. More important, company search needs current per-user source permissions, clear sync health, and exact citations.

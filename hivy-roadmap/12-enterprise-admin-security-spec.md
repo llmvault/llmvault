@@ -38,6 +38,14 @@ List web, mobile, desktop, API, and connector sessions with device, location est
 
 Admins set idle and total duration, recent-login intervals, concurrent-session limits, device requirements, and token rules. Revocation must reach APIs, streams, desktop dispatch, mobile bindings, and cached access within a stated target.
 
+## Teaching sessions, routines, and cloud workspaces
+
+Admins choose who may record a demonstration, which apps and data classes teaching can observe, how long source recordings live, and which roles may review or publish the resulting routine. A teaching session counts as screen and activity capture, so employee notice and regional policy may apply.
+
+Routine history must show its teacher, reviewers, source session, removed sensitive material, tests, permissions, trust level, releases, corrections, and every production run. Deleting the source recording doesn't delete the approved routine, but the routine keeps a provenance record and must remain understandable without replaying private footage.
+
+Persistent cloud computers need separate admin controls for owners, allowed agents, shared access, browser profiles, credentials, region, network, storage, idle shutdown, retention, and emergency suspension. Agents share a workspace only when policy allows the overlap; shared access never merges their grants.
+
 ## Budgets and billing
 
 Budgets can apply to org, team, project, agent, workflow, and cost center. Support warnings, hard caps, forecast alerts, daily or monthly periods, and approved exceptions. Policy decides whether running approved work may finish after a cap.
@@ -103,6 +111,7 @@ Enterprise service needs onboarding, migration, named contacts, severity levels,
 | **ENT-013** | Enforce network, endpoint, MDM, and private-connection rules. |
 | **ENT-014** | Keep one platform contract across shared and private execution. |
 | **ENT-015** | Publish legal, security, status, and support promises before selling them. |
+| **ENT-016** | Govern teaching capture, routine publication, and persistent cloud workspaces. |
 
 ## Done when
 

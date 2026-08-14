@@ -10,7 +10,7 @@ ChatGPT, Claude, and Grok can all search, reason, create files, use tools, and r
 
 ### Work continues after chat
 
-Users expect tasks that run in the background, follow a schedule, survive app closure, ask questions, and resume later. Hivy needs a work item, shared inbox, clear states, checkpoints, and human takeover.
+Users expect tasks that run in the background, follow a schedule, survive app closure, ask questions, and resume later. Grok Bot raises the bar further: an agent may work inside a persistent signed-in cloud computer, follow a stalled handoff, or coordinate with other agents. Hivy needs a work item, shared inbox, clear states, checkpoints, and human takeover across all of those cases.
 
 ### Company knowledge respects source access
 
@@ -54,15 +54,22 @@ If pricing allows it, unlimited collaborators can become a real advantage. Many 
 
 Hivy already has a local runtime and infrastructure base. Make execution location visible, policy-controlled, and available for customer environments. Don't blur local work into cloud work.
 
+### Teach by showing, then review before trust
+
+Grok Bot can watch someone perform a job and save the steps as a routine. Hivy should support the same short path, but it must convert the recording into a versioned routine with clear inputs, outputs, permissions, tests, and an owner.
+
+Corrections can propose a new version. They can't rewrite a live routine in the background. Proactive work should grow through explicit trust levels based on accepted results and policy, not a vague promise that the agent “learns over time.”
+
 ## Business plan: minimum bar
 
 | Work | Company control |
 |---|---|
-| Durable inbox and schedules | MFA, SSO, verified domains, sessions, and devices |
+| Durable inbox, schedules, and proactive follow-up rules | MFA, SSO, verified domains, sessions, and devices |
 | One task across web, desktop, and mobile | Connector and MCP action rules |
 | Company search with source access and citations | Approvals tied to the exact payload |
 | Native documents, slides, spreadsheets, and PDFs | Budgets, cost assignment, and reliable audit |
-| No training on company data by default | Published legal, security, support, and status information |
+| Reviewed routines taught by demonstration | Published legal, security, support, and status information |
+| No training on company data by default | Persistent cloud workspace with isolated credentials |
 
 ## Enterprise: minimum bar
 
@@ -76,7 +83,7 @@ Hivy already has a local runtime and infrastructure base. Make execution locatio
 
 ## Build order
 
-Rules and evidence come before broad autonomy. Build durable work, action manifests, policy, approvals, and audit first. Then expand mobile, desktop, company knowledge, agent releases, and computer control. Enterprise data controls follow once the core records and storage registry exist.
+Rules and evidence come before broad autonomy. Build durable work, action manifests, policy, approvals, and audit first. Then expand mobile, desktop, company knowledge, agent releases, routine capture, and computer control. Enterprise data controls follow once the core records and storage registry exist.
 
 Delay video, huge connector counts, and a general workflow canvas until common business work is reliable.
 

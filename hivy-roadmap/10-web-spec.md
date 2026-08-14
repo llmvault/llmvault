@@ -26,6 +26,14 @@ Persistent profiles need explicit company and user permission, encrypted cookies
 
 Always show where the browser runs, which profile it uses, which identity is signed in, and what files moved. It isn't the user's local browser.
 
+## Persistent cloud workspace
+
+Some jobs need more than an isolated browser tab. Hivy should offer a persistent cloud computer for an agent or tightly scoped agent team. It can hold approved apps, browser profiles, working files, and project state while work continues after logout.
+
+Persistence doesn't mean permanent access. The workspace has an owner, region, environment, agent versions, storage limit, idle policy, credential references, network rules, sharing scope, retention date, and emergency stop. Several agents may share it only when their effective rights and project scope overlap; the stricter right wins.
+
+The workspace page shows active agents, signed-in services, open work, file transfers, last human takeover, cost, and expiry. Admins and owners can suspend it without deleting evidence.
+
 ## Search and research
 
 Search supports plain words and questions. Filters cover source, person, team, date, type, project, and freshness. Results use current source access and exact citations.
@@ -40,6 +48,12 @@ The generated execution map explains the setup, while forms remain the source of
 
 The release console holds versions, environments, tests, canaries, live results, rollback, connection health, denials, and cost. Draft edits use optimistic locking so two builders don't erase each other's work.
 
+### Routine studio
+
+A teaching session from desktop or cloud opens as a draft routine. The studio shows the original demonstration beside the structured steps Hivy inferred. Users can rename inputs, mark outputs, replace visual steps with connector actions, add branches, remove accidental context, and choose where the routine may run.
+
+The routine can't publish until required tests, action manifests, permissions, policy, owner, retention, and release review pass. Each correction creates a new draft, with a diff against the live version.
+
 ## Operations
 
 Show work volume, age, deadlines, completion, corrections, cost, approvals, agent versions, connection health, source freshness, device status, and incidents.
@@ -50,7 +64,7 @@ Operators can pause a version, connection, trigger, tool, device class, agent, o
 
 ## Many agents at once
 
-Show parent and child agents as a hierarchy with task, rights, budget, state, cost, and blocker. Operators can inspect, message, pause, stop, or reassign a child.
+Show parent and child agents as a hierarchy with task, rights, budget, state, cost, and blocker. Operators can inspect, message, pause, stop, or reassign a child. Agents may also share a project thread, send direct handoffs, and assign ownership; the UI keeps those messages under the work-item timeline rather than creating an ungoverned side channel.
 
 With dozens of agents, state and waiting reasons matter more than animation. Lead with jobs that need a person, risky actions, failures, and budget pressure.
 
@@ -90,6 +104,8 @@ Primary flows must meet WCAG 2.2 AA, including keyboard use, focus, screen-reade
 | **WEB-010** | Administer identity, policy, data, security, cost, connections, and devices. |
 | **WEB-011** | Use generated API contracts and tenant-safe caching. |
 | **WEB-012** | Meet WCAG 2.2 AA for main flows. |
+| **WEB-013** | Run persistent cloud workspaces with visible agents, sessions, rights, cost, and expiry. |
+| **WEB-014** | Review demonstrations and publish tested routine versions. |
 
 ## Done when
 

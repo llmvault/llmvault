@@ -8,7 +8,7 @@ Teams: Product, Agent Runtime, Platform, Web, Desktop, Mobile
 
 Chats are poor work records. They don't tell a manager what is late, what needs approval, who owns the result, or whether a retry sent the same refund twice.
 
-Hivy needs a durable **work item**. Every request becomes one, whether it starts in chat, email, Slack, GitHub, a schedule, an API, a file, or another agent.
+Hivy needs a durable **work item**. Every request becomes one, whether it starts in chat, email, Slack, GitHub, a schedule, an API, a file, a saved routine, or another agent.
 
 ## What a work item stores
 
@@ -67,6 +67,12 @@ The request for help needs completed work, evidence, the exact question, a recom
 
 The person can answer, edit, approve, deny, take ownership, delegate, or return the item to the agent. Hivy resumes from a saved checkpoint with the same agent version.
 
+## Following up without becoming annoying
+
+An agent may watch a handoff, inbox, deadline, or outside record and create follow-up work when a written rule allows it. The rule needs a source, condition, quiet period, retry limit, owner, stop condition, and budget.
+
+Each follow-up is a normal work item or event, never hidden background behavior. If the user closes the issue, removes access, or tells the agent to stop, pending follow-ups end. A routine learned from a person uses the same rules.
+
 ## Projects and sharing
 
 Projects group work items, agents, files, instructions, people, and results. They support comments, mentions, assignment rules, watchers, and saved views.
@@ -119,6 +125,7 @@ State changes, assignments, comments, sharing, takeover, retry, actions, approva
 | **WORK-010** | Record cost and acceptance for completed work. |
 | **WORK-011** | Send policy-aware alerts that open the right item. |
 | **WORK-012** | Publish typed APIs and resumable progress streams. |
+| **WORK-013** | Track routine runs and proactive follow-ups as normal, stoppable work. |
 
 ## Done when
 

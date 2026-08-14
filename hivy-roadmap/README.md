@@ -14,7 +14,7 @@ Read the first five files to understand the market and Hivy's starting point:
 1. [What Hivy has today](00-current-state.md)
 2. [ChatGPT for business](01-chatgpt-business-research.md)
 3. [Claude for business](02-claude-business-research.md)
-4. [Grok for business](03-grok-business-research.md)
+4. [Grok Business and Grok Bot](03-grok-business-research.md)
 5. [What Hivy must build](04-competitive-requirements.md)
 
 Then use the specs when it's time to design or build:
@@ -24,7 +24,7 @@ Then use the specs when it's time to design or build:
 | [Work system](05-core-work-system-spec.md) | [Business and enterprise controls](12-enterprise-admin-security-spec.md) |
 | [Company knowledge and connectors](06-knowledge-connectors-spec.md) | [Platform design](13-platform-architecture-spec.md) |
 | [Agent rules, testing, and releases](07-agent-governance-spec.md) | [Delivery plan](14-delivery-roadmap.md) |
-| [Desktop app](08-desktop-spec.md) | [All 90 features](15-feature-inventory.md) |
+| [Desktop app](08-desktop-spec.md) | [All 91 features](15-feature-inventory.md) |
 | [Mobile app](09-mobile-spec.md) | |
 | [Web app](10-web-spec.md) | |
 | [Files, reports, and media](11-artifacts-multimodal-spec.md) | |

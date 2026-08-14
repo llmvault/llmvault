@@ -1,4 +1,4 @@
-# All 90 features
+# All 91 features
 
 Use this as the roadmap checklist. `Base exists` means Hivy has useful code, but the full business workflow still isn't ready. `Partial` means users can do part of the job today. Phase numbers match the [delivery plan](14-delivery-roadmap.md).
 
@@ -8,8 +8,8 @@ Use this as the roadmap checklist. `Base exists` means Hivy has useful code, but
 |---|---|---|---|---|
 | F01 | Work items and shared inbox | Missing | 2 | [Work](05-core-work-system-spec.md) |
 | F02 | Continue one task across devices | Partial | 2 | [Work](05-core-work-system-spec.md) |
-| F03 | Background and scheduled work | Base exists | 2 | [Work](05-core-work-system-spec.md) |
-| F04 | Human takeover and clear escalation | Partial | 2 | [Work](05-core-work-system-spec.md) |
+| F03 | Background, scheduled, and rule-based follow-up work | Base exists | 2 | [Work](05-core-work-system-spec.md) |
+| F04 | Human takeover, judgment calls, and clear escalation | Partial | 2 | [Work](05-core-work-system-spec.md) |
 | F05 | Projects, owners, comments, and mentions | Partial | 2 | [Work](05-core-work-system-spec.md) |
 | F06 | Safe sharing and expiring outside links | Partial | 3 | [Work](05-core-work-system-spec.md) |
 | F07 | Company search that keeps source permissions | Partial | 3 | [Knowledge](06-knowledge-connectors-spec.md) |
@@ -42,9 +42,10 @@ Use this as the roadmap checklist. `Base exists` means Hivy has useful code, but
 | F29 | Test sets and release gates | Missing | 3 | [Rules](07-agent-governance-spec.md) |
 | F30 | Canary release and rollback | Missing | 3 | [Rules](07-agent-governance-spec.md) |
 | F31 | Approved company agents and skills | Partial | 3 | [Rules](07-agent-governance-spec.md) |
-| F32 | Limited, visible subagents | Base exists | 3 | [Rules](07-agent-governance-spec.md) |
-| F33 | Memory people can inspect and delete | Base exists | 3 | [Rules](07-agent-governance-spec.md) |
+| F32 | Limited subagents that can message and hand off named work | Base exists | 3 | [Rules](07-agent-governance-spec.md) |
+| F33 | Memory and correction suggestions people can inspect and delete | Base exists | 3 | [Rules](07-agent-governance-spec.md) |
 | F34 | Model choice that follows data and cost rules | Partial | 3 | [Rules](07-agent-governance-spec.md) |
+| F91 | Teach a tested routine by showing the job once | Missing | 3 to 4 | [Rules](07-agent-governance-spec.md) |
 
 ## Desktop
 
@@ -76,11 +77,11 @@ Use this as the roadmap checklist. `Base exists` means Hivy has useful code, but
 
 | ID | Feature | Today | Phase | Read |
 |---|---|---|---|---|
-| F51 | Cloud work that survives logout | Base exists | 2 | [Web](10-web-spec.md) |
-| F52 | Cloud browser with login takeover | Browser pieces exist | 4 | [Web](10-web-spec.md) |
+| F51 | Persistent cloud workspaces that survive logout | Base exists | 2 to 4 | [Web](10-web-spec.md) |
+| F52 | Signed-in cloud browser and app computer with takeover | Browser pieces exist | 4 | [Web](10-web-spec.md) |
 | F53 | Agent test and release console | Partial | 3 | [Web](10-web-spec.md) |
 | F54 | Operations view tied to source records | Reporting base | 2 to 3 | [Web](10-web-spec.md) |
-| F55 | Command view for many agents | Partial | 3 to 4 | [Web](10-web-spec.md) |
+| F55 | Group threads and command view for agent teams | Partial | 3 to 4 | [Web](10-web-spec.md) |
 | F56 | Repeatable data analysis with code and sources | Base exists | 2 to 3 | [Web](10-web-spec.md) |
 | F57 | One file and output model | Pieces exist | 2 | [Files](11-artifacts-multimodal-spec.md) |
 | F58 | Native DOCX creation and editing | Partial | 2 | [Files](11-artifacts-multimodal-spec.md) |

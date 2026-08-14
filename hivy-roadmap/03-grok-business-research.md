@@ -1,4 +1,4 @@
-# Grok for business
+# Grok Business and Grok Bot
 
 ## What xAI sells
 
@@ -9,6 +9,50 @@ Enterprise adds SSO and SCIM. xAI also describes Vault, a dedicated data plane w
 [The current business page](https://x.ai/grok/business) lists domain claims, roles, custom retention, audit and security controls, custom roles, support, voice, image and video work, connectors, documents, spreadsheets, slides, and Grok Build.
 
 Grok's broad product range matters. It puts business search, document work, media creation, coding, and app building in one subscription.
+
+## Grok Bot
+
+xAI [launched Grok Bot](https://x.ai/news/introducing-grok-bot) on 11 August 2026 as an early beta. Access currently comes with SuperGrok Heavy, Cursor Ultra, and Cursor Teams Premium on macOS and iOS. Enterprise access still uses a waitlist.
+
+Grok Bot is different from the `@grok` account on X and from xAI's Voice Agent Builder. It is a team of persistent work agents. Bots share a cloud computer where they can sign in to apps, inboxes, tools, and websites, including services with no API or MCP server. Work keeps running after the user steps away.
+
+A user talks to a Bot from phone or desktop and can continue the same thread on either device. The setup avoids forcing someone to draw a workflow before they can delegate a task.
+
+### Bots working together
+
+Several Bots can run at once. One may manage the others while specialists handle inbox work, expenses, recruiting, bugs, or operations. Bots can message each other, share project context, hand off work, assign ownership, and coordinate in a group chat. They ask the user when a judgment call blocks progress.
+
+This maps to Hivy's existing subagent, work-item, assignment, approval, and command-center plans. It doesn't need a second “bot team” subsystem.
+
+### Teach by showing
+
+Grok Bot's most distinct feature is routine capture. A user asks a Bot to watch while they complete a job. The Bot remembers the steps, saves them as a routine, accepts later corrections, and runs the routine again without another long explanation.
+
+Hivy doesn't yet have this in the roadmap. It should. But recording clicks alone would produce brittle and risky automation, so Hivy needs to turn the demonstration into a reviewed routine with named inputs, expected outputs, app and data rights, action manifests, tests, version history, and a release state.
+
+### Memory and growing trust
+
+xAI says Bots learn a person's style, edge cases, and preference for when to ask versus continue. They can return to dropped conversations, follow up on stalled handoffs, and grow more proactive over time.
+
+Hivy already plans scoped memory, schedules, triggers, escalation rules, and test-based release. Extend those objects rather than adding an opaque learning system. A correction may propose a memory or routine change; it must never change production behavior silently.
+
+### What xAI hasn't documented yet
+
+The launch page doesn't explain credential storage, browser-session isolation, admin controls, audit coverage, retention, model selection, routine review, rollback, reliability targets, or how proactive behavior is limited. It also doesn't claim general Enterprise availability yet.
+
+Those gaps matter because a cloud computer logged into several company tools holds more practical authority than a normal chat session.
+
+### Deduplicated Hivy map
+
+| Grok Bot behavior | Hivy roadmap treatment |
+|---|---|
+| Always-on cloud computer and signed-in apps | Expand F51 and F52; don't create another cloud runtime item. |
+| One thread on phone and desktop | Already F02, F42, and F46. |
+| Several Bots, manager Bot, group chat, and handoffs | Expand F05, F32, and F55. |
+| Ask only for judgment calls | Already F04 and F20. |
+| Remember preferences and apply corrections | Expand F33 under visible, approved memory. |
+| Follow dropped work and stalled handoffs | Expand F03 and F04. |
+| Learn a reusable job by watching | Add F91: reviewed teach-by-demonstration routines. |
 
 ## Connectors
 
@@ -63,6 +107,8 @@ Hivy should build two-way voice because it helps mobile and field work. Image su
 - An agent dashboard with waiting, working, approval, and takeover states.
 - Resource sharing ceilings and admin connector controls.
 - SSO, SCIM, retention, audit, regional options, and customer keys for large customers.
+
+Grok Bot adds four expectations to that list: a persistent signed-in cloud workspace, direct task assignment without setup work, agent-to-agent coordination with owned handoffs, and teach-by-demonstration routines. Hivy already covers the first three under existing specs. F91 covers the missing fourth.
 
 ## Where Hivy can win
 

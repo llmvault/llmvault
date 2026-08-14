@@ -16,7 +16,7 @@ Weeks 0 to 4
 
 - Fix unsupported marketing claims and dead legal links.
 - Publish Terms, Privacy Policy, DPA, subprocessors, security contact, vulnerability reporting, and a status page.
-- Finalize work, checkpoint, action, policy, approval, execution, file, audit, and cost records.
+- Finalize work, checkpoint, action, policy, approval, execution, file, routine, workspace, audit, and cost records.
 - Add a transactional audit outbox and consumer cursors.
 - Split access, policy, approval, action, and result checks away from the model loop.
 - Register every customer-data store for retention, deletion, export, backup, and region.
@@ -88,7 +88,8 @@ Months 5 to 8
 - Confluence and Jira, followed by workflow-specific CRM and support resources.
 - Company search, planned research, MCP schema review, and private outbound gateway.
 - Job-first builder, immutable versions, separate environments, release diff, tests, gates, canary, rollback, and certified catalog.
-- Service identities, memory controls, model rules, governed subagents, and concurrency limits.
+- Service identities, visible memory suggestions, model rules, governed subagents, direct handoffs, shared project threads, and concurrency limits.
+- Routine registry and studio with manual step editing, tests, versions, trust levels, canary, and rollback.
 - Operations pages for outcomes, edits, cost, source health, approvals, and emergency pause.
 
 ### Prove
@@ -98,6 +99,7 @@ Months 5 to 8
 - Every production agent has an owner, version, tests, rollback, manifests, and policy.
 - A canary can stop and roll back a bad release.
 - Changed MCP writes remain off until review.
+- A corrected routine creates a draft version rather than changing live behavior.
 
 ## Phase 4: browser and computer work
 
@@ -107,6 +109,11 @@ Months 8 to 11
 
 - Visible desktop app control with per-app rights, emergency stop, takeover, clipboard rules, and sensitive-action pauses.
 - Shared desktop browser and isolated cloud browser with site, file, login, region, and profile rules.
+- Persistent cloud computers with agent membership, signed-in apps, credential references, storage, expiry, cost, and emergency suspension.
+- Teaching mode on desktop and cloud that turns a bounded demonstration into a reviewable routine draft.
+
+Complete the user-control layer around those workspaces:
+
 - Hostile-instruction warnings, destination checks, download quarantine, and window masking.
 - Better terminal work, worktrees, and bounded long-running commands.
 - Meeting consent, recording, transcript, decisions, tasks, and approved follow-up drafts.
@@ -118,6 +125,8 @@ Months 8 to 11
 - Hostile page text can't escape app, site, clipboard, or destination rules.
 - Unknown browser and desktop writes enter recovery, not blind retry.
 - Audio, transcript, and follow-up actions obey their own retention and approval rules.
+- Recorded demonstrations exclude blocked windows and reusable secrets.
+- Several agents can share a project workspace without combining their permissions.
 
 ## Phase 5: enterprise
 

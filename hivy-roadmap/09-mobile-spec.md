@@ -38,6 +38,8 @@ Work groups items into working, waiting for you, scheduled, failed, and complete
 
 Users can answer, comment, attach evidence, pause, cancel, retry safe steps, take ownership, or send a local step to desktop. Foreground progress uses resumable events; background progress uses push. The server timeline stays authoritative.
 
+The same view also starts approved routines and watches agent teams. A group of agents still appears as one work item with named child owners and handoffs; the phone shouldn't force users to chase several chat threads.
+
 ## Share sheet and desktop dispatch
 
 The native share sheet accepts links, text, images, PDFs, documents, and files. Users pick an agent or project, add a request, remove attachments, and select cloud or desktop when allowed. Nothing uploads before submission.
@@ -79,6 +81,7 @@ Primary flows must work with screen readers, larger text, reduced motion, captio
 | **MOB-009** | Queue allowed offline work with visible state and idempotency. |
 | **MOB-010** | Enforce device posture, app lock, encryption, and revocation. |
 | **MOB-011** | Support accessibility and slow connections. |
+| **MOB-012** | Start approved routines and supervise coordinated agent teams from one timeline. |
 
 ## Done when
 

@@ -62,6 +62,14 @@ A shortcut opens a small box with optional selected text, current file, clipboar
 
 The user can ask a question, start work, choose an agent, or open items waiting for them. Installing Hivy never turns on continuous screen capture.
 
+## Teaching mode
+
+Teaching mode records a bounded demonstration so Hivy can draft a reusable routine. Before recording, the user selects allowed apps, windows, folders, browser domains, and whether voice explanation is included. A persistent indicator shows what Hivy is observing.
+
+The user can pause, mark a step as optional, explain a choice, correct the agent, or discard the session. Hivy masks passwords and authentication prompts, excludes blocked windows, and stores references to credentials instead of captured values.
+
+After the job ends, desktop uploads only the allowed event stream and approved screenshots or files. The [agent rules](07-agent-governance-spec.md) turn that material into a draft routine; the recording itself never becomes an auto-run macro.
+
 ## Local-only work
 
 Local-only mode keeps messages, file content, screenshots, embeddings, and logs on the device. The cloud sees only the coordination fields allowed by policy. The UI must state exactly what syncs and which remote features stop working.
@@ -96,6 +104,7 @@ List every device, agent, folder, app, browser domain, terminal profile, microph
 | **DESK-010** | State the exact boundary of local-only work. |
 | **DESK-011** | Accept policy-controlled remote work and cancellation. |
 | **DESK-012** | Show and revoke every active desktop permission. |
+| **DESK-013** | Record bounded teaching sessions without capturing secrets or blocked context. |
 
 ## Done when
 

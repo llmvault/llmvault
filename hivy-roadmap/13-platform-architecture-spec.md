@@ -63,6 +63,12 @@ Checks manifest, capability, policy result, approval, payload hash, and idempote
 
 Keeps signed connections to desktop and mobile, stores posture, queues remote work, and resumes status after reconnect. A device can't create rights the server didn't grant.
 
+### Routine registry and workspace manager
+
+The routine registry stores demonstrations, structured draft steps, immutable routine versions, tests, trust level, owners, and releases. It sends each step through the normal workflow and action path; it never replays clicks with inherited authority.
+
+The workspace manager owns persistent cloud computers, agent membership, apps, browser profiles, credential references, region, network, storage, lifecycle, and suspension. Sharing a computer doesn't create a shared identity or union of permissions.
+
 ### Knowledge, artifact, audit, and cost services
 
 Knowledge owns sync, source access, search, citations, and freshness. Artifact owns file versions, previews, checks, comments, sharing, and export.
@@ -103,6 +109,16 @@ Execution
 ArtifactVersion
   id, artifact, parent, content_hash, native_ref, preview_ref,
   lineage_ref, checks, review_state, time
+
+RoutineVersion
+  id, routine, parent, owner, source_demonstration, structured_steps,
+  inputs, outputs, required_capabilities, tests, trust_level,
+  environment, review_state, content_hash, time
+
+CloudWorkspace
+  id, org, owner, region, environment, allowed_agent_versions,
+  app_profile, browser_profile, credential_refs, network_policy,
+  storage_limit, idle_policy, retention, state, expiry
 ```
 
 Large or secret data stays in encrypted storage. Queue messages and database rows keep references.
@@ -129,6 +145,8 @@ Every domain event uses the same envelope:
 
 Families cover work state, steps, actions, policy, approval, execution, result checks, files, source sync, permission changes, devices, security, budgets, and admin settings.
 
+Routine events cover teaching start, pause, resume, discard, draft generation, sensitive-data removal, review, test, publish, correction, trust change, and rollback. Workspace events cover create, agent join/leave, credential attach, file transfer, human takeover, suspend, expire, and delete.
+
 Schema updates may add fields. Breaking changes get a new version and a migration period where both versions publish.
 
 ## Reliable audit with an outbox
@@ -146,6 +164,8 @@ Each step has an input reference, attempt count, retry class, timeout, cancellat
 Use clear failure types: policy denied, approval expired, login expired, rate limited, provider down, bad input, bad model output, device offline, runtime crash, and unknown write result.
 
 Pausing saves progress. Resuming checks access again. Cancelling stops future steps but still settles any write already running.
+
+A routine version is a workflow template, not a capability bundle. Each run resolves current inputs and recompiles rights before the first step and again before risky actions. If the application screen no longer matches the taught step, the routine stops for recovery instead of guessing through the change.
 
 ## Capability tokens
 
@@ -197,6 +217,7 @@ All routes remain contract-first. Generate OpenAPI and `$api` clients with route
 | **ARCH-010** | Trace each request through result and cost. |
 | **ARCH-011** | Isolate untrusted work and issue short-lived secrets. |
 | **ARCH-012** | Keep generated client contracts and typed errors. |
+| **ARCH-013** | Store reviewed routine versions and persistent workspace policy without merging agent rights. |
 
 ## Done when
 

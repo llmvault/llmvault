@@ -25,6 +25,10 @@ Enabling Salesforce for a team can't give every agent contact exports and record
 
 Every citation and action must name the identity mode. Admins can require delegated access for sensitive sources or block service accounts from exports and sharing.
 
+A signed-in browser or desktop app uses an **interactive session**. It isn't a Nango connection or an LLM credential. The session belongs to a person or service identity, one cloud or desktop workspace, and a named app or domain. It needs expiry, revocation, takeover history, allowed agents, and its own audit trail.
+
+Hivy should prefer OAuth, delegated login, or a secret broker. If a user must type a password or one-time code, pause the agent and keep that value out of screenshots, routines, memory, logs, and model context.
+
 ## Permission-safe indexing
 
 When a source connects, Hivy should:
@@ -108,6 +112,7 @@ Secrets stay encrypted and out of prompts, logs, citations, and normal audit fie
 | **KNOW-010** | Keep company and public evidence separate in search. |
 | **KNOW-011** | Send every write through policy, approval, idempotency, and checks. |
 | **KNOW-012** | Write search and action events to durable audit. |
+| **KNOW-013** | Treat signed-in app sessions as scoped, expiring identities rather than saved passwords. |
 
 ## Done when
 
