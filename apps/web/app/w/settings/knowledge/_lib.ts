@@ -114,7 +114,7 @@ export type SourceStatus =
   | "disabled"
   | "error"
 
-export type IngestionAction = "pause" | "resume" | "retry"
+type IngestionAction = "pause" | "resume" | "retry"
 
 export function deriveStatus(source: RagSource): SourceStatus {
   const attemptStatus = source.latest_attempt?.status
